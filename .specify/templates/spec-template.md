@@ -98,6 +98,15 @@
   defaults, and user-visible error classes) that apply across all language variants.
 - **FR-008**: System MUST define measurable performance budgets for this feature
   (latency, throughput, memory, and startup where applicable).
+- **FR-009**: System MUST use language-standard logging instrumentation that can
+  be reconfigured for level and sink routing (including OpenTelemetry pipelines).
+- **FR-010**: System MUST organize functionality into domain-oriented
+  namespaces/packages/modules for discoverability.
+- **FR-011**: System MUST provide runnable usage examples for the delivered
+  feature and keep examples version-aligned with feature behavior.
+- **FR-012**: Example defaults SHOULD be .NET with Microsoft Agent Framework,
+  Python with LangChain + FastAPI, and Java with Spring AI + Spring Boot unless
+  an approved alternative is documented.
 
 *Example of marking unclear requirements:*
 
@@ -126,6 +135,11 @@
   no unapproved behavior differences.
 - **SC-006**: Performance regression checks confirm budgets remain within agreed
   thresholds for all supported language implementations.
+- **SC-007**: Logging validation confirms runtime level/sink reconfiguration
+  works without code change and supports OpenTelemetry redirection.
+- **SC-008**: Discoverability checks confirm public APIs are grouped by domain
+  with clear entry points across supported language implementations.
+- **SC-009**: Runnable examples pass in CI for each required language track.
 
 ## Assumptions
 

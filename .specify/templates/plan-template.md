@@ -53,6 +53,13 @@
   and criteria to detect user-visible drift across language implementations.
 - **Performance Gate**: Define measurable budgets (latency/throughput/memory/
   startup as applicable) and the regression validation method.
+- **Observability Gate**: Define use of language-standard loggers, runtime
+  reconfiguration strategy (levels/sinks), and OpenTelemetry redirection path.
+- **Domain Organization Gate**: Define domain-oriented namespace/package/module
+  structure and discovery strategy for public APIs.
+- **Adoption Examples Gate**: Define runnable usage examples to ship with the
+  feature and note framework defaults (.NET: Microsoft Agent Framework, Python:
+  LangChain + FastAPI, Java: Spring AI + Spring Boot unless approved alternative).
 
 ## Project Structure
 

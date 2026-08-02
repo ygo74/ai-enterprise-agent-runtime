@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-enterprise-agent-runtime/specs/001/contracts/standard-exchange-v1.schema.json",
+  "title": "Standard Exchange v1",
+  "type": "object",
+  "required": ["request", "response"],
+  "properties": {
+    "request": {
+      "type": "object",
+      "required": ["requestId", "endpointType", "routeKey", "input"],
+      "properties": {
+        "requestId": {"type": "string", "minLength": 1},
+        "timestampUtc": {"type": "string", "format": "date-time"},
+        "endpointType": {
+          "type": "string",
+          "enum": ["openai.chat_completions", "openai.responses", "anthropic.messages"]
+        },
+        "routeKey": {"type": "string", "minLength": 1},
+        "model": {"type": "string"},
+        "stream": {"type": "boolean", "default": false},
+        "streamRequestOptions": {"type": "object", "additionalProperties": true},
+        "input": {},
+        "metadata": {"type": "object", "additionalProperties": true},
+        "authContext": {
+          "type": "object",
+          "required": ["userId", "authType"],
+          "properties": {
+            "userId": {"type": "string", "minLength": 1},
+            "authType": {"type": "string", "enum": ["jwt", "api_key"]},
+            "claims": {"type": "object", "additionalProperties": true},
+            "scopes": {"type": "array", "items": {"type": "string"}},
+            "tenantId": {"type": "string"}
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "response": {
+      "type": "object",
+      "required": ["requestId", "status"],
+      "properties": {
+        "requestId": {"type": "string", "minLength": 1},
+        "status": {"type": "string", "enum": ["success", "error"]},
+        "output": {},
+        "streamEvents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["sequence", "eventType"],
+            "properties": {
+              "sequence": {"type": "integer", "minimum": 0},
+              "eventType": {"type": "string", "enum": ["chunk", "completion", "error"]},
+              "delta": {},
+              "finalOutput": {},
+              "error": {
+                "type": "object",
+                "required": ["code", "category", "message"],
+                "properties": {
+                  "code": {"type": "string", "minLength": 1},
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "validation",
+                      "authentication",
+                      "authorization",
+                      "routing",
+                      "mapping",
+                      "handler_execution",
+                      "configuration"
+                    ]
+                  },
+                  "message": {"type": "string", "minLength": 1}
+                },
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "error": {
+          "type": "object",
+          "required": ["code", "category", "message"],
+          "properties": {
+            "code": {"type": "string", "minLength": 1},
+            "category": {
+              "type": "string",
+              "enum": [
+                "validation",
+                "authentication",
+                "authorization",
+                "routing",
+                "mapping",
+                "handler_execution",
+                "configuration"
+              ]
+            },
+            "message": {"type": "string", "minLength": 1},
+            "details": {},
+            "retryable": {"type": "boolean"}
+          },
+          "additionalProperties": true
+        },
+        "metadata": {"type": "object", "additionalProperties": true}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "success"}}},
+          "then": {"required": ["output"]}
+        },
+        {
+          "if": {"properties": {"status": {"const": "error"}}},
+          "then": {"required": ["error"]}
+        }
+      ],
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

@@ -73,6 +73,9 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T010 Setup environment configuration management
 - [ ] T011 Define shared cross-language contract artifacts (schemas/examples)
 - [ ] T012 Define feature performance budget and benchmark approach
+- [ ] T012 Configure language-standard logging with runtime level/sink reconfiguration
+- [ ] T013 Define domain-oriented namespace/package/module structure
+- [ ] T014 Scaffold runnable usage example projects per required language track
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -168,6 +171,9 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Code cleanup and refactoring
 - [ ] TXXX Performance optimization across all stories
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
+- [ ] TXXX [P] Validate log reconfiguration and OpenTelemetry sink redirection
+- [ ] TXXX [P] Validate domain discoverability in public API surface docs
+- [ ] TXXX [P] Validate runnable examples remain aligned with final behavior
 - [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
 

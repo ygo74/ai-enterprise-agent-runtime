@@ -1,16 +1,18 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 -> 1.0.1
+- Version change: 1.0.1 -> 1.1.0
 - Modified principles:
-  - II. SOLID + DRY + Early-Leave Simplicity -> II. DRY-First Reuse + SOLID + Early-Leave Simplicity
-- Added sections:
   - None
+- Added sections:
+  - Observability and Logging Standards
+  - Domain-Oriented Package Organization
+  - Example-First Adoption Guidance
 - Removed sections:
   - None
 - Templates requiring updates:
   - ✅ updated: .specify/templates/plan-template.md
+  - ✅ updated: .specify/templates/spec-template.md
   - ✅ updated: .specify/templates/tasks-template.md
-  - ✅ checked/no change needed: .specify/templates/spec-template.md
   - ⚠ pending: .specify/templates/commands/*.md (directory not present)
   - ✅ checked/no change needed: .github/copilot-instructions.md
 - Deferred TODOs:
@@ -79,6 +81,36 @@ product requirement for multi-client agent integrations.
 - Observability surfaces (structured logs, error codes, tracing fields) SHOULD
   use a common naming convention across languages.
 
+## Observability and Logging Standards
+
+- Implementations MUST use the standard logging mechanisms of each language
+  ecosystem so runtime operators can reconfigure logging without code changes.
+- Logging configuration MUST support level changes and sink redirection through
+  host-standard mechanisms (for example OpenTelemetry pipeline integration).
+- Logs MUST include correlation-friendly fields (for example request ID, route
+  key, and error category) while avoiding sensitive payload leakage.
+
+## Domain-Oriented Package Organization
+
+- Features MUST be organized into domain-oriented namespaces/packages/modules
+  that reflect business capabilities and are easy to discover.
+- Public APIs MUST expose domain entry points that are coherent, documented,
+  and stable across Python, .NET, and Java equivalents.
+- Cross-domain shared utilities MUST remain minimal and MUST NOT hide domain
+  boundaries or create circular dependencies.
+
+## Example-First Adoption Guidance
+
+- Each new feature implementation MUST include runnable usage examples that show
+  configuration and expected behavior.
+- Example defaults:
+  - .NET agent examples MUST use Microsoft Agent Framework.
+  - Python agent examples MUST use LangChain with FastAPI.
+  - Java agent examples SHOULD use Spring AI with Spring Boot unless an approved
+    alternative is documented.
+- Examples MUST be versioned alongside feature contracts and updated when
+  behavior or configuration changes.
+
 ## Delivery Workflow and Release Gates
 
 - Each specification MUST include: parity impact, UX consistency criteria,
@@ -113,4 +145,4 @@ Compliance review expectations:
 - Non-compliance MUST be tracked as a blocking issue or an explicit time-bound
   exception approved by maintainers.
 
-**Version**: 1.0.1 | **Ratified**: 2026-07-31 | **Last Amended**: 2026-07-31
+**Version**: 1.1.0 | **Ratified**: 2026-07-31 | **Last Amended**: 2026-08-01
