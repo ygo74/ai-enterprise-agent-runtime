@@ -6,3 +6,6 @@ langchain-openai>=0.2
 langgraph>=0.2
 mcp>=1.2
 pydantic>=2.7
+python-dotenv>=1.0
+openai>=1.99
+anthropic>=0.39

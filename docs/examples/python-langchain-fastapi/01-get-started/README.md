@@ -1,0 +1,117 @@
+# 01-get-started: Python LangChain + FastAPI (AI Solution Architect)
+
+This example shows a real implementation of an **AI Solution Architect** agent that:
+
+1. Uses a LangChain agent.
+2. Calls a remote MCP tool for Microsoft Learn (`https://learn.microsoft.com/api/mcp`).
+3. Exposes an **OpenAI Responses** compatible endpoint (`/v1/responses`) via the `ygo74` runtime mapping layer.
+
+## Files
+
+- `openai_responses_app.py`: FastAPI endpoint exposed as OpenAI Responses.
+- `agent_solution_architect.py`: LangChain tool-calling agent setup.
+- `mcp_mslearn_tool.py`: MCP tool wrapper to query Microsoft Learn MCP.
+- `requirements.txt`: Example dependencies.
+
+## Prerequisites
+
+- Python 3.11+
+- OpenAI API key
+- Optional MCP auth:
+  - `MSLEARN_MCP_API_KEY` + optional `MSLEARN_MCP_API_KEY_HEADER`
+  - or `MSLEARN_MCP_BEARER_TOKEN`
+
+## Install
+
+```powershell
+cd docs/examples/python-langchain-fastapi/01-get-started
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+## Environment
+
+This example loads variables from the local `.env` file automatically.
+Create it from `.env.sample` and set your values:
+
+```powershell
+Copy-Item .env.sample .env
+```
+
+Required key:
+- `OPENAI_API_KEY`
+
+Optional keys are prefilled in `.env.sample`.
+
+You can still override values from the shell if needed:
+
+```powershell
+$env:OPENAI_API_KEY="<your-openai-key>"
+$env:OPENAI_MODEL="gpt-4o-mini"
+$env:MSLEARN_MCP_URL="https://learn.microsoft.com/api/mcp"
+$env:MSLEARN_MCP_TOOL="microsoft_docs_search"
+# Optional auth headers:
+# $env:MSLEARN_MCP_API_KEY="..."
+# $env:MSLEARN_MCP_API_KEY_HEADER="Ocp-Apim-Subscription-Key"
+# $env:MSLEARN_MCP_BEARER_TOKEN="..."
+```
+
+`ygo74` package source is in this repo, so include it in `PYTHONPATH` while running the example:
+
+```powershell
+$env:PYTHONPATH="../../..\packages/python"
+```
+
+## Run
+
+```powershell
+# From docs/examples/python-langchain-fastapi/01-get-started
+python -m uvicorn openai_responses_app:app --reload --port 8001
+```
+
+## Test Request
+
+```powershell
+$body = @{
+  model = "gpt-5-chat"
+  input = "Design an enterprise AI solution architecture for RAG with governance and cost controls."
+  metadata = @{
+    request_id = "demo-architect-001"
+    route_key = "ai-solution-architect"
+  }
+  stream = $false
+} | ConvertTo-Json -Depth 10
+
+Invoke-RestMethod -Method Post `
+  -Uri "http://127.0.0.1:8001/v1/responses" `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+## SDK Compatibility Client
+
+Use the Python client below to test this endpoint with both SDKs:
+
+- OpenAI SDK -> `/v1/responses`
+- OpenAI SDK -> `/v1/chat/completions`
+- Anthropic SDK -> `/v1/messages`
+
+Run:
+
+```powershell
+# From docs/examples/python-langchain-fastapi/01-get-started
+python sdk_compat_client.py --base-url http://127.0.0.1:8001
+```
+
+If `/v1/messages` is not enabled yet:
+
+```powershell
+python sdk_compat_client.py --base-url http://127.0.0.1:8001 --skip-anthropic
+```
+
+## Notes
+
+- The MCP tool call is implemented in `mcp_mslearn_tool.py` with `streamable-http` transport.
+- If the MCP SDK is unavailable at runtime, the tool returns a deterministic fallback message that includes the intended MCP call details.
+- This example is intentionally scoped to the OpenAI Responses endpoint; Chat Completions can be added similarly.
