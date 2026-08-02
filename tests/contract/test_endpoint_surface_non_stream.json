@@ -1,0 +1,21 @@
+{
+  "name": "endpoint_surface_non_stream",
+  "version": "v1",
+  "cases": [
+    {
+      "endpointType": "openai.chat_completions",
+      "stream": false,
+      "expect": {"normalized": true, "responseMapped": true}
+    },
+    {
+      "endpointType": "openai.responses",
+      "stream": false,
+      "expect": {"normalized": true, "responseMapped": true}
+    },
+    {
+      "endpointType": "anthropic.messages",
+      "stream": false,
+      "expect": {"normalized": true, "responseMapped": true}
+    }
+  ]
+}

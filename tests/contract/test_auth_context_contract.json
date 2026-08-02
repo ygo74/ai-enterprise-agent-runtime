@@ -1,0 +1,7 @@
+{
+  "name": "auth_context_contract",
+  "rules": [
+    {"id": "jwt_projects_user", "expect": "user_context"},
+    {"id": "apikey_hook_projects_user", "expect": "user_context"}
+  ]
+}

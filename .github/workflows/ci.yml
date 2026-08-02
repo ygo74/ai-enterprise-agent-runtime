@@ -1,0 +1,15 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run placeholder checks
+        run: 'echo "TODO: run unit/integration/parity/performance suites"'
+      - name: Enforce performance baseline policy
+        run: test -f tests/performance/baselines/performance_thresholds.json

@@ -1,0 +1,6 @@
+{
+  "name": "handler_registration_rules",
+  "rules": [
+    {"id": "unique_route_key", "expect": "single_handler_per_route"}
+  ]
+}

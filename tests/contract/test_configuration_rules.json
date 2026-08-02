@@ -1,0 +1,8 @@
+{
+  "name": "configuration_rules",
+  "version": "v1",
+  "rules": [
+    {"id": "at_least_one_endpoint_enabled", "expect": "fail_when_none_enabled"},
+    {"id": "stream_requires_endpoint", "expect": "fail_when_stream_without_endpoint"}
+  ]
+}

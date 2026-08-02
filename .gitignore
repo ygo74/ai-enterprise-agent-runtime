@@ -1,0 +1,32 @@
+# Universal
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+*.egg-info/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+
+# Java
+.gradle/
+build/
+out/
+*.class
+*.jar
+
+# Logs and env
+*.log
+.env*

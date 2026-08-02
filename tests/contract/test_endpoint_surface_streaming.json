@@ -1,0 +1,9 @@
+{
+  "name": "endpoint_surface_streaming",
+  "version": "v1",
+  "cases": [
+    {"endpointType": "openai.chat_completions", "stream": true, "expect": {"emitsChunk": true, "emitsCompletion": true}},
+    {"endpointType": "openai.responses", "stream": true, "expect": {"emitsChunk": true, "emitsCompletion": true}},
+    {"endpointType": "anthropic.messages", "stream": true, "expect": {"emitsChunk": true, "emitsCompletion": true}}
+  ]
+}

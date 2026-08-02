@@ -1,0 +1,5 @@
+{
+  "normalization_dispatch_p95_ms": 10,
+  "auth_dispatch_pipeline_p95_ms": 50,
+  "first_stream_event_p95_ms": 300
+}

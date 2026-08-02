@@ -85,3 +85,10 @@
 - Alternatives considered:
 
   - End-to-end latency only (rejected: dominated by user logic and external dependencies).
+
+## Reuse-First Inventory (Phase 1)
+
+- Scope reviewed: Python runtime package roots, .NET runtime package roots, Java runtime package roots, and existing contracts under specs.
+- Existing reusable implementations found: none in source package paths because this is the first runtime implementation slice.
+- Reuse decision: create baseline abstractions and contract models once per language with parity-aligned shape.
+- Guardrail for next phases: extend these baseline files before creating new parallel abstractions.

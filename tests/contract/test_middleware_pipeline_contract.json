@@ -1,0 +1,7 @@
+{
+  "name": "middleware_pipeline_contract",
+  "rules": [
+    {"id": "ordered_execution", "expect": "deterministic"},
+    {"id": "short_circuit", "expect": "handler_bypass"}
+  ]
+}

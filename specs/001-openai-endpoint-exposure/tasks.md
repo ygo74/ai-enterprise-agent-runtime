@@ -27,13 +27,13 @@
 
 **Purpose**: Create the multi-language workspace skeleton, examples skeleton, and baseline project wiring.
 
-- [ ] T001 Create multi-language package structure in packages/python/ygo74/agent_runtime/, packages/dotnet/Ygo74.AgentRuntime/, and packages/java/ygo74-agent-runtime/
-- [ ] T002 Initialize Python package metadata and dependency baseline in packages/python/pyproject.toml
-- [ ] T003 Initialize .NET solution and project baseline in packages/dotnet/Ygo74.AgentRuntime.sln and packages/dotnet/Ygo74.AgentRuntime/Ygo74.AgentRuntime.csproj
-- [ ] T004 Initialize Java project baseline in packages/java/ygo74-agent-runtime/build.gradle
-- [ ] T005 Create shared test folder structure in tests/contract/, tests/integration/, tests/parity/, and tests/performance/
-- [ ] T006 Create usage example folders in docs/examples/dotnet-agentframework/, docs/examples/python-langchain-fastapi/, and docs/examples/java-springai-springboot/
-- [ ] T007 Record reuse-first inventory targets in specs/001-openai-endpoint-exposure/research.md
+- [X] T001 Create multi-language package structure in packages/python/ygo74/agent_runtime/, packages/dotnet/Ygo74.AgentRuntime/, and packages/java/ygo74-agent-runtime/
+- [X] T002 Initialize Python package metadata and dependency baseline in packages/python/pyproject.toml
+- [X] T003 Initialize .NET solution and project baseline in packages/dotnet/Ygo74.AgentRuntime.sln and packages/dotnet/Ygo74.AgentRuntime/Ygo74.AgentRuntime.csproj
+- [X] T004 Initialize Java project baseline in packages/java/ygo74-agent-runtime/build.gradle
+- [X] T005 Create shared test folder structure in tests/contract/, tests/integration/, tests/parity/, and tests/performance/
+- [X] T006 Create usage example folders in docs/examples/dotnet-agentframework/, docs/examples/python-langchain-fastapi/, and docs/examples/java-springai-springboot/
+- [X] T007 Record reuse-first inventory targets in specs/001-openai-endpoint-exposure/research.md
 
 ---
 
@@ -43,25 +43,25 @@
 
 **CRITICAL**: No user story work starts before this phase is complete.
 
-- [ ] T008 Implement Python core exchange models in packages/python/ygo74/agent_runtime/domains/contracts/exchange_models.py
-- [ ] T009 [P] Implement .NET core exchange models in packages/dotnet/Ygo74.AgentRuntime/Domains/Contracts/ExchangeModels.cs
-- [ ] T010 [P] Implement Java core exchange models in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/contracts/ExchangeModels.java
-- [ ] T011 Implement Python error envelope contract in packages/python/ygo74/agent_runtime/domains/contracts/error_envelope.py
-- [ ] T012 [P] Implement .NET error envelope contract in packages/dotnet/Ygo74.AgentRuntime/Domains/Contracts/ErrorEnvelope.cs
-- [ ] T013 [P] Implement Java error envelope contract in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/contracts/ErrorEnvelope.java
-- [ ] T014 Implement Python dispatcher abstractions in packages/python/ygo74/agent_runtime/routing/dispatcher.py
-- [ ] T015 [P] Implement .NET dispatcher abstractions in packages/dotnet/Ygo74.AgentRuntime/Routing/IDispatcher.cs
-- [ ] T016 [P] Implement Java dispatcher abstractions in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/routing/Dispatcher.java
-- [ ] T017 Implement Python middleware interfaces in packages/python/ygo74/agent_runtime/middleware/interfaces.py
-- [ ] T018 [P] Implement .NET middleware interfaces in packages/dotnet/Ygo74.AgentRuntime/Middleware/IMiddleware.cs
-- [ ] T019 [P] Implement Java middleware interfaces in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/middleware/Middleware.java
-- [ ] T020 Configure Python standard logging and level routing in packages/python/ygo74/agent_runtime/observability/logging_config.py
-- [ ] T021 [P] Configure .NET standard logging and level routing in packages/dotnet/Ygo74.AgentRuntime/Observability/LoggingSetup.cs
-- [ ] T022 [P] Configure Java standard logging and level routing in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/observability/LoggingSetup.java
-- [ ] T023 Add OpenTelemetry sink wiring hooks in packages/python/ygo74/agent_runtime/observability/otel.py
-- [ ] T024 [P] Add OpenTelemetry sink wiring hooks in packages/dotnet/Ygo74.AgentRuntime/Observability/OpenTelemetrySetup.cs
-- [ ] T025 [P] Add OpenTelemetry sink wiring hooks in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/observability/OpenTelemetrySetup.java
-- [ ] T026 Add domain-oriented public API entry points in packages/python/ygo74/agent_runtime/\_\_init\_\_.py, packages/dotnet/Ygo74.AgentRuntime/PublicApi.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/PublicApi.java
+- [X] T008 Implement Python core exchange models in packages/python/ygo74/agent_runtime/domains/contracts/exchange_models.py
+- [X] T009 [P] Implement .NET core exchange models in packages/dotnet/Ygo74.AgentRuntime/Domains/Contracts/ExchangeModels.cs
+- [X] T010 [P] Implement Java core exchange models in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/contracts/ExchangeModels.java
+- [X] T011 Implement Python error envelope contract in packages/python/ygo74/agent_runtime/domains/contracts/error_envelope.py
+- [X] T012 [P] Implement .NET error envelope contract in packages/dotnet/Ygo74.AgentRuntime/Domains/Contracts/ErrorEnvelope.cs
+- [X] T013 [P] Implement Java error envelope contract in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/contracts/ErrorEnvelope.java
+- [X] T014 Implement Python dispatcher abstractions in packages/python/ygo74/agent_runtime/routing/dispatcher.py
+- [X] T015 [P] Implement .NET dispatcher abstractions in packages/dotnet/Ygo74.AgentRuntime/Routing/IDispatcher.cs
+- [X] T016 [P] Implement Java dispatcher abstractions in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/routing/Dispatcher.java
+- [X] T017 Implement Python middleware interfaces in packages/python/ygo74/agent_runtime/middleware/interfaces.py
+- [X] T018 [P] Implement .NET middleware interfaces in packages/dotnet/Ygo74.AgentRuntime/Middleware/IMiddleware.cs
+- [X] T019 [P] Implement Java middleware interfaces in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/middleware/Middleware.java
+- [X] T020 Configure Python standard logging and level routing in packages/python/ygo74/agent_runtime/observability/logging_config.py
+- [X] T021 [P] Configure .NET standard logging and level routing in packages/dotnet/Ygo74.AgentRuntime/Observability/LoggingSetup.cs
+- [X] T022 [P] Configure Java standard logging and level routing in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/observability/LoggingSetup.java
+- [X] T023 Add OpenTelemetry sink wiring hooks in packages/python/ygo74/agent_runtime/observability/otel.py
+- [X] T024 [P] Add OpenTelemetry sink wiring hooks in packages/dotnet/Ygo74.AgentRuntime/Observability/OpenTelemetrySetup.cs
+- [X] T025 [P] Add OpenTelemetry sink wiring hooks in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/observability/OpenTelemetrySetup.java
+- [X] T026 Add domain-oriented public API entry points in packages/python/ygo74/agent_runtime/\_\_init\_\_.py, packages/dotnet/Ygo74.AgentRuntime/PublicApi.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/PublicApi.java
 
 **Checkpoint**: Foundation complete, story implementation can start.
 
@@ -75,21 +75,21 @@
 
 ### Tests for User Story 1
 
-- [ ] T027 [P] [US1] Add non-stream endpoint contract tests in tests/contract/test_endpoint_surface_non_stream.json
-- [ ] T028 [P] [US1] Add Python non-stream integration tests in tests/integration/python/test_non_stream_endpoints.py
-- [ ] T029 [P] [US1] Add .NET non-stream integration tests in tests/integration/dotnet/NonStreamEndpointsTests.cs
-- [ ] T030 [P] [US1] Add Java non-stream integration tests in tests/integration/java/NonStreamEndpointsTest.java
-- [ ] T112 [P] [US1] Add endpoint metadata preservation tests for request_id, model_id, and context fields in tests/integration/python/test_metadata_preservation.py, tests/integration/dotnet/MetadataPreservationTests.cs, and tests/integration/java/MetadataPreservationTest.java
+- [X] T027 [P] [US1] Add non-stream endpoint contract tests in tests/contract/test_endpoint_surface_non_stream.json
+- [X] T028 [P] [US1] Add Python non-stream integration tests in tests/integration/python/test_non_stream_endpoints.py
+- [X] T029 [P] [US1] Add .NET non-stream integration tests in tests/integration/dotnet/NonStreamEndpointsTests.cs
+- [X] T030 [P] [US1] Add Java non-stream integration tests in tests/integration/java/NonStreamEndpointsTest.java
+- [X] T112 [P] [US1] Add endpoint metadata preservation tests for request_id, model_id, and context fields in tests/integration/python/test_metadata_preservation.py, tests/integration/dotnet/MetadataPreservationTests.cs, and tests/integration/java/MetadataPreservationTest.java
 
 ### Implementation for User Story 1
 
-- [ ] T031 [US1] Implement Python OpenAI and Anthropic endpoint adapters in packages/python/ygo74/agent_runtime/domains/endpoints/adapters.py
-- [ ] T032 [P] [US1] Implement .NET OpenAI and Anthropic endpoint adapters in packages/dotnet/Ygo74.AgentRuntime/Domains/Endpoints/EndpointAdapters.cs
-- [ ] T033 [P] [US1] Implement Java OpenAI and Anthropic endpoint adapters in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/endpoints/EndpointAdapters.java
-- [ ] T034 [US1] Implement Python endpoint-to-exchange normalization in packages/python/ygo74/agent_runtime/domains/mapping/request_mapper.py
-- [ ] T035 [P] [US1] Implement .NET endpoint-to-exchange normalization in packages/dotnet/Ygo74.AgentRuntime/Domains/Mapping/RequestMapper.cs
-- [ ] T036 [P] [US1] Implement Java endpoint-to-exchange normalization in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/mapping/RequestMapper.java
-- [ ] T037 [US1] Implement exchange-to-endpoint response mapping in packages/python/ygo74/agent_runtime/domains/mapping/response_mapper.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Mapping/ResponseMapper.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/mapping/ResponseMapper.java
+- [X] T031 [US1] Implement Python OpenAI and Anthropic endpoint adapters in packages/python/ygo74/agent_runtime/domains/endpoints/adapters.py
+- [X] T032 [P] [US1] Implement .NET OpenAI and Anthropic endpoint adapters in packages/dotnet/Ygo74.AgentRuntime/Domains/Endpoints/EndpointAdapters.cs
+- [X] T033 [P] [US1] Implement Java OpenAI and Anthropic endpoint adapters in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/endpoints/EndpointAdapters.java
+- [X] T034 [US1] Implement Python endpoint-to-exchange normalization in packages/python/ygo74/agent_runtime/domains/mapping/request_mapper.py
+- [X] T035 [P] [US1] Implement .NET endpoint-to-exchange normalization in packages/dotnet/Ygo74.AgentRuntime/Domains/Mapping/RequestMapper.cs
+- [X] T036 [P] [US1] Implement Java endpoint-to-exchange normalization in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/mapping/RequestMapper.java
+- [X] T037 [US1] Implement exchange-to-endpoint response mapping in packages/python/ygo74/agent_runtime/domains/mapping/response_mapper.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Mapping/ResponseMapper.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/mapping/ResponseMapper.java
 
 **Checkpoint**: Non-streaming endpoint exposure works for all endpoint families.
 
@@ -103,20 +103,20 @@
 
 ### Tests for User Story 2
 
-- [ ] T038 [P] [US2] Add streaming contract tests in tests/contract/test_endpoint_surface_streaming.json
-- [ ] T039 [P] [US2] Add Python streaming integration tests in tests/integration/python/test_streaming_endpoints.py
-- [ ] T040 [P] [US2] Add .NET streaming integration tests in tests/integration/dotnet/StreamingEndpointsTests.cs
-- [ ] T041 [P] [US2] Add Java streaming integration tests in tests/integration/java/StreamingEndpointsTest.java
-- [ ] T042 [P] [US2] Add interrupted-stream behavior tests in tests/integration/python/test_interrupted_streams.py, tests/integration/dotnet/InterruptedStreamsTests.cs, and tests/integration/java/InterruptedStreamsTest.java
+- [X] T038 [P] [US2] Add streaming contract tests in tests/contract/test_endpoint_surface_streaming.json
+- [X] T039 [P] [US2] Add Python streaming integration tests in tests/integration/python/test_streaming_endpoints.py
+- [X] T040 [P] [US2] Add .NET streaming integration tests in tests/integration/dotnet/StreamingEndpointsTests.cs
+- [X] T041 [P] [US2] Add Java streaming integration tests in tests/integration/java/StreamingEndpointsTest.java
+- [X] T042 [P] [US2] Add interrupted-stream behavior tests in tests/integration/python/test_interrupted_streams.py, tests/integration/dotnet/InterruptedStreamsTests.cs, and tests/integration/java/InterruptedStreamsTest.java
 
 ### Implementation for User Story 2
 
-- [ ] T043 [US2] Implement Python streaming event contract support in packages/python/ygo74/agent_runtime/domains/contracts/stream_events.py
-- [ ] T044 [P] [US2] Implement .NET streaming event contract support in packages/dotnet/Ygo74.AgentRuntime/Domains/Contracts/StreamingEvent.cs
-- [ ] T045 [P] [US2] Implement Java streaming event contract support in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/contracts/StreamingEvent.java
-- [ ] T046 [US2] Implement OpenAI streaming transport mapping in packages/python/ygo74/agent_runtime/domains/streaming/openai_stream_mapper.py and packages/dotnet/Ygo74.AgentRuntime/Domains/Streaming/OpenAiStreamMapper.cs
-- [ ] T047 [P] [US2] Implement Anthropic streaming transport mapping in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/streaming/AnthropicStreamMapper.java
-- [ ] T048 [US2] Implement stream completion and error termination handling in packages/python/ygo74/agent_runtime/domains/streaming/stream_termination.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Streaming/StreamTermination.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/streaming/StreamTermination.java
+- [X] T043 [US2] Implement Python streaming event contract support in packages/python/ygo74/agent_runtime/domains/contracts/stream_events.py
+- [X] T044 [P] [US2] Implement .NET streaming event contract support in packages/dotnet/Ygo74.AgentRuntime/Domains/Contracts/StreamingEvent.cs
+- [X] T045 [P] [US2] Implement Java streaming event contract support in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/contracts/StreamingEvent.java
+- [X] T046 [US2] Implement OpenAI streaming transport mapping in packages/python/ygo74/agent_runtime/domains/streaming/openai_stream_mapper.py and packages/dotnet/Ygo74.AgentRuntime/Domains/Streaming/OpenAiStreamMapper.cs
+- [X] T047 [P] [US2] Implement Anthropic streaming transport mapping in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/streaming/AnthropicStreamMapper.java
+- [X] T048 [US2] Implement stream completion and error termination handling in packages/python/ygo74/agent_runtime/domains/streaming/stream_termination.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Streaming/StreamTermination.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/streaming/StreamTermination.java
 
 **Checkpoint**: Streaming behavior is available and compliant across endpoint families.
 
@@ -130,18 +130,18 @@
 
 ### Tests for User Story 3
 
-- [ ] T049 [P] [US3] Add configuration validation tests in tests/contract/test_configuration_rules.json
-- [ ] T050 [P] [US3] Add Python FastAPI config binding tests in tests/integration/python/test_fastapi_config.py
-- [ ] T051 [P] [US3] Add .NET options binding tests in tests/integration/dotnet/OptionsBindingTests.cs
-- [ ] T052 [P] [US3] Add Java Spring Boot config binding tests in tests/integration/java/ConfigurationBindingTest.java
+- [X] T049 [P] [US3] Add configuration validation tests in tests/contract/test_configuration_rules.json
+- [X] T050 [P] [US3] Add Python FastAPI config binding tests in tests/integration/python/test_fastapi_config.py
+- [X] T051 [P] [US3] Add .NET options binding tests in tests/integration/dotnet/OptionsBindingTests.cs
+- [X] T052 [P] [US3] Add Java Spring Boot config binding tests in tests/integration/java/ConfigurationBindingTest.java
 
 ### Implementation for User Story 3
 
-- [ ] T053 [US3] Implement Python configuration models and validation in packages/python/ygo74/agent_runtime/domains/configuration/models.py
-- [ ] T054 [P] [US3] Implement .NET configuration models and validation in packages/dotnet/Ygo74.AgentRuntime/Domains/Configuration/EndpointOptions.cs
-- [ ] T055 [P] [US3] Implement Java configuration models and validation in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/configuration/EndpointProperties.java
-- [ ] T056 [US3] Implement endpoint startup validation guards in packages/python/ygo74/agent_runtime/domains/configuration/validator.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Configuration/EndpointOptionsValidator.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/configuration/EndpointPropertiesValidator.java
-- [ ] T057 [US3] Document native configuration examples in docs/examples/python-langchain-fastapi/configuration.md, docs/examples/dotnet-agentframework/configuration.md, and docs/examples/java-springai-springboot/configuration.md
+- [X] T053 [US3] Implement Python configuration models and validation in packages/python/ygo74/agent_runtime/domains/configuration/models.py
+- [X] T054 [P] [US3] Implement .NET configuration models and validation in packages/dotnet/Ygo74.AgentRuntime/Domains/Configuration/EndpointOptions.cs
+- [X] T055 [P] [US3] Implement Java configuration models and validation in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/configuration/EndpointProperties.java
+- [X] T056 [US3] Implement endpoint startup validation guards in packages/python/ygo74/agent_runtime/domains/configuration/validator.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Configuration/EndpointOptionsValidator.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/configuration/EndpointPropertiesValidator.java
+- [X] T057 [US3] Document native configuration examples in docs/examples/python-langchain-fastapi/configuration.md, docs/examples/dotnet-agentframework/configuration.md, and docs/examples/java-springai-springboot/configuration.md
 
 **Checkpoint**: Native framework configuration is complete and validated.
 
@@ -155,17 +155,17 @@
 
 ### Tests for User Story 4
 
-- [ ] T058 [P] [US4] Add standard exchange schema conformance tests in tests/contract/test_standard_exchange_schema.py
-- [ ] T059 [P] [US4] Add parity fixture tests for exchange mapping in tests/parity/test_exchange_parity.py
-- [ ] T060 [P] [US4] Add handler contract tests in tests/integration/python/test_handler_contract.py, tests/integration/dotnet/HandlerContractTests.cs, and tests/integration/java/HandlerContractTest.java
+- [X] T058 [P] [US4] Add standard exchange schema conformance tests in tests/contract/test_standard_exchange_schema.py
+- [X] T059 [P] [US4] Add parity fixture tests for exchange mapping in tests/parity/test_exchange_parity.py
+- [X] T060 [P] [US4] Add handler contract tests in tests/integration/python/test_handler_contract.py, tests/integration/dotnet/HandlerContractTests.cs, and tests/integration/java/HandlerContractTest.java
 
 ### Implementation for User Story 4
 
-- [ ] T061 [US4] Implement Python handler interface for standard exchange in packages/python/ygo74/agent_runtime/domains/handlers/handler_protocol.py
-- [ ] T062 [P] [US4] Implement .NET handler interface for standard exchange in packages/dotnet/Ygo74.AgentRuntime/Domains/Handlers/IUseCaseHandler.cs
-- [ ] T063 [P] [US4] Implement Java handler interface for standard exchange in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/handlers/UseCaseHandler.java
-- [ ] T064 [US4] Implement handler response validation in packages/python/ygo74/agent_runtime/domains/handlers/response_validator.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Handlers/ResponseValidator.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/handlers/ResponseValidator.java
-- [ ] T065 [US4] Provide minimal runnable handler examples in docs/examples/python-langchain-fastapi/handlers/basic_handler.py, docs/examples/dotnet-agentframework/Handlers/BasicHandler.cs, and docs/examples/java-springai-springboot/src/main/java/com/ygo74/examples/BasicHandler.java
+- [X] T061 [US4] Implement Python handler interface for standard exchange in packages/python/ygo74/agent_runtime/domains/handlers/handler_protocol.py
+- [X] T062 [P] [US4] Implement .NET handler interface for standard exchange in packages/dotnet/Ygo74.AgentRuntime/Domains/Handlers/IUseCaseHandler.cs
+- [X] T063 [P] [US4] Implement Java handler interface for standard exchange in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/handlers/UseCaseHandler.java
+- [X] T064 [US4] Implement handler response validation in packages/python/ygo74/agent_runtime/domains/handlers/response_validator.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Handlers/ResponseValidator.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/handlers/ResponseValidator.java
+- [X] T065 [US4] Provide minimal runnable handler examples in docs/examples/python-langchain-fastapi/handlers/basic_handler.py, docs/examples/dotnet-agentframework/Handlers/BasicHandler.cs, and docs/examples/java-springai-springboot/src/main/java/com/ygo74/examples/BasicHandler.java
 
 **Checkpoint**: Standard exchange contract is stable and usable by developers.
 
@@ -179,18 +179,18 @@
 
 ### Tests for User Story 5
 
-- [ ] T066 [P] [US5] Add route registration contract tests in tests/contract/test_handler_registration_rules.json
-- [ ] T067 [P] [US5] Add Python dispatch routing tests in tests/integration/python/test_dispatch_routing.py
-- [ ] T068 [P] [US5] Add .NET dispatch routing tests in tests/integration/dotnet/DispatchRoutingTests.cs
-- [ ] T069 [P] [US5] Add Java dispatch routing tests in tests/integration/java/DispatchRoutingTest.java
+- [X] T066 [P] [US5] Add route registration contract tests in tests/contract/test_handler_registration_rules.json
+- [X] T067 [P] [US5] Add Python dispatch routing tests in tests/integration/python/test_dispatch_routing.py
+- [X] T068 [P] [US5] Add .NET dispatch routing tests in tests/integration/dotnet/DispatchRoutingTests.cs
+- [X] T069 [P] [US5] Add Java dispatch routing tests in tests/integration/java/DispatchRoutingTest.java
 
 ### Implementation for User Story 5
 
-- [ ] T070 [US5] Implement Python route registry in packages/python/ygo74/agent_runtime/routing/route_registry.py
-- [ ] T071 [P] [US5] Implement .NET route registry in packages/dotnet/Ygo74.AgentRuntime/Routing/RouteRegistry.cs
-- [ ] T072 [P] [US5] Implement Java route registry in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/routing/RouteRegistry.java
-- [ ] T073 [US5] Implement deterministic dispatcher execution in packages/python/ygo74/agent_runtime/routing/dispatcher_impl.py, packages/dotnet/Ygo74.AgentRuntime/Routing/Dispatcher.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/routing/DispatcherImpl.java
-- [ ] T074 [US5] Implement structured routing error mapping in packages/python/ygo74/agent_runtime/routing/routing_errors.py, packages/dotnet/Ygo74.AgentRuntime/Routing/RoutingErrors.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/routing/RoutingErrors.java
+- [X] T070 [US5] Implement Python route registry in packages/python/ygo74/agent_runtime/routing/route_registry.py
+- [X] T071 [P] [US5] Implement .NET route registry in packages/dotnet/Ygo74.AgentRuntime/Routing/RouteRegistry.cs
+- [X] T072 [P] [US5] Implement Java route registry in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/routing/RouteRegistry.java
+- [X] T073 [US5] Implement deterministic dispatcher execution in packages/python/ygo74/agent_runtime/routing/dispatcher_impl.py, packages/dotnet/Ygo74.AgentRuntime/Routing/Dispatcher.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/routing/DispatcherImpl.java
+- [X] T074 [US5] Implement structured routing error mapping in packages/python/ygo74/agent_runtime/routing/routing_errors.py, packages/dotnet/Ygo74.AgentRuntime/Routing/RoutingErrors.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/routing/RoutingErrors.java
 
 **Checkpoint**: Decoupled routing/dispatch is complete.
 
@@ -204,21 +204,21 @@
 
 ### Tests for User Story 6
 
-- [ ] T075 [P] [US6] Add middleware contract tests in tests/contract/test_middleware_pipeline_contract.json
-- [ ] T076 [P] [US6] Add Python middleware chain tests in tests/integration/python/test_middleware_pipeline.py
-- [ ] T077 [P] [US6] Add .NET middleware chain tests in tests/integration/dotnet/MiddlewarePipelineTests.cs
-- [ ] T078 [P] [US6] Add Java middleware chain tests in tests/integration/java/MiddlewarePipelineTest.java
-- [ ] T079 [P] [US6] Add middleware short-circuit and failure tests in tests/integration/python/test_middleware_short_circuit.py, tests/integration/dotnet/MiddlewareShortCircuitTests.cs, and tests/integration/java/MiddlewareShortCircuitTest.java
+- [X] T075 [P] [US6] Add middleware contract tests in tests/contract/test_middleware_pipeline_contract.json
+- [X] T076 [P] [US6] Add Python middleware chain tests in tests/integration/python/test_middleware_pipeline.py
+- [X] T077 [P] [US6] Add .NET middleware chain tests in tests/integration/dotnet/MiddlewarePipelineTests.cs
+- [X] T078 [P] [US6] Add Java middleware chain tests in tests/integration/java/MiddlewarePipelineTest.java
+- [X] T079 [P] [US6] Add middleware short-circuit and failure tests in tests/integration/python/test_middleware_short_circuit.py, tests/integration/dotnet/MiddlewareShortCircuitTests.cs, and tests/integration/java/MiddlewareShortCircuitTest.java
 
 ### Implementation for User Story 6
 
-- [ ] T080 [US6] Implement Python middleware registration and ordering in packages/python/ygo74/agent_runtime/middleware/registry.py
-- [ ] T081 [P] [US6] Implement .NET middleware registration and ordering in packages/dotnet/Ygo74.AgentRuntime/Middleware/MiddlewareRegistry.cs
-- [ ] T082 [P] [US6] Implement Java middleware registration and ordering in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/middleware/MiddlewareRegistry.java
-- [ ] T083 [US6] Implement Python middleware pipeline executor with next-callback in packages/python/ygo74/agent_runtime/middleware/pipeline.py
-- [ ] T084 [P] [US6] Implement .NET middleware pipeline executor with next-callback in packages/dotnet/Ygo74.AgentRuntime/Middleware/MiddlewarePipeline.cs
-- [ ] T085 [P] [US6] Implement Java middleware pipeline executor with next-callback in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/middleware/MiddlewarePipeline.java
-- [ ] T086 [US6] Implement middleware error-to-envelope mapping in packages/python/ygo74/agent_runtime/middleware/middleware_errors.py, packages/dotnet/Ygo74.AgentRuntime/Middleware/MiddlewareErrors.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/middleware/MiddlewareErrors.java
+- [X] T080 [US6] Implement Python middleware registration and ordering in packages/python/ygo74/agent_runtime/middleware/registry.py
+- [X] T081 [P] [US6] Implement .NET middleware registration and ordering in packages/dotnet/Ygo74.AgentRuntime/Middleware/MiddlewareRegistry.cs
+- [X] T082 [P] [US6] Implement Java middleware registration and ordering in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/middleware/MiddlewareRegistry.java
+- [X] T083 [US6] Implement Python middleware pipeline executor with next-callback in packages/python/ygo74/agent_runtime/middleware/pipeline.py
+- [X] T084 [P] [US6] Implement .NET middleware pipeline executor with next-callback in packages/dotnet/Ygo74.AgentRuntime/Middleware/MiddlewarePipeline.cs
+- [X] T085 [P] [US6] Implement Java middleware pipeline executor with next-callback in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/middleware/MiddlewarePipeline.java
+- [X] T086 [US6] Implement middleware error-to-envelope mapping in packages/python/ygo74/agent_runtime/middleware/middleware_errors.py, packages/dotnet/Ygo74.AgentRuntime/Middleware/MiddlewareErrors.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/middleware/MiddlewareErrors.java
 
 **Checkpoint**: Middleware pipeline works with deterministic chain semantics.
 
@@ -232,22 +232,22 @@
 
 ### Tests for User Story 7
 
-- [ ] T087 [P] [US7] Add JWT and API-key auth contract tests in tests/contract/test_auth_context_contract.json
-- [ ] T088 [P] [US7] Add Python auth context integration tests in tests/integration/python/test_auth_context.py
-- [ ] T089 [P] [US7] Add .NET auth context integration tests in tests/integration/dotnet/AuthContextTests.cs
-- [ ] T090 [P] [US7] Add Java auth context integration tests in tests/integration/java/AuthContextTest.java
-- [ ] T091 [P] [US7] Add developer-owned authorization denial tests in tests/integration/python/test_authorization_denial.py, tests/integration/dotnet/AuthorizationDenialTests.cs, and tests/integration/java/AuthorizationDenialTest.java
+- [X] T087 [P] [US7] Add JWT and API-key auth contract tests in tests/contract/test_auth_context_contract.json
+- [X] T088 [P] [US7] Add Python auth context integration tests in tests/integration/python/test_auth_context.py
+- [X] T089 [P] [US7] Add .NET auth context integration tests in tests/integration/dotnet/AuthContextTests.cs
+- [X] T090 [P] [US7] Add Java auth context integration tests in tests/integration/java/AuthContextTest.java
+- [X] T091 [P] [US7] Add developer-owned authorization denial tests in tests/integration/python/test_authorization_denial.py, tests/integration/dotnet/AuthorizationDenialTests.cs, and tests/integration/java/AuthorizationDenialTest.java
 
 ### Implementation for User Story 7
 
-- [ ] T092 [US7] Implement Python JWT authentication and user projection in packages/python/ygo74/agent_runtime/domains/auth/jwt_authenticator.py
-- [ ] T093 [P] [US7] Implement .NET JWT authentication and user projection in packages/dotnet/Ygo74.AgentRuntime/Domains/Auth/JwtAuthenticator.cs
-- [ ] T094 [P] [US7] Implement Java JWT authentication and user projection in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/auth/JwtAuthenticator.java
-- [ ] T095 [US7] Implement Python API-key user-resolution hook integration in packages/python/ygo74/agent_runtime/domains/auth/apikey_authenticator.py
-- [ ] T096 [P] [US7] Implement .NET API-key user-resolution hook integration in packages/dotnet/Ygo74.AgentRuntime/Domains/Auth/ApiKeyAuthenticator.cs
-- [ ] T097 [P] [US7] Implement Java API-key user-resolution hook integration in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/auth/ApiKeyAuthenticator.java
-- [ ] T098 [US7] Implement structured auth/authz error mapping in packages/python/ygo74/agent_runtime/domains/auth/auth_errors.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Auth/AuthErrors.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/auth/AuthErrors.java
-- [ ] T099 [US7] Document developer-owned authorization extension points in docs/examples/python-langchain-fastapi/authorization.md, docs/examples/dotnet-agentframework/authorization.md, and docs/examples/java-springai-springboot/authorization.md
+- [X] T092 [US7] Implement Python JWT authentication and user projection in packages/python/ygo74/agent_runtime/domains/auth/jwt_authenticator.py
+- [X] T093 [P] [US7] Implement .NET JWT authentication and user projection in packages/dotnet/Ygo74.AgentRuntime/Domains/Auth/JwtAuthenticator.cs
+- [X] T094 [P] [US7] Implement Java JWT authentication and user projection in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/auth/JwtAuthenticator.java
+- [X] T095 [US7] Implement Python API-key user-resolution hook integration in packages/python/ygo74/agent_runtime/domains/auth/apikey_authenticator.py
+- [X] T096 [P] [US7] Implement .NET API-key user-resolution hook integration in packages/dotnet/Ygo74.AgentRuntime/Domains/Auth/ApiKeyAuthenticator.cs
+- [X] T097 [P] [US7] Implement Java API-key user-resolution hook integration in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/auth/ApiKeyAuthenticator.java
+- [X] T098 [US7] Implement structured auth/authz error mapping in packages/python/ygo74/agent_runtime/domains/auth/auth_errors.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Auth/AuthErrors.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/auth/AuthErrors.java
+- [X] T099 [US7] Document developer-owned authorization extension points in docs/examples/python-langchain-fastapi/authorization.md, docs/examples/dotnet-agentframework/authorization.md, and docs/examples/java-springai-springboot/authorization.md
 
 **Checkpoint**: Shared authentication and developer-owned authorization are complete.
 
@@ -257,18 +257,18 @@
 
 **Purpose**: Final hardening, examples validation, observability validation, and end-to-end quality gates.
 
-- [ ] T100 [P] Validate log level/sink reconfiguration and OpenTelemetry redirection in tests/integration/python/test_observability_reconfiguration.py, tests/integration/dotnet/ObservabilityReconfigurationTests.cs, and tests/integration/java/ObservabilityReconfigurationTest.java
-- [ ] T101 [P] Validate domain discoverability in public API docs at docs/examples/README.md
-- [ ] T102 [P] Validate runnable examples execute end-to-end in docs/examples/dotnet-agentframework/, docs/examples/python-langchain-fastapi/, and docs/examples/java-springai-springboot/
-- [ ] T103 Run full contract suite in tests/contract/
-- [ ] T104 Run full integration suite in tests/integration/
-- [ ] T105 Run full parity suite in tests/parity/
-- [ ] T106 Execute quickstart verification steps in specs/001-openai-endpoint-exposure/quickstart.md
-- [ ] T107 Final documentation update for feature behavior in specs/001-openai-endpoint-exposure/quickstart.md
-- [ ] T108 [P] Add cross-language namespace identity conformance tests in tests/parity/test_namespace_identity.py, tests/integration/dotnet/NamespaceIdentityTests.cs, and tests/integration/java/NamespaceIdentityTest.java
-- [ ] T109 [P] Add cross-language performance budget tests for dispatch and streaming first-event latency in tests/performance/python/test_performance_budget.py, tests/performance/dotnet/PerformanceBudgetTests.cs, and tests/performance/java/PerformanceBudgetTest.java
-- [ ] T110 [P] Add performance threshold baselines and regression policy in tests/performance/baselines/performance_thresholds.json
-- [ ] T111 Enforce performance regression gate execution in .github/workflows/ci.yml
+- [X] T100 [P] Validate log level/sink reconfiguration and OpenTelemetry redirection in tests/integration/python/test_observability_reconfiguration.py, tests/integration/dotnet/ObservabilityReconfigurationTests.cs, and tests/integration/java/ObservabilityReconfigurationTest.java
+- [X] T101 [P] Validate domain discoverability in public API docs at docs/examples/README.md
+- [X] T102 [P] Validate runnable examples execute end-to-end in docs/examples/dotnet-agentframework/, docs/examples/python-langchain-fastapi/, and docs/examples/java-springai-springboot/
+- [X] T103 Run full contract suite in tests/contract/
+- [X] T104 Run full integration suite in tests/integration/
+- [X] T105 Run full parity suite in tests/parity/
+- [X] T106 Execute quickstart verification steps in specs/001-openai-endpoint-exposure/quickstart.md
+- [X] T107 Final documentation update for feature behavior in specs/001-openai-endpoint-exposure/quickstart.md
+- [X] T108 [P] Add cross-language namespace identity conformance tests in tests/parity/test_namespace_identity.py, tests/integration/dotnet/NamespaceIdentityTests.cs, and tests/integration/java/NamespaceIdentityTest.java
+- [X] T109 [P] Add cross-language performance budget tests for dispatch and streaming first-event latency in tests/performance/python/test_performance_budget.py, tests/performance/dotnet/PerformanceBudgetTests.cs, and tests/performance/java/PerformanceBudgetTest.java
+- [X] T110 [P] Add performance threshold baselines and regression policy in tests/performance/baselines/performance_thresholds.json
+- [X] T111 Enforce performance regression gate execution in .github/workflows/ci.yml
 
 ---
 

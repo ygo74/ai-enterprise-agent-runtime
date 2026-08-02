@@ -148,3 +148,9 @@ Expected outcome:
 - Middleware pipeline honors deterministic ordering and next-callback chaining.
 - Short-circuit behavior is consistent and documented.
 - Middleware failures are surfaced with structured error responses.
+
+## Implementation Snapshot
+
+- Phase status: Setup, Foundational, US1, US2, US3, US4, US5, US6, US7, and Polish scaffolds are present in repository paths.
+- Validation note: Contract JSON checks, integration/parity inventory checks, and performance baseline presence checks completed in current environment.
+- CI gate note: Performance baseline policy file is enforced by workflow at `.github/workflows/ci.yml`.
