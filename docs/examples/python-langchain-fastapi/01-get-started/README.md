@@ -95,9 +95,10 @@ Use the Python client below to test this endpoint with both SDKs:
 
 - OpenAI SDK -> `/v1/responses`
 - OpenAI SDK -> `/v1/chat/completions`
+- OpenAI SDK -> `/v1/chat/completions` with `stream=True` (Server-Sent Events)
 - Anthropic SDK -> `/v1/messages`
 
-Run:
+Run all checks (default):
 
 ```powershell
 # From docs/examples/python-langchain-fastapi/01-get-started
@@ -110,8 +111,23 @@ If `/v1/messages` is not enabled yet:
 python sdk_compat_client.py --base-url http://127.0.0.1:8001 --skip-anthropic
 ```
 
+Run a single specific check with `--test-openai-responses`, `--test-openai-chat-completions`, or
+`--test-anthropic-messages` (if none of these are passed, all checks run, same as the default above):
+
+```powershell
+python sdk_compat_client.py --base-url http://127.0.0.1:8001 --test-openai-chat-completions
+```
+
+Add `--enable-stream` to run the selected check(s) with `stream=True` instead of a single blocking response:
+
+```powershell
+python sdk_compat_client.py --base-url http://127.0.0.1:8001 --test-openai-chat-completions --enable-stream
+python sdk_compat_client.py --base-url http://127.0.0.1:8001 --test-openai-responses --enable-stream
+```
+
 ## Notes
 
 - The MCP tool call is implemented in `mcp_mslearn_tool.py` with `streamable-http` transport.
 - If the MCP SDK is unavailable at runtime, the tool returns a deterministic fallback message that includes the intended MCP call details.
 - This example is intentionally scoped to the OpenAI Responses endpoint; Chat Completions can be added similarly.
+- `stream=True` requests are served as real Server-Sent Events (`text/event-stream`) with genuine token-by-token incremental deltas: `run_solution_architect_agent_stream` (in `agent_solution_architect.py`) consumes the LangChain agent via `astream_events(..., version="v2")` and forwards each `on_chat_model_stream` text delta as it is produced, including after any MCP tool call the agent makes along the way.

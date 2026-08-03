@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, AsyncIterator
 
 from langchain.agents import create_agent
 from langchain_core.prompts import ChatPromptTemplate
@@ -98,3 +98,47 @@ async def run_solution_architect_agent(user_input: str) -> dict[str, Any]:
         "role": "assistant",
         "content": output,
     }
+
+
+def _extract_chunk_text(chunk: Any) -> str:
+    content = getattr(chunk, "content", None)
+
+    if isinstance(content, str):
+        return content
+
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, dict) and item.get("type") == "text":
+                parts.append(str(item.get("text", "")))
+        return "".join(parts)
+
+    return ""
+
+
+async def run_solution_architect_agent_stream(user_input: str) -> AsyncIterator[str]:
+    """Yield incremental text deltas of the final assistant answer as they are produced.
+
+    Uses astream_events (supported by both the legacy AgentExecutor and the langgraph-based
+    create_agent runnable) and only forwards text deltas coming from chat model token streaming,
+    filtering out empty chunks (e.g. tool-call-only turns).
+    """
+
+    executor = build_solution_architect_agent()
+
+    if _HAS_LEGACY_TOOL_CALLING:
+        input_payload: dict[str, Any] = {"input": user_input}
+    else:
+        input_payload = {"messages": [{"role": "user", "content": user_input}]}
+
+    async for event in executor.astream_events(input_payload, version="v2"):
+        if event.get("event") != "on_chat_model_stream":
+            continue
+
+        chunk = event.get("data", {}).get("chunk")
+        if chunk is None:
+            continue
+
+        delta_text = _extract_chunk_text(chunk)
+        if delta_text:
+            yield delta_text
