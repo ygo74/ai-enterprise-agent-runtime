@@ -116,15 +116,38 @@ def _extract_chunk_text(chunk: Any) -> str:
     return ""
 
 
+def _tool_notices_enabled() -> bool:
+    return os.getenv("AGENT_STREAM_TOOL_NOTICES", "true").strip().lower() not in ("0", "false", "no")
+
+
+def _format_tool_start_notice(tool_name: str, tool_input: Any) -> str:
+    detail = ""
+    if isinstance(tool_input, dict):
+        query = tool_input.get("query")
+        if query:
+            detail = f' — "{query}"'
+
+    return f"\n> 🔧 _Calling tool `{tool_name}`{detail}..._\n\n"
+
+
+def _format_tool_end_notice(tool_name: str) -> str:
+    return f"\n> ✅ _Tool `{tool_name}` completed._\n\n"
+
+
 async def run_solution_architect_agent_stream(user_input: str) -> AsyncIterator[str]:
     """Yield incremental text deltas of the final assistant answer as they are produced.
 
     Uses astream_events (supported by both the legacy AgentExecutor and the langgraph-based
-    create_agent runnable) and only forwards text deltas coming from chat model token streaming,
-    filtering out empty chunks (e.g. tool-call-only turns).
+    create_agent runnable) and forwards two kinds of deltas:
+    - Chat model token streams (on_chat_model_stream), i.e. the actual answer text.
+    - Tool call notices (on_tool_start / on_tool_end), rendered as short Markdown blockquotes
+      injected directly into the content stream so any OpenAI-compatible client (e.g. LibreChat)
+      shows the user that a tool is being called, without requiring client-side tool-calling
+      support. Set AGENT_STREAM_TOOL_NOTICES=false to disable these notices.
     """
 
     executor = build_solution_architect_agent()
+    notices_enabled = _tool_notices_enabled()
 
     if _HAS_LEGACY_TOOL_CALLING:
         input_payload: dict[str, Any] = {"input": user_input}
@@ -132,7 +155,22 @@ async def run_solution_architect_agent_stream(user_input: str) -> AsyncIterator[
         input_payload = {"messages": [{"role": "user", "content": user_input}]}
 
     async for event in executor.astream_events(input_payload, version="v2"):
-        if event.get("event") != "on_chat_model_stream":
+        event_type = event.get("event")
+
+        if event_type == "on_tool_start":
+            if notices_enabled:
+                tool_name = str(event.get("name") or "tool")
+                tool_input = event.get("data", {}).get("input")
+                yield _format_tool_start_notice(tool_name, tool_input)
+            continue
+
+        if event_type == "on_tool_end":
+            if notices_enabled:
+                tool_name = str(event.get("name") or "tool")
+                yield _format_tool_end_notice(tool_name)
+            continue
+
+        if event_type != "on_chat_model_stream":
             continue
 
         chunk = event.get("data", {}).get("chunk")
