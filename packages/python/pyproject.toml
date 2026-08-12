@@ -11,3 +11,9 @@ dependencies = [
   "pydantic>=2.7",
   "typing-extensions>=4.12"
 ]
+
+[project.optional-dependencies]
+# Only required if you use ygo74.agent_runtime.create_langchain_agent_entrypoint.
+langchain = ["langchain-core>=0.3"]
+# Only required if you use ygo74.agent_runtime.create_agent_framework_entrypoint.
+agent-framework = ["agent-framework-core>=1.0"]

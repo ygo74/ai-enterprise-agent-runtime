@@ -4,14 +4,29 @@ This example shows a real implementation of an **AI Solution Architect** agent t
 
 1. Uses a LangChain agent.
 2. Calls a remote MCP tool for Microsoft Learn (`https://learn.microsoft.com/api/mcp`).
-3. Exposes an **OpenAI Responses** compatible endpoint (`/v1/responses`) via the `ygo74` runtime mapping layer.
+3. Exposes OpenAI-compatible endpoints (`/v1/responses`, `/v1/chat/completions`) via the
+   `ygo74.agent_runtime` library, including real Server-Sent Events streaming.
 
 ## Files
 
-- `openai_responses_app.py`: FastAPI endpoint exposed as OpenAI Responses.
-- `agent_solution_architect.py`: LangChain tool-calling agent setup.
+- `openai_responses_app.py`: FastAPI app. Wires `build_solution_architect_agent` into
+  `add_ai_endpoints` via `create_langchain_agent_entrypoint` — no endpoint/streaming
+  plumbing here.
+- `agent_solution_architect.py`: **Business logic only** — model, tools, system prompt for
+  the Solution Architect agent. This is the only file you'd need to change/copy to build a
+  different LangChain agent with this runtime.
 - `mcp_mslearn_tool.py`: MCP tool wrapper to query Microsoft Learn MCP.
 - `requirements.txt`: Example dependencies.
+
+### Why is there so little "endpoint" code here?
+
+All the technical concerns that are the same for *any* LangChain agent — building the
+right invocation payload for legacy `AgentExecutor` vs the newer `create_agent`, extracting
+the final answer text, real token-by-token streaming via `astream_events`, and inline
+tool-call notices for chat UIs (e.g. LibreChat) — are implemented once in the library as
+`ygo74.agent_runtime.create_langchain_agent_entrypoint`. Agent authors only write a
+`build_my_agent()` factory (model + tools + prompt) and pass it to that helper; see
+`openai_responses_app.py` for the ~5 lines this takes.
 
 ## Prerequisites
 
@@ -129,6 +144,7 @@ python sdk_compat_client.py --base-url http://127.0.0.1:8001 --test-openai-respo
 
 - The MCP tool call is implemented in `mcp_mslearn_tool.py` with `streamable-http` transport.
 - If the MCP SDK is unavailable at runtime, the tool returns a deterministic fallback message that includes the intended MCP call details.
-- This example is intentionally scoped to the OpenAI Responses endpoint; Chat Completions can be added similarly.
-- `stream=True` requests are served as real Server-Sent Events (`text/event-stream`) with genuine token-by-token incremental deltas: `run_solution_architect_agent_stream` (in `agent_solution_architect.py`) consumes the LangChain agent via `astream_events(..., version="v2")` and forwards each `on_chat_model_stream` text delta as it is produced, including after any MCP tool call the agent makes along the way.
+- This example enables OpenAI Responses and Chat Completions; Anthropic Messages can be enabled the same way via `enable_anthropic_messages=True`.
+- `stream=True` requests are served as real Server-Sent Events (`text/event-stream`) with genuine token-by-token incremental deltas: `create_langchain_agent_entrypoint` (in `ygo74.agent_runtime`) consumes the LangChain agent via `astream_events(..., version="v2")` and forwards each `on_chat_model_stream` text delta as it is produced, including after any MCP tool call the agent makes along the way.
 - **Tool call visibility (e.g. in LibreChat)**: when the agent calls `mslearn_mcp_search`, a short Markdown notice (`> 🔧 _Calling tool ..._` / `> ✅ _Tool ... completed._`) is injected directly into the streamed `content`, so any OpenAI-compatible client — including LibreChat, which only sees standard chat completion chunks and has no visibility into server-side tool execution — displays that a tool was used. Set `AGENT_STREAM_TOOL_NOTICES=false` to disable these notices and stream only the final answer text.
+

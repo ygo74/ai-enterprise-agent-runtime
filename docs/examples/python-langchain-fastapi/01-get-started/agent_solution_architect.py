@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, AsyncIterator
+from typing import Any
 
 from langchain.agents import create_agent
 from langchain_core.prompts import ChatPromptTemplate
@@ -31,6 +31,14 @@ except Exception:
 
 
 def build_solution_architect_agent() -> Any:
+    """Build the Solution Architect LangChain agent (business logic only).
+
+    This is the only function specific to this agent: model, tools, and system prompt.
+    Invocation (single-shot vs real token streaming) and inline tool-call notices for
+    chat UIs (e.g. LibreChat) are handled generically by
+    `ygo74.agent_runtime.create_langchain_agent_entrypoint`, wired in `openai_responses_app.py`.
+    """
+
     model_name = os.getenv("OPENAI_MODEL", "gpt-5-chat")
     llm = ChatOpenAI(model=model_name, temperature=1)
     tools = [mslearn_mcp_search]
@@ -49,134 +57,3 @@ def build_solution_architect_agent() -> Any:
 
     # LangChain >=1.0 compatibility path.
     return create_agent(model=llm, tools=tools, system_prompt=SYSTEM_PROMPT)
-
-
-def _normalize_agent_output(result: Any) -> str:
-    if isinstance(result, dict):
-        output = result.get("output")
-        if isinstance(output, str) and output:
-            return output
-
-        messages = result.get("messages")
-        if isinstance(messages, list) and messages:
-            last = messages[-1]
-            content = getattr(last, "content", last)
-            if isinstance(content, str):
-                return content
-            if isinstance(content, list):
-                parts: list[str] = []
-                for item in content:
-                    if isinstance(item, dict) and item.get("type") == "text":
-                        parts.append(str(item.get("text", "")))
-                    else:
-                        parts.append(str(item))
-                return "\n".join(part for part in parts if part)
-            return str(content)
-
-    return str(result)
-
-
-async def run_solution_architect_agent(user_input: str) -> dict[str, Any]:
-    executor = build_solution_architect_agent()
-
-    if _HAS_LEGACY_TOOL_CALLING:
-        result = await executor.ainvoke({"input": user_input})
-    else:
-        result = await executor.ainvoke(
-            {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": user_input,
-                    }
-                ]
-            }
-        )
-
-    output = _normalize_agent_output(result)
-    return {
-        "role": "assistant",
-        "content": output,
-    }
-
-
-def _extract_chunk_text(chunk: Any) -> str:
-    content = getattr(chunk, "content", None)
-
-    if isinstance(content, str):
-        return content
-
-    if isinstance(content, list):
-        parts: list[str] = []
-        for item in content:
-            if isinstance(item, dict) and item.get("type") == "text":
-                parts.append(str(item.get("text", "")))
-        return "".join(parts)
-
-    return ""
-
-
-def _tool_notices_enabled() -> bool:
-    return os.getenv("AGENT_STREAM_TOOL_NOTICES", "true").strip().lower() not in ("0", "false", "no")
-
-
-def _format_tool_start_notice(tool_name: str, tool_input: Any) -> str:
-    detail = ""
-    if isinstance(tool_input, dict):
-        query = tool_input.get("query")
-        if query:
-            detail = f' — "{query}"'
-
-    return f"\n> 🔧 _Calling tool `{tool_name}`{detail}..._\n\n"
-
-
-def _format_tool_end_notice(tool_name: str) -> str:
-    return f"\n> ✅ _Tool `{tool_name}` completed._\n\n"
-
-
-async def run_solution_architect_agent_stream(user_input: str) -> AsyncIterator[str]:
-    """Yield incremental text deltas of the final assistant answer as they are produced.
-
-    Uses astream_events (supported by both the legacy AgentExecutor and the langgraph-based
-    create_agent runnable) and forwards two kinds of deltas:
-    - Chat model token streams (on_chat_model_stream), i.e. the actual answer text.
-    - Tool call notices (on_tool_start / on_tool_end), rendered as short Markdown blockquotes
-      injected directly into the content stream so any OpenAI-compatible client (e.g. LibreChat)
-      shows the user that a tool is being called, without requiring client-side tool-calling
-      support. Set AGENT_STREAM_TOOL_NOTICES=false to disable these notices.
-    """
-
-    executor = build_solution_architect_agent()
-    notices_enabled = _tool_notices_enabled()
-
-    if _HAS_LEGACY_TOOL_CALLING:
-        input_payload: dict[str, Any] = {"input": user_input}
-    else:
-        input_payload = {"messages": [{"role": "user", "content": user_input}]}
-
-    async for event in executor.astream_events(input_payload, version="v2"):
-        event_type = event.get("event")
-
-        if event_type == "on_tool_start":
-            if notices_enabled:
-                tool_name = str(event.get("name") or "tool")
-                tool_input = event.get("data", {}).get("input")
-                yield _format_tool_start_notice(tool_name, tool_input)
-            continue
-
-        if event_type == "on_tool_end":
-            if notices_enabled:
-                tool_name = str(event.get("name") or "tool")
-                yield _format_tool_end_notice(tool_name)
-            continue
-
-        if event_type != "on_chat_model_stream":
-            continue
-
-        chunk = event.get("data", {}).get("chunk")
-        if chunk is None:
-            continue
-
-        delta_text = _extract_chunk_text(chunk)
-        if delta_text:
-            yield delta_text
