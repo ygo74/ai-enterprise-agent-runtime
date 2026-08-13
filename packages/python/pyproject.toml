@@ -9,5 +9,6 @@ description = "Cross-language AI enterprise agent runtime"
 requires-python = ">=3.11"
 dependencies = [
   "pydantic>=2.7",
-  "typing-extensions>=4.12"
+  "typing-extensions>=4.12",
+  "PyJWT>=2.8"
 ]
