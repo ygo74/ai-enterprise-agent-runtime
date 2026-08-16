@@ -194,6 +194,7 @@ def authenticate_jwt(token: str, config: JwtValidationConfig) -> dict[str, Any]:
 
     return {
         "authType": "jwt",
+        "userId": subject,
         "identity": {
             "subject": subject,
             "userId": subject,
@@ -206,6 +207,7 @@ def authenticate_jwt(token: str, config: JwtValidationConfig) -> dict[str, Any]:
         },
         "roles": roles,
         "groups": groups,
+        "scopes": _extract_scopes(claims),
         "claims": context_claims,
     }
 
@@ -273,4 +275,14 @@ def _extract_claim_path_values(claims: Mapping[str, Any], path: str | None) -> l
         return [str(item) for item in items]
     if isinstance(value, str):
         return [value]
+    return []
+
+
+def _extract_scopes(claims: Mapping[str, Any]) -> list[str]:
+    scope = claims.get("scope")
+    if isinstance(scope, str):
+        return scope.split()
+    if isinstance(scope, (list, tuple)):
+        items = cast("list[Any] | tuple[Any, ...]", scope)
+        return [str(item) for item in items]
     return []

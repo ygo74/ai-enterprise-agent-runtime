@@ -21,7 +21,8 @@ except Exception as exc:  # pragma: no cover - depends on web runtime
 
 from ygo74.agent_runtime.domains.mapping.request_mapper import map_to_exchange
 from ygo74.agent_runtime.domains.mapping.response_mapper import map_response
-from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
+from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError, AuthorizationError
+from ygo74.agent_runtime.domains.auth.apikey_authenticator import ApiKeyUserResolver, authenticate_api_key
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtValidationConfig, authenticate_authorization_header
 
 AgentEntrypoint = Callable[[dict[str, Any]], Awaitable[Any] | Any]
@@ -39,6 +40,7 @@ def add_ai_endpoints(
     enable_anthropic_messages: bool = False,
     jwt_validation: JwtValidationConfig | None = None,
     require_bearer_token: bool = False,
+    api_key_resolver: ApiKeyUserResolver | None = None,
 ) -> None:
     """Register AI endpoints on a FastAPI app and forward a uniform payload to agent_entrypoint."""
 
@@ -60,6 +62,7 @@ def add_ai_endpoints(
                 default_route_key,
                 jwt_validation=jwt_validation,
                 require_bearer_token=require_bearer_token,
+                api_key_resolver=api_key_resolver,
             )
             exchange_request = map_to_exchange(endpoint_type, payload)
 
@@ -88,7 +91,24 @@ def add_ai_endpoints(
                 result = await result
 
             exchange_response = _normalize_agent_result(result, exchange_request.request_id, exchange_request.route_key)
-            return map_response(endpoint_type, exchange_response)
+            mapped = map_response(endpoint_type, exchange_response)
+            status_code = _error_status_code(exchange_response)
+            if status_code is not None:
+                raise HTTPException(status_code=status_code, detail=mapped)
+
+            return mapped
+        except HTTPException:
+            # Either raised above from a handler-declared error envelope, or raised
+            # directly by developer-owned authorization logic. Preserve it as-is.
+            raise
+        except AuthorizationError as ex:
+            logger.info("Authorization denied for endpoint_type=%s request_id=%s", endpoint_type, payload.get("request_id"))
+            err = {
+                "request_id": payload["request_id"],
+                "status": "error",
+                "error": ex.to_dict(),
+            }
+            raise HTTPException(status_code=403, detail=map_response(endpoint_type, err)) from ex
         except AuthenticationError as ex:
             payload = body.get("metadata") or {}
             logger.warning("Authentication failed for endpoint_type=%s", endpoint_type)
@@ -145,6 +165,7 @@ def add_ai_endpoint(
     enable_anthropic_messages: bool = False,
     jwt_validation: JwtValidationConfig | None = None,
     require_bearer_token: bool = False,
+    api_key_resolver: ApiKeyUserResolver | None = None,
 ) -> None:
     """Alias for add_ai_endpoints with a singular name for API ergonomics."""
 
@@ -157,6 +178,7 @@ def add_ai_endpoint(
         enable_anthropic_messages=enable_anthropic_messages,
         jwt_validation=jwt_validation,
         require_bearer_token=require_bearer_token,
+        api_key_resolver=api_key_resolver,
     )
 
 
@@ -168,6 +190,7 @@ def _build_raw_payload(
     *,
     jwt_validation: JwtValidationConfig,
     require_bearer_token: bool,
+    api_key_resolver: ApiKeyUserResolver | None = None,
 ) -> dict[str, Any]:
     metadata = dict(body.get("metadata") or {})
     route_key = str(metadata.get("route_key") or body.get("route_key") or default_route_key)
@@ -182,6 +205,7 @@ def _build_raw_payload(
         request,
         jwt_validation=jwt_validation,
         require_bearer_token=require_bearer_token,
+        api_key_resolver=api_key_resolver,
     )
 
     return {
@@ -200,6 +224,7 @@ def _extract_auth_context(
     *,
     jwt_validation: JwtValidationConfig,
     require_bearer_token: bool,
+    api_key_resolver: ApiKeyUserResolver | None = None,
 ) -> dict[str, Any] | None:
     headers = getattr(request, "headers", None)
     if headers is None:
@@ -212,11 +237,36 @@ def _extract_auth_context(
     elif require_bearer_token:
         context.update(authenticate_authorization_header(None, jwt_validation))
 
-    api_key = headers.get("x-api-key")
-    if api_key:
-        context["x-api-key"] = api_key
+    if api_key_resolver is not None and not context:
+        api_key = headers.get("x-api-key")
+        if api_key:
+            # The raw key is deliberately never copied into the context handed to
+            # the handler: only the resolved user identity is exposed.
+            context.update(authenticate_api_key(api_key, api_key_resolver))
 
     return context or None
+
+
+def _error_status_code(exchange_response: dict[str, Any]) -> int | None:
+    """Map a handler-declared error envelope to an HTTP status code.
+
+    Developers own authorization decisions, so a handler may return an error
+    envelope with category ``authorization`` (or ``authentication``) instead of
+    raising. Those must not surface as HTTP 200.
+    """
+
+    if exchange_response.get("status") != "error":
+        return None
+
+    error = exchange_response.get("error")
+    category = error.get("category") if isinstance(error, dict) else None
+
+    return {
+        "authorization": 403,
+        "authentication": 401,
+        "validation": 400,
+        "routing": 404,
+    }.get(str(category), 500)
 
 
 def _normalize_agent_result(result: Any, request_id: str, route_key: str) -> dict[str, Any]:
@@ -430,6 +480,13 @@ async def _stream_response(endpoint_type: str, request_id: str, model: Any, entr
             delta_text = _extract_output_text(normalized.get("output"))
             full_text_parts.append(delta_text)
             yield _stream_chunk_frame(endpoint_type, request_id, model, delta_text)
+    except AuthorizationError as ex:
+        # Response headers are already flushed, so a 403 status is no longer
+        # possible: surface the denial as a terminal SSE error frame instead.
+        logger.info("Authorization denied mid-stream for endpoint_type=%s request_id=%s", endpoint_type, request_id)
+        yield _stream_error_frame(endpoint_type, request_id, ex.message)
+        yield _sse_done()
+        return
     except Exception as ex:
         logger.exception(
             "Streaming agent execution failed for endpoint_type=%s request_id=%s",

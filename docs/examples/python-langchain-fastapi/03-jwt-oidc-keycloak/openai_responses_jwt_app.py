@@ -5,16 +5,28 @@ from typing import Any
 
 from fastapi import FastAPI
 
-from ygo74.agent_runtime import add_ai_endpoints
+from ygo74.agent_runtime import AuthorizationError, add_ai_endpoints
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwksKeyResolver, JwtValidationConfig
 
 
 app = FastAPI(title="OpenAI Responses + JWT (OIDC/Keycloak) Authentication Example")
 
+# Authorization is owned by the developer: the runtime only authenticates and
+# projects the user context. Leave empty to allow any authenticated caller.
+required_role = os.getenv("REQUIRED_ROLE", "")
+
 
 async def _entrypoint(payload: dict[str, Any]) -> dict[str, Any]:
     auth_context = payload.get("auth_context") or {}
     identity = auth_context.get("identity") or {}
+    roles = auth_context.get("roles", [])
+
+    if required_role and required_role not in roles:
+        raise AuthorizationError(
+            code="role_required",
+            message=f"Role '{required_role}' is required",
+            details={"required_role": required_role, "granted_roles": roles},
+        )
 
     return {
         "request_id": payload["request_id"],
@@ -24,7 +36,7 @@ async def _entrypoint(payload: dict[str, Any]) -> dict[str, Any]:
             "subject": identity.get("subject"),
             "name": identity.get("name"),
             "email": identity.get("email"),
-            "roles": auth_context.get("roles", []),
+            "roles": roles,
             "groups": auth_context.get("groups", []),
             "claims": auth_context.get("claims", {}),
             "input": payload.get("input"),
