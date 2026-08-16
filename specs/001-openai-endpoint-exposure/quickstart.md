@@ -17,6 +17,7 @@ This guide validates feature behavior end-to-end after implementation.
 
   - [endpoint-surface-contract.md](./contracts/endpoint-surface-contract.md)
   - [standard-exchange-v1.schema.json](./contracts/standard-exchange-v1.schema.json)
+  - [agent-descriptor-v1.schema.json](./contracts/agent-descriptor-v1.schema.json)
 
 ## Scenario 1: Endpoint Exposure Activation
 
@@ -149,8 +150,86 @@ Expected outcome:
 - Short-circuit behavior is consistent and documented.
 - Middleware failures are surfaced with structured error responses.
 
+## Scenario 13: Agent Descriptor Declaration and Validation
+
+1. Declare two agent descriptors through framework-standard configuration, each bound to a registered routeKey.
+2. Start the service host and read both descriptors back from the descriptor registry.
+3. Declare a third descriptor reusing an existing `agentId` and restart.
+4. Declare a descriptor whose `capabilities.streaming` is true while streaming is disabled for its route, and restart.
+5. Register a handler with no declared descriptor and restart.
+
+Expected outcome:
+
+- Valid descriptors are registered with documented defaults applied and validate against `agent-descriptor-v1.schema.json`.
+- Duplicate `agentId` fails initialization with an error naming the duplicate.
+- Contradictory capability claim fails initialization with an error naming the contradiction.
+- Handler without a descriptor receives a derived minimal descriptor and remains discoverable.
+
+## Scenario 14: Provider Model Listing and Discovery-to-Invocation Round Trip
+
+1. Request the model list with no provider version header and verify the OpenAI list envelope with one entry per discoverable agent.
+2. Request the model list with the Anthropic protocol version header and verify the Anthropic list envelope, display names, and creation timestamps.
+3. Request the Anthropic model list with pagination parameters smaller than the catalogue size and verify continuation indicators.
+4. Request a single model by identifier in each dialect.
+5. Request an unknown model identifier, an unsupported provider version, and out-of-range pagination parameters.
+6. Take each identifier returned by the listing and submit it as the `model` field of a Chat Completions, Responses, and Anthropic Messages request.
+7. Repeat the listing request several times and compare entry order.
+
+Expected outcome:
+
+- Each dialect returns its own envelope and entry shape, selected by the protocol version header.
+- Pagination returns the requested page with correct continuation indicators.
+- Non-native capability attributes appear only inside the documented additive extension section.
+- Every advertised identifier routes to the advertised agent.
+- Invalid requests return structured error envelopes with the expected categories.
+- Entry order is identical across repeated requests.
+
+## Scenario 15: A2A Agent Card and Cross-Surface Consistency
+
+1. Declare one descriptor with skills, capabilities, documentation URL, and security schemes.
+2. Retrieve the agent card from the well-known discovery location.
+3. Retrieve the same agent from the OpenAI and Anthropic single-model endpoints.
+4. Compare, field by field, every attribute shared by two or more surfaces.
+5. Disable the agent card surface and retrieve the well-known location again.
+
+Expected outcome:
+
+- The card reports the same name, description, version, and capability facts as the provider entries.
+- Every declared skill is present in the card skill collection.
+- The card streaming flag matches the runtime streaming configuration.
+- Advertised security schemes match enforced schemes and contain no secret material.
+- Shared attributes are identical across all three surfaces with zero divergences.
+- With the card surface disabled, the well-known location returns a structured not-found error while the model endpoints keep working.
+
+## Scenario 16: Discovery Access Control and Visibility
+
+1. Configure discovery as publicly readable and request the model list without credentials.
+2. Reconfigure discovery to require authentication and repeat the anonymous request.
+3. Repeat with a valid credential.
+4. Register a visibility rule that hides one agent from a specific caller, then list models and request the hidden agent directly as that caller.
+5. Mark an agent as `hidden` in its descriptor, list models, then invoke it directly by identifier.
+
+Expected outcome:
+
+- Public mode returns the listing without credentials.
+- Authenticated mode rejects the anonymous request with a structured authentication error and discloses no agent metadata.
+- The visibility rule filters listing entries, and the forbidden agent returns a response indistinguishable from a non-existent agent.
+- A `hidden` agent is absent from the listing but remains invocable by identifier.
+
+## Scenario 17: Discovery Performance and Parity
+
+1. Register a catalogue of 100 descriptors.
+2. Measure p95 latency of the model listing endpoint and of single-agent lookup.
+3. Declare an equivalent descriptor set in Python, .NET, and Java and diff the three discovery payloads for each surface.
+
+Expected outcome:
+
+- Listing responses remain within the plan budget of 20ms p95 for 100 agents; single lookup is O(1) by identifier.
+- No unapproved cross-language differences in any discovery payload.
+
 ## Implementation Snapshot
 
 - Phase status: Setup, Foundational, US1, US2, US3, US4, US5, US6, US7, and Polish scaffolds are present in repository paths.
 - Validation note: Contract JSON checks, integration/parity inventory checks, and performance baseline presence checks completed in current environment.
 - CI gate note: Performance baseline policy file is enforced by workflow at `.github/workflows/ci.yml`.
+- Discovery amendment (2026-08-16): scenarios 13-17 cover the agent descriptor, provider model listings, the A2A agent card, access control, and discovery performance/parity. These scenarios are not yet implemented; run `/speckit.tasks` to regenerate the task breakdown before implementation.

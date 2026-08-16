@@ -1,20 +1,19 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.1 -> 1.1.0
+- Version change: 1.1.0 -> 1.2.0
 - Modified principles:
   - None
 - Added sections:
-  - Observability and Logging Standards
-  - Domain-Oriented Package Organization
-  - Example-First Adoption Guidance
+  - Language Idiom and Type Safety Standards
 - Removed sections:
   - None
 - Templates requiring updates:
-  - ✅ updated: .specify/templates/plan-template.md
-  - ✅ updated: .specify/templates/spec-template.md
-  - ✅ updated: .specify/templates/tasks-template.md
+  - ✅ updated: .specify/templates/plan-template.md (added Language Idiom Gate)
+  - ✅ checked/no change needed: .specify/templates/spec-template.md
+  - ✅ checked/no change needed: .specify/templates/tasks-template.md
   - ⚠ pending: .specify/templates/commands/*.md (directory not present)
   - ✅ checked/no change needed: .github/copilot-instructions.md
+  - ✅ aligned: .github/instructions/python.instructions.md (applyTo `**/*.py`)
 - Deferred TODOs:
   - None
 -->
@@ -99,6 +98,32 @@ product requirement for multi-client agent integrations.
 - Cross-domain shared utilities MUST remain minimal and MUST NOT hide domain
   boundaries or create circular dependencies.
 
+## Language Idiom and Type Safety Standards
+
+These standards keep the three implementations structurally comparable, which is
+what makes cross-language parity reviewable rather than merely asserted.
+
+- Behavior MUST be organized into cohesive classes or types. Free-standing
+  functions are permitted only for pure, stateless utilities that belong to no
+  type; related helpers MUST NOT be scattered across a module.
+- Structured data MUST be represented by explicit typed constructs, never by
+  untyped maps. Python uses dataclasses, `NamedTuple`, or validated models;
+  .NET uses records or classes; Java uses records or classes. Dictionaries, maps,
+  and hashtables are reserved for genuine key/value collections and for raw wire
+  payloads at the system boundary.
+- Wire payloads MUST be converted into typed objects at the boundary and back to
+  serializable form only on output.
+- A property that accepts a fixed set of text values MUST be modeled as an
+  enumeration (`Enum`/`StrEnum`, `enum`, Java `enum`), not as bare string
+  literals compared across modules.
+- Contracts shared by interchangeable implementations MUST be declared as
+  explicit abstractions (Python `Protocol`, .NET interface, Java interface), with
+  the concrete implementation selected at runtime from the incoming data.
+- All public and internal APIs MUST be fully type-annotated and MUST pass the
+  strict static analysis configuration of their language toolchain.
+- Language-specific elaborations of these rules live in repository instruction
+  files and MUST stay consistent with this section.
+
 ## Example-First Adoption Guidance
 
 - Each new feature implementation MUST include runnable usage examples that show
@@ -121,6 +146,9 @@ product requirement for multi-client agent integrations.
   tasks for the affected feature.
 - Each implementation MUST include evidence of reuse search for impacted areas
   (existing classes/functions reviewed, reuse decision recorded).
+- Each implementation MUST conform to the Language Idiom and Type Safety
+  Standards; reviewers MUST reject untyped data containers and bare string
+  literals used in place of enumerations.
 - Pull requests MUST include evidence of: test-first sequence, CI matrix pass
   across Python/.NET/Java, and performance regression status.
 
@@ -145,4 +173,4 @@ Compliance review expectations:
 - Non-compliance MUST be tracked as a blocking issue or an explicit time-bound
   exception approved by maintainers.
 
-**Version**: 1.1.0 | **Ratified**: 2026-07-31 | **Last Amended**: 2026-08-01
+**Version**: 1.2.0 | **Ratified**: 2026-07-31 | **Last Amended**: 2026-08-16

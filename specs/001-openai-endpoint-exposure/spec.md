@@ -8,6 +8,8 @@
 
 **Input**: User description: "les librairies dotnet/java/python doivent permettrent aux developpeurs d'agents d'exposer leur AI use case dans les deux formats les plus courants qui sont les endpoints openai (chat/completion ou responses) et les endpoints anthropic messages. Les developpeurs doivent pouvoir simplement ajouter ces endpoints en utilisant les methodes standards de configuration de ces framework. je ne veux pas modifier les templates des specifications plan et tasks avec cette demande mais je veux developper cette premiere fonctionnalite. Je veux donc l'ajouter sous forme de premiere specification qui consiste a l'exposition des endpoints compatibles openai et qui permettra aux developpeurs de recuperer les payload pour les traiter comme ils le souhaitent dans leur use case. Il faudrait aussi un format d'echange standard pour qu'ils puissent implementer son use case et fournir le resultat"
 
+**Additional input** (2026-08-16): User description: "dans les specs pour les endpoints compatibles openai/anthropic, j'ai oublie de demander celui qui permet d'exposer la liste des modeles. Par exemple, il faudrait pour openai un endpoint v1/models qui renvoit comme nom de modele le nom de l'agent et d'autres informations qui permettent de connaitre les capacites de l'agent. Pour anthropic je ne sais pas s'il y a une correspondance. Si oui il faudrait alors aussi un endpoint pour recuperer le nom de l'agent et ses capacites. Si les deux providers ont d'autres informations a retourner il faut aussi les mettre. Ces informations doivent etre configurables et comme il faudra aussi exposer le protocole a2a avec la card de l'agent je pense que ce serait bien d'utiliser la meme source pour l'agent card et ce qui sera retourne par le endpoint v1/models et celui d'anthropic"
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Expose OpenAI and Anthropic Compatible Endpoints (Priority: P1)
@@ -117,6 +119,81 @@ As a developer, I receive an authenticated user context from the runtime and I c
 2. **Given** API key mode is configured, **When** a request includes a valid API key, **Then** the runtime invokes the configured user-resolution hook and provides resolved user context to the handler.
 3. **Given** authentication succeeds but authorization fails in developer logic, **When** the handler evaluates access, **Then** the system returns a structured forbidden response without executing protected business logic.
 
+---
+
+### User Story 6 - Declare Agent Identity and Capabilities From a Single Source (Priority: P2)
+
+As an agent developer, I declare the identity, description, and capabilities of each exposed agent one single time in configuration so every discovery surface reports the same facts without me maintaining duplicate metadata.
+
+**Why this priority**: The shared descriptor is the prerequisite for provider-compatible model discovery and for the future A2A agent card. Without one canonical source, each discovery surface would drift and duplicate configuration.
+
+**Independent Test**: Can be tested by declaring one agent descriptor, reading it back through the runtime descriptor registry, and confirming every declared attribute is preserved, defaulted, and validated before any discovery endpoint is exposed.
+
+**Acceptance Scenarios**:
+
+1. **Given** an agent descriptor is declared with identity, description, version, and capability attributes, **When** the runtime initializes, **Then** the descriptor is registered against its route key and is retrievable as a single canonical record.
+2. **Given** two agents are declared with the same public agent identifier, **When** the runtime initializes, **Then** initialization fails with an actionable configuration error naming the duplicated identifier.
+3. **Given** an agent descriptor omits optional capability attributes, **When** the runtime initializes, **Then** documented defaults are applied and the descriptor remains valid.
+4. **Given** a handler is registered with no declared descriptor, **When** the runtime initializes, **Then** a minimal descriptor is derived from the route key so the agent remains discoverable.
+5. **Given** a descriptor claims a capability that contradicts the runtime endpoint configuration, **When** the runtime initializes, **Then** initialization fails with an actionable error identifying the contradiction.
+
+---
+
+### User Story 6b - Discover Agents Through Provider-Compatible Model Endpoints (Priority: P2)
+
+As a client application built against the OpenAI or Anthropic API, I call the provider model listing endpoint and receive each exposed agent as a selectable model entry, so I can populate a model picker and then invoke the agent through the already-supported endpoints without custom integration code.
+
+**Why this priority**: Provider-compatible clients routinely list models before letting a user select a target. Without discovery, the exposed agents are invisible to those clients even though invocation already works.
+
+**Independent Test**: Can be tested by declaring two agents, calling the model listing endpoint in each provider dialect, and confirming both agents appear with identifiers that are accepted verbatim in a subsequent invocation request.
+
+**Acceptance Scenarios**:
+
+1. **Given** two agents are exposed, **When** a client requests the OpenAI-compatible model list, **Then** the response uses the OpenAI list envelope with one model entry per discoverable agent.
+2. **Given** an agent is exposed, **When** a client requests the OpenAI-compatible model list, **Then** the returned model identifier is accepted verbatim as the model field of a subsequent Chat Completions, Responses, or Anthropic Messages request routed to that same agent.
+3. **Given** two agents are exposed, **When** a client requests the model list in Anthropic dialect, **Then** the response uses the Anthropic list envelope with one entry per discoverable agent, each carrying an identifier, a display name, and a creation timestamp.
+4. **Given** the same runtime serves both dialects on the shared model listing path, **When** a request carries the Anthropic protocol version header, **Then** the Anthropic dialect is returned; **and when** it does not, **Then** the OpenAI dialect is returned.
+5. **Given** more agents are exposed than the requested page size, **When** a client requests the Anthropic model list with pagination parameters, **Then** the requested page and correct continuation indicators are returned.
+6. **Given** an agent is exposed, **When** a client requests that single model by identifier in either dialect, **Then** only that agent's entry is returned in the matching dialect shape.
+7. **Given** an unknown model identifier is requested, **When** the client calls the single-model endpoint, **Then** a structured not-found error is returned using the standard error envelope.
+8. **Given** an agent declares capability attributes with no native provider field, **When** the model entry is produced, **Then** those attributes are exposed through a documented additive extension section that provider clients can safely ignore.
+
+---
+
+### User Story 6c - Serve an A2A-Ready Agent Card From the Same Descriptor (Priority: P3)
+
+As an agent consumer using the Agent-to-Agent protocol, I retrieve the agent card from the runtime well-known discovery location and find the same name, description, version, capabilities, and skills that the provider model endpoints report, so discovery is trustworthy regardless of which protocol I speak.
+
+**Why this priority**: The agent card is why the descriptor must stay provider-neutral. Delivering it alongside the model endpoints proves the shared source works for a richer metadata model and prevents the descriptor from being over-fitted to the OpenAI shape.
+
+**Independent Test**: Can be tested by declaring one descriptor with skills and capabilities, retrieving the agent card, and asserting field-by-field equivalence with the provider model entries for every shared attribute.
+
+**Acceptance Scenarios**:
+
+1. **Given** an agent descriptor is declared, **When** a consumer retrieves the agent card from the well-known discovery location, **Then** the card reports the same name, description, version, and capability facts as the provider model entries.
+2. **Given** the descriptor declares skills with names, descriptions, and examples, **When** the agent card is produced, **Then** each declared skill is present in the card skill collection.
+3. **Given** the descriptor declares streaming support, **When** the agent card is produced, **Then** the card streaming capability flag matches the runtime streaming configuration for that agent.
+4. **Given** the descriptor declares the authentication schemes the runtime enforces, **When** the agent card is produced, **Then** the card advertises those schemes without disclosing any secret material.
+5. **Given** the agent card surface is disabled in configuration, **When** a consumer retrieves the well-known discovery location, **Then** a structured not-found error is returned and the provider model endpoints remain unaffected.
+
+---
+
+### User Story 6d - Control Discovery Access and Visibility (Priority: P3)
+
+As a platform owner, I control who can enumerate exposed agents and which agents each caller sees, so discovery does not leak the existence of agents a caller is not entitled to use.
+
+**Why this priority**: Discovery is an information-disclosure surface in a runtime that already authenticates every invocation, but it is a hardening concern rather than the core discovery capability.
+
+**Independent Test**: Can be tested by enabling authentication on discovery, calling the listing anonymously and as an authenticated caller, and confirming the anonymous call is rejected while the authenticated call returns only permitted entries.
+
+**Acceptance Scenarios**:
+
+1. **Given** discovery requires authentication, **When** an unauthenticated caller requests the model list, **Then** a structured authentication error is returned and no agent metadata is disclosed.
+2. **Given** a developer-owned discovery visibility rule is configured, **When** an authenticated caller requests the model list, **Then** only the entries permitted for that caller are returned.
+3. **Given** a caller is not permitted to see a given agent, **When** the caller requests that agent by identifier, **Then** the response is indistinguishable from the response for a non-existent agent.
+4. **Given** an agent is marked hidden from discovery, **When** a client lists models, **Then** the agent is absent from the listing while remaining directly invocable by its identifier.
+5. **Given** discovery is configured as publicly readable, **When** an unauthenticated caller requests the model list, **Then** the listing is returned without requiring credentials.
+
 ### Edge Cases
 
 - What happens when a request targets an unsupported endpoint variant or version?
@@ -132,6 +209,17 @@ As a developer, I receive an authenticated user context from the runtime and I c
 - How does the system behave when a middleware fails before calling the next middleware?
 - How does the system behave when middleware modifies the message into an invalid state for downstream processing?
 - How does the system behave when middleware intentionally short-circuits and returns early?
+- How does the system behave when the shared model listing path receives a request carrying no provider dialect indicator?
+- What happens when a caller requests a model identifier that differs only by letter case or surrounding whitespace from a registered agent identifier?
+- What happens when an agent identifier contains characters that are legal in configuration but ambiguous or unsafe in a request path?
+- How does the system behave when no agent is exposed at all - is an empty listing returned or an error?
+- How does the system behave when pagination parameters are out of range, contradictory, or reference an entry that no longer exists?
+- What happens when a descriptor declares a capability the runtime has no way to verify?
+- What happens when declared skills or metadata make the discovery payload unreasonably large?
+- How does the system behave when discovery is requested while agent registration is still in progress?
+- How does the system behave when a descriptor attribute is meaningful for one discovery surface but has no equivalent in another?
+- How does the system behave when a developer-supplied discovery visibility rule raises an error or times out?
+- What happens when the agent card advertises endpoint locations that differ from where the runtime is actually reachable behind a proxy?
 
 ## Requirements *(mandatory)*
 
@@ -161,6 +249,29 @@ As a developer, I receive an authenticated user context from the runtime and I c
 - **FR-021**: System MUST support middleware execution before handler invocation and after handler completion.
 - **FR-022**: System MUST support deterministic middleware ordering and documented short-circuit behavior.
 - **FR-023**: System MUST provide structured error handling for middleware failures using the same error envelope model.
+- **FR-024**: System MUST provide a single provider-neutral agent descriptor as the sole source of truth for all agent identity and capability metadata exposed by any discovery surface.
+- **FR-025**: System MUST allow developers to declare, for each exposed agent, at minimum a public agent identifier, a display name, a description, a version, an owner or provider label, and a creation timestamp.
+- **FR-026**: System MUST allow developers to declare agent capability attributes covering at least streaming support, supported input modalities, supported output modalities, tool or function invocation support, structured output support, maximum accepted input size, and maximum produced output size. Size attributes MUST carry an explicit unit selected from tokens, characters, or bytes, defaulting to tokens, and the unit MUST be reported on every discovery surface that exposes a size value.
+- **FR-027**: System MUST allow developers to declare zero or more named agent skills, each with an identifier, a name, a description, optional tags, and optional usage examples, plus arbitrary additional descriptor metadata carried through to discovery surfaces without runtime interpretation.
+- **FR-028**: System MUST apply documented defaults for every optional descriptor attribute, MUST derive a minimal valid descriptor for any registered agent that has no declared descriptor, MUST bind each descriptor to exactly one route key, and MUST reject duplicate public agent identifiers at initialization.
+- **FR-029**: System MUST expose an OpenAI-compatible model listing endpoint returning one model entry per discoverable agent, and an OpenAI-compatible single-model retrieval endpoint, with entry fields populated from descriptor attributes. Both endpoints MUST be served from the normative paths declared in the endpoint surface contract.
+- **FR-030**: System MUST expose an Anthropic-compatible model listing endpoint using the Anthropic list envelope with its pagination parameters and continuation indicators, and an Anthropic-compatible single-model retrieval endpoint, with entry fields populated from descriptor attributes. Both endpoints MUST be served from the normative paths declared in the endpoint surface contract.
+- **FR-031**: System MUST deterministically select the provider dialect when both providers publish discovery on the same path, using the Anthropic protocol version header as the dialect indicator, defaulting to the OpenAI dialect when absent, and MUST allow this selection to be overridden through configuration.
+- **FR-032**: System MUST guarantee that every agent identifier returned by any discovery listing is accepted verbatim as the model field of a supported invocation request and routes to the advertised agent. Identifier matching MUST be exact and case-sensitive, and an identifier differing only by letter case or by surrounding whitespace MUST NOT resolve.
+- **FR-033**: System MUST expose descriptor capability attributes that have no native provider field through a documented additive extension section that does not break provider-compatible client parsing.
+- **FR-034**: System MUST expose an A2A agent card projected from the same descriptor that feeds the provider model endpoints, served from the protocol well-known discovery location declared in the endpoint surface contract, populated with identity, description, version, provider, documentation reference, capability flags, default input and output modalities, and the skill collection. Endpoint locations advertised in the card MUST be derived from a configurable externally reachable base URL so the card stays correct behind a reverse proxy.
+- **FR-035**: System MUST advertise, in the agent card, the authentication schemes the runtime actually enforces for that agent, without disclosing any credential or secret material.
+- **FR-036**: System MUST guarantee that, for every attribute shared by two or more discovery surfaces, all surfaces report the same value derived from the descriptor.
+- **FR-037**: System MUST validate at initialization that declared capability claims do not contradict the runtime endpoint configuration and that every descriptor resolves to a registered handler route key, failing fast with actionable errors.
+- **FR-038**: System MUST allow each discovery surface to be enabled or disabled independently through configuration and MUST return a structured not-found response for disabled surfaces.
+- **FR-039**: System MUST allow an agent to be marked as hidden from discovery listings while remaining directly invocable by its identifier.
+- **FR-040**: System MUST allow discovery endpoints to be configured as publicly readable or as requiring authentication, reusing the runtime authentication layer, and MUST provide a developer-owned extension point that filters which entries a given authenticated caller may see.
+- **FR-041**: System MUST return, for an agent the caller is not permitted to see, a response indistinguishable from the response for a non-existent agent.
+- **FR-042**: System MUST return structured errors using the existing error envelope model for unknown identifiers, unsupported provider versions, invalid pagination parameters, authentication failures, and disabled discovery surfaces.
+- **FR-043**: System MUST order discovery listings by ascending public agent identifier using case-sensitive code-point comparison, so repeated requests return entries in a stable order and the order is identical across Python, .NET, and Java.
+- **FR-044**: System MUST support descriptor and discovery configuration through framework-standard configuration mechanisms for Python, .NET, and Java, and MUST produce functionally equivalent discovery output across the three implementations.
+- **FR-045**: System MUST fail closed when a developer-supplied discovery visibility rule raises an error or exceeds its configured evaluation deadline: the affected agent MUST be treated as not visible to that caller, the failure MUST be logged with the agent identifier and failure cause, and no listing MUST be served from an unevaluated catalogue.
+- **FR-046**: System MUST return a successful empty listing in the requested dialect envelope when no discoverable agent is exposed, and MUST NOT return an error for an empty catalogue.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -176,6 +287,13 @@ As a developer, I receive an authenticated user context from the runtime and I c
 - **Library Namespace Identity**: Cross-language namespace root identifier fixed to `ygo74` for package and API surface consistency.
 - **Middleware Registration**: Ordered registration metadata linking middleware components to a processing pipeline.
 - **Message Pipeline Context**: Mutable per-request context containing standardized request/response data and middleware state.
+- **Agent Descriptor**: Canonical provider-neutral record describing one exposed agent - identity, display name, description, version, owner, creation timestamp, capability set, skills, documentation reference, discovery visibility, bound route key, and free-form additional metadata. Single source consumed by every discovery projection.
+- **Agent Capability Set**: Declared behavioral characteristics of an agent - streaming support, input and output modalities, tool invocation support, structured output support, and size limits - used for discovery output and for consistency validation against runtime configuration.
+- **Agent Skill**: Named, described unit of agent competence with optional tags and usage examples, surfaced through the agent card and through provider extension sections.
+- **Descriptor Registry**: Initialization-time collection of all agent descriptors, responsible for uniqueness enforcement, default application, route-key binding, and stable ordering.
+- **Discovery Projection**: Dialect-specific read-only view rendering an agent descriptor into a target wire shape. Three projections are in scope: OpenAI model entry, Anthropic model entry, and A2A agent card.
+- **Discovery Configuration**: Settings controlling which discovery surfaces are exposed, their access requirements, the provider dialect selection rule, and pagination defaults and limits.
+- **Discovery Visibility Rule**: Developer-supplied extension point deciding, per authenticated caller, which descriptors are visible in listings and retrievable individually.
 
 ## Success Criteria *(mandatory)*
 
@@ -194,6 +312,12 @@ As a developer, I receive an authenticated user context from the runtime and I c
 - **SC-011**: Middleware chain tests confirm deterministic invocation order, next-callback chaining, and pre/post handler interception behavior.
 - **SC-012**: Middleware short-circuit tests confirm handler bypass behavior and structured responses.
 - **SC-013**: Middleware error tests confirm failures are mapped to structured error envelopes consistently across language implementations.
+- **SC-014**: For every declared agent, every attribute shared by two or more discovery surfaces reports an identical value across all surfaces, verified by an automated cross-surface consistency test with zero tolerated divergences.
+- **SC-015**: 100% of agent identifiers returned by any discovery listing are accepted verbatim as invocation targets and route to the advertised agent, verified by an automated round-trip test.
+- **SC-016**: 100% of descriptor declarations whose capability claims contradict the runtime configuration are rejected at initialization with an error message naming the contradicting attribute.
+- **SC-017**: A developer can declare an agent identity and capabilities and see them correctly reflected on all three discovery surfaces in under 15 minutes using only project documentation and a single configuration block.
+- **SC-018**: 100% of discovery requests from unauthenticated or unauthorized callers, when authentication is required, return a structured error and disclose no agent metadata, and 100% of agents marked hidden are absent from every listing while remaining invocable.
+- **SC-019**: Repeated identical discovery listing requests return entries in an identical order in 100% of test runs, and discovery parity tests show no unapproved differences across Python, .NET, and Java for equivalent descriptor declarations.
 
 ## Assumptions
 
@@ -202,4 +326,10 @@ As a developer, I receive an authenticated user context from the runtime and I c
 - The runtime provides shared authentication capabilities and user-context projection, while authorization remains developer-owned.
 - Developers integrate one use case at a time initially, with multiple use case exposure handled through the same contract model.
 - Standard exchange format versioning starts at v1 and will evolve with backward compatibility rules defined in future specifications.
+- One runtime instance may expose several agents. Each registered dispatch route key corresponds to one discoverable agent, so model listings return one entry per exposed agent rather than a single fixed entry.
+- The agent name declared by the developer is what clients see as the model identifier, because model identity is the only vocabulary OpenAI-compatible and Anthropic-compatible clients understand.
+- Anthropic does publish a model listing API with a list envelope, per-entry display names, and cursor-style pagination, so a genuine correspondence with the OpenAI model listing exists and both are in scope.
+- Because both providers publish model listings on the same conventional path, a single route serves both dialects and the Anthropic protocol version header acts as the dialect selector, with a configuration override available for hosts that prefer separate base paths.
+- Discovery scope in this feature covers the shared descriptor plus three read-only projections. Executing the A2A task protocol (task submission, state transitions, push notifications) is out of scope and is expected to be specified as a separate feature consuming the same descriptor.
+- Descriptors are declared at configuration time and treated as stable for the process lifetime; dynamic runtime mutation of descriptors is out of scope for this version.
 - Existing repository conventions for SOLID, DRY, and reuse-first search remain mandatory for implementation work.

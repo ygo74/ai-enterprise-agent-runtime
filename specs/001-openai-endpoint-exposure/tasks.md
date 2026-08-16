@@ -8,10 +8,14 @@
 
 **Organization**: Tasks are grouped by user story so each story is independently implementable and testable.
 
+**Revision**: 2026-08-16 amendment adds the agent capability discovery phases (Phase 11-16,
+tasks T113-T188) covering FR-024..FR-046 and SC-014..SC-019. Phases 1-10 were delivered
+before this amendment and are retained as completed history.
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no unresolved dependencies)
-- **[Story]**: User story label (`[US1]`..`[US7]`) mapped to spec stories below
+- **[Story]**: User story label (`[US1]`..`[US11]`) mapped to spec stories below
 
 ## Story Traceability Mapping (Spec -> Tasks)
 
@@ -22,6 +26,10 @@
 - **US5** -> Spec User Story 4 (Decoupled Dispatch Pipeline)
 - **US6** -> Spec User Story 4b (Middleware Chain)
 - **US7** -> Spec User Story 5 (Authentication Context and Developer-Owned Authorization)
+- **US8** -> Spec User Story 6 (Declare Agent Identity and Capabilities From a Single Source)
+- **US9** -> Spec User Story 6b (Discover Agents Through Provider-Compatible Model Endpoints)
+- **US10** -> Spec User Story 6c (Serve an A2A-Ready Agent Card From the Same Descriptor)
+- **US11** -> Spec User Story 6d (Control Discovery Access and Visibility)
 
 ## Phase 1: Setup (Shared Infrastructure)
 
@@ -272,6 +280,164 @@
 
 ---
 
+## Phase 11: Foundational for Discovery (Blocking Prerequisites)
+
+**Purpose**: Build the shared agent descriptor contract, model, registry, and error surface required by every discovery story.
+
+**CRITICAL**: No discovery user story work starts before this phase is complete.
+
+- [X] T113 Add agent descriptor contract schema in specs/001-openai-endpoint-exposure/contracts/agent-descriptor-v1.schema.json
+- [ ] T114 Add agent descriptor schema conformance contract tests in tests/contract/test_agent_descriptor_schema.py
+- [ ] T115 Implement Python agent descriptor, capability set, and skill models in packages/python/ygo74/agent_runtime/domains/discovery/agent_descriptor.py
+- [ ] T116 [P] Implement .NET agent descriptor, capability set, and skill models in packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/AgentDescriptor.cs
+- [ ] T117 [P] Implement Java agent descriptor, capability set, and skill models in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/AgentDescriptor.java
+- [ ] T118 Implement Python descriptor registry with uniqueness and deterministic ordering in packages/python/ygo74/agent_runtime/domains/discovery/descriptor_registry.py
+- [ ] T119 [P] Implement .NET descriptor registry with uniqueness and deterministic ordering in packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DescriptorRegistry.cs
+- [ ] T120 [P] Implement Java descriptor registry with uniqueness and deterministic ordering in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DescriptorRegistry.java
+- [ ] T121 Implement discovery error codes reusing the existing error envelope in packages/python/ygo74/agent_runtime/domains/discovery/discovery_errors.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DiscoveryErrors.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryErrors.java
+- [ ] T122 Export discovery domain entry points in packages/python/ygo74/agent_runtime/\_\_init\_\_.py, packages/dotnet/Ygo74.AgentRuntime/PublicApi.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/PublicApi.java
+
+**Checkpoint**: Descriptor contract and registry exist; discovery stories can start.
+
+---
+
+## Phase 12: User Story 8 - Agent Descriptor Single Source of Truth (Priority: P2)
+
+**Goal**: Developers declare agent identity and capabilities once, validated at initialization, bound to a route key.
+
+**Independent Test**: Declare descriptors, read them back from the registry, and confirm defaulting, uniqueness enforcement, route binding, and capability-contradiction rejection - all before any discovery endpoint exists.
+
+### Tests for User Story 8
+
+- [ ] T123 [P] [US8] Add descriptor registration and validation contract tests in tests/contract/test_descriptor_registration_rules.json
+- [ ] T124 [P] [US8] Add Python descriptor registry tests in tests/integration/python/test_agent_descriptor_registry.py
+- [ ] T125 [P] [US8] Add .NET descriptor registry tests in tests/integration/dotnet/AgentDescriptorRegistryTests.cs
+- [ ] T126 [P] [US8] Add Java descriptor registry tests in tests/integration/java/AgentDescriptorRegistryTest.java
+- [ ] T127 [P] [US8] Add duplicate identifier, unresolved route key, and capability contradiction fail-fast tests in tests/integration/python/test_descriptor_validation.py, tests/integration/dotnet/DescriptorValidationTests.cs, and tests/integration/java/DescriptorValidationTest.java
+- [ ] T128 [P] [US8] Add derived minimal descriptor tests for handlers registered without a descriptor in tests/integration/python/test_descriptor_defaults.py, tests/integration/dotnet/DescriptorDefaultsTests.cs, and tests/integration/java/DescriptorDefaultsTest.java
+
+### Implementation for User Story 8
+
+- [ ] T129 [US8] Implement Python descriptor defaulting and minimal derived descriptor in packages/python/ygo74/agent_runtime/domains/discovery/descriptor_defaults.py
+- [ ] T130 [P] [US8] Implement .NET descriptor defaulting and minimal derived descriptor in packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DescriptorDefaults.cs
+- [ ] T131 [P] [US8] Implement Java descriptor defaulting and minimal derived descriptor in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DescriptorDefaults.java
+- [ ] T132 [US8] Implement capability-versus-configuration consistency validator in packages/python/ygo74/agent_runtime/domains/discovery/capability_validator.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/CapabilityValidator.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/CapabilityValidator.java
+- [ ] T133 [US8] Implement descriptor-to-route-key binding validation against the existing route registry in packages/python/ygo74/agent_runtime/domains/discovery/descriptor_binding.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DescriptorBinding.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DescriptorBinding.java
+- [ ] T134 [US8] Extend framework-native configuration binding with descriptor declaration in packages/python/ygo74/agent_runtime/domains/configuration/models.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Configuration/EndpointOptions.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/configuration/EndpointProperties.java
+- [ ] T135 [US8] Document descriptor declaration in docs/examples/python-langchain-fastapi/agent-descriptor.md, docs/examples/dotnet-agentframework/agent-descriptor.md, and docs/examples/java-springai-springboot/agent-descriptor.md
+
+**Checkpoint**: A validated single source of truth exists for every exposed agent.
+
+---
+
+## Phase 13: User Story 9 - Provider-Compatible Model Discovery Endpoints (Priority: P2)
+
+**Goal**: Expose OpenAI and Anthropic model listing and single-model retrieval, projected from the descriptor, with dialect selection and pagination.
+
+**Independent Test**: List models in both dialects, retrieve single entries, paginate the Anthropic listing, and submit each advertised identifier as an invocation model value.
+
+### Tests for User Story 9
+
+- [ ] T136 [P] [US9] Add discovery surface contract tests in tests/contract/test_discovery_surface_contract.json
+- [ ] T137 [P] [US9] Add Python model discovery endpoint tests in tests/integration/python/test_model_discovery_endpoints.py
+- [ ] T138 [P] [US9] Add .NET model discovery endpoint tests in tests/integration/dotnet/ModelDiscoveryEndpointsTests.cs
+- [ ] T139 [P] [US9] Add Java model discovery endpoint tests in tests/integration/java/ModelDiscoveryEndpointsTest.java
+- [ ] T140 [P] [US9] Add dialect selection tests for header present, header absent, and configuration override in tests/integration/python/test_discovery_dialect_selection.py, tests/integration/dotnet/DiscoveryDialectSelectionTests.cs, and tests/integration/java/DiscoveryDialectSelectionTest.java
+- [ ] T141 [P] [US9] Add Anthropic pagination and continuation indicator tests in tests/integration/python/test_discovery_pagination.py, tests/integration/dotnet/DiscoveryPaginationTests.cs, and tests/integration/java/DiscoveryPaginationTest.java
+- [ ] T142 [P] [US9] Add discovery-to-invocation round-trip tests asserting every advertised identifier routes to its agent in tests/integration/python/test_discovery_round_trip.py, tests/integration/dotnet/DiscoveryRoundTripTests.cs, and tests/integration/java/DiscoveryRoundTripTest.java
+- [ ] T143 [P] [US9] Add discovery error tests for unknown identifier, unsupported provider version, and invalid pagination in tests/integration/python/test_discovery_errors.py, tests/integration/dotnet/DiscoveryErrorsTests.cs, and tests/integration/java/DiscoveryErrorsTest.java
+- [ ] T185 [P] [US9] Add identifier matching tests rejecting case-variant and whitespace-padded identifiers, and empty-catalogue tests asserting a successful empty listing per dialect, in tests/integration/python/test_discovery_identifier_matching.py, tests/integration/dotnet/DiscoveryIdentifierMatchingTests.cs, and tests/integration/java/DiscoveryIdentifierMatchingTest.java
+
+### Implementation for User Story 9
+
+- [ ] T144 [US9] Implement Python OpenAI model projection in packages/python/ygo74/agent_runtime/domains/discovery/openai_model_projection.py
+- [ ] T145 [P] [US9] Implement .NET OpenAI model projection in packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/OpenAiModelProjection.cs
+- [ ] T146 [P] [US9] Implement Java OpenAI model projection in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/OpenAiModelProjection.java
+- [ ] T147 [US9] Implement Python Anthropic model projection with list envelope in packages/python/ygo74/agent_runtime/domains/discovery/anthropic_model_projection.py
+- [ ] T148 [P] [US9] Implement .NET Anthropic model projection with list envelope in packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/AnthropicModelProjection.cs
+- [ ] T149 [P] [US9] Implement Java Anthropic model projection with list envelope in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/AnthropicModelProjection.java
+- [ ] T150 [US9] Implement provider dialect selector with header detection and configuration override in packages/python/ygo74/agent_runtime/domains/discovery/dialect_selector.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DialectSelector.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DialectSelector.java
+- [ ] T151 [US9] Implement Anthropic-style pagination with page size limits in packages/python/ygo74/agent_runtime/domains/discovery/pagination.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DiscoveryPagination.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryPagination.java
+- [ ] T152 [US9] Implement additive capability extension section shared by both provider projections in packages/python/ygo74/agent_runtime/domains/discovery/capability_extensions.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/CapabilityExtensions.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/CapabilityExtensions.java
+- [ ] T153 [US9] Register model listing and single-model routes in packages/python/ygo74/agent_runtime/domains/endpoints/fastapi_endpoints.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Endpoints/EndpointAdapters.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/endpoints/EndpointAdapters.java
+- [ ] T154 [US9] Implement discovery surface enable/disable toggles returning structured not-found in packages/python/ygo74/agent_runtime/domains/discovery/discovery_configuration.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DiscoveryConfiguration.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryConfiguration.java
+- [ ] T186 [US9] Implement exact case-sensitive identifier matching, empty-catalogue success responses, and the externally reachable base URL setting in packages/python/ygo74/agent_runtime/domains/discovery/discovery_configuration.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DiscoveryConfiguration.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryConfiguration.java
+
+**Checkpoint**: Provider-compatible clients can discover and then invoke every exposed agent.
+
+---
+
+## Phase 14: User Story 10 - A2A Agent Card From the Same Descriptor (Priority: P3)
+
+**Goal**: Serve an A2A agent card projected from the descriptor and prove cross-surface consistency.
+
+**Independent Test**: Retrieve the agent card and assert field-by-field equivalence with the provider model entries for every shared attribute.
+
+### Tests for User Story 10
+
+- [ ] T155 [P] [US10] Add agent card contract tests in tests/contract/test_agent_card_contract.json
+- [ ] T156 [P] [US10] Add Python agent card tests in tests/integration/python/test_agent_card.py
+- [ ] T157 [P] [US10] Add .NET agent card tests in tests/integration/dotnet/AgentCardTests.cs
+- [ ] T158 [P] [US10] Add Java agent card tests in tests/integration/java/AgentCardTest.java
+- [ ] T159 [P] [US10] Add cross-surface consistency tests asserting shared attributes are identical across all three projections in tests/parity/test_discovery_surface_consistency.py
+- [ ] T160 [P] [US10] Add disabled agent card surface tests confirming provider model endpoints are unaffected in tests/integration/python/test_agent_card_disabled.py, tests/integration/dotnet/AgentCardDisabledTests.cs, and tests/integration/java/AgentCardDisabledTest.java
+
+### Implementation for User Story 10
+
+- [ ] T161 [US10] Implement Python agent card projection in packages/python/ygo74/agent_runtime/domains/discovery/agent_card_projection.py
+- [ ] T162 [P] [US10] Implement .NET agent card projection in packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/AgentCardProjection.cs
+- [ ] T163 [P] [US10] Implement Java agent card projection in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/AgentCardProjection.java
+- [ ] T164 [US10] Implement security scheme advertisement without secret material in packages/python/ygo74/agent_runtime/domains/discovery/security_scheme_projection.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/SecuritySchemeProjection.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/SecuritySchemeProjection.java
+- [ ] T165 [US10] Register the well-known agent card route in packages/python/ygo74/agent_runtime/domains/endpoints/fastapi_endpoints.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Endpoints/EndpointAdapters.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/endpoints/EndpointAdapters.java
+- [ ] T166 [US10] Document the agent card surface in docs/examples/python-langchain-fastapi/agent-card.md, docs/examples/dotnet-agentframework/agent-card.md, and docs/examples/java-springai-springboot/agent-card.md
+
+**Checkpoint**: All three discovery surfaces are served from one descriptor with proven consistency.
+
+---
+
+## Phase 15: User Story 11 - Discovery Access Control and Visibility (Priority: P3)
+
+**Goal**: Reuse the authentication layer for discovery and let developers filter which agents each caller sees.
+
+**Independent Test**: Call the listing anonymously and authenticated, apply a visibility rule, and confirm hidden and forbidden agents behave as specified.
+
+### Tests for User Story 11
+
+- [ ] T167 [P] [US11] Add discovery authentication tests for public and authenticated modes in tests/integration/python/test_discovery_auth.py, tests/integration/dotnet/DiscoveryAuthTests.cs, and tests/integration/java/DiscoveryAuthTest.java
+- [ ] T168 [P] [US11] Add visibility rule filtering tests in tests/integration/python/test_discovery_visibility.py, tests/integration/dotnet/DiscoveryVisibilityTests.cs, and tests/integration/java/DiscoveryVisibilityTest.java
+- [ ] T169 [P] [US11] Add hidden agent tests confirming absence from listings and continued invocability in tests/integration/python/test_discovery_hidden_agents.py, tests/integration/dotnet/DiscoveryHiddenAgentsTests.cs, and tests/integration/java/DiscoveryHiddenAgentsTest.java
+- [ ] T170 [P] [US11] Add indistinguishability tests confirming forbidden and non-existent agents return identical responses in tests/integration/python/test_discovery_indistinguishability.py, tests/integration/dotnet/DiscoveryIndistinguishabilityTests.cs, and tests/integration/java/DiscoveryIndistinguishabilityTest.java
+- [ ] T187 [P] [US11] Add fail-closed tests for a visibility rule that raises and for a visibility rule that exceeds its evaluation deadline in tests/integration/python/test_discovery_visibility_failure.py, tests/integration/dotnet/DiscoveryVisibilityFailureTests.cs, and tests/integration/java/DiscoveryVisibilityFailureTest.java
+
+### Implementation for User Story 11
+
+- [ ] T171 [US11] Wire discovery endpoints to the existing request authenticator in packages/python/ygo74/agent_runtime/domains/endpoints/fastapi_endpoints.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Endpoints/EndpointAdapters.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/endpoints/EndpointAdapters.java
+- [ ] T172 [US11] Implement the developer-owned visibility rule extension point in packages/python/ygo74/agent_runtime/domains/discovery/visibility_rule.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/IDiscoveryVisibilityRule.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryVisibilityRule.java
+- [ ] T188 [US11] Implement fail-closed visibility rule evaluation with a configurable deadline and structured failure logging in packages/python/ygo74/agent_runtime/domains/discovery/visibility_rule.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DiscoveryVisibilityEvaluator.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryVisibilityEvaluator.java
+- [ ] T173 [US11] Enforce hidden visibility and visibility-rule filtering in the registry listing path in packages/python/ygo74/agent_runtime/domains/discovery/descriptor_registry.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DescriptorRegistry.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DescriptorRegistry.java
+- [ ] T174 [US11] Normalize denied retrieval to the not-found response shape in packages/python/ygo74/agent_runtime/domains/discovery/discovery_errors.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DiscoveryErrors.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryErrors.java
+- [ ] T175 [US11] Document discovery access control and the visibility rule in docs/examples/python-langchain-fastapi/authorization.md, docs/examples/dotnet-agentframework/authorization.md, and docs/examples/java-springai-springboot/authorization.md
+
+**Checkpoint**: Discovery no longer leaks the agent inventory and honors developer-owned visibility.
+
+---
+
+## Phase 16: Discovery Polish and Cross-Cutting Concerns
+
+**Purpose**: Performance, parity, observability, examples, and quickstart validation for the discovery surfaces.
+
+- [ ] T176 [P] Add discovery performance budget tests for listing p95 at 100 agents and O(1) lookup in tests/performance/python/test_discovery_budget.py, tests/performance/dotnet/DiscoveryBudgetTests.cs, and tests/performance/java/DiscoveryBudgetTest.java
+- [ ] T177 [P] Add discovery performance thresholds to tests/performance/baselines/performance_thresholds.json
+- [ ] T178 [P] Add cross-language discovery parity tests in tests/parity/test_discovery_parity.py
+- [ ] T179 [P] Add deterministic listing order tests across repeated requests in tests/parity/test_discovery_ordering.py
+- [ ] T180 [P] Validate discovery structured logging emits request identifier and outcome without leaking credentials in tests/integration/python/test_discovery_observability.py, tests/integration/dotnet/DiscoveryObservabilityTests.cs, and tests/integration/java/DiscoveryObservabilityTest.java
+- [ ] T181 [P] Update runnable examples to declare a descriptor and expose all three discovery surfaces in docs/examples/python-langchain-fastapi/, docs/examples/dotnet-agentframework/, and docs/examples/java-springai-springboot/
+- [ ] T182 Run full contract, integration, parity, and performance suites in tests/
+- [ ] T183 Execute quickstart discovery scenarios 13-17 in specs/001-openai-endpoint-exposure/quickstart.md
+- [ ] T184 Update the implementation snapshot for discovery in specs/001-openai-endpoint-exposure/quickstart.md
+
+---
+
 ## Dependencies and Execution Order
 
 ### Phase Dependencies
@@ -280,6 +446,9 @@
 - Foundational (Phase 2): depends on Setup and blocks all user stories.
 - User Stories (Phases 3-9): depend on Foundational.
 - Polish (Phase 10): depends on completed target user stories.
+- Discovery Foundational (Phase 11): depends on Phase 2 contracts and on US5 route registry; blocks all discovery stories.
+- Discovery Stories (Phases 12-15): depend on Phase 11.
+- Discovery Polish (Phase 16): depends on completed discovery stories.
 
 ### User Story Dependencies
 
@@ -290,6 +459,10 @@
 - **US5** (Routing/dispatch): starts after Foundational; depends on US4 handler contracts.
 - **US6** (Middleware chain): starts after Foundational; depends on US5 dispatcher core.
 - **US7** (Auth context + authz): starts after Foundational; integrates with US5/US6 pipeline.
+- **US8** (Agent descriptor source of truth): starts after Phase 11; depends on US3 configuration binding and US5 route registry for validation.
+- **US9** (Provider model discovery): depends on US8 descriptors and on US1 endpoint registration; the round-trip guarantee also depends on US5 routing.
+- **US10** (A2A agent card): depends on US8 descriptors; consistency tests additionally depend on US9 projections.
+- **US11** (Discovery access control): depends on US9 and US10 surfaces existing, and on US7 authentication.
 
 ### Within Each User Story
 
@@ -305,6 +478,11 @@
 - Foundational language-specific tasks marked [P] can run in parallel.
 - For each story, Python/.NET/Java implementation tasks marked [P] can run in parallel.
 - Contract, integration, and parity tests marked [P] can run in parallel per story.
+- Discovery Foundational language tasks T116/T117, T119/T120 can run in parallel after their Python counterparts.
+- US9 OpenAI and Anthropic projections are independent files and can be built in parallel per language.
+- US10 agent card projection can be built in parallel with US9 provider projections once US8 is complete; only the cross-surface consistency test T159 needs both.
+- Serialization point: T153, T165, and T171 all edit the same three endpoint adapter files. They MUST NOT run concurrently even when their stories otherwise proceed in parallel.
+- Serialization point: T154 and T186 both edit the discovery configuration files, and T172 and T188 both edit the visibility rule files. Run each pair sequentially.
 
 ---
 
@@ -352,6 +530,29 @@
   - T088, T089, T090, T091
   - T093, T094, T096, T097
 
+### US8
+
+- Run in parallel:
+  - T123, T124, T125, T126, T127, T128
+  - T130, T131
+
+### US9
+
+- Run in parallel:
+  - T136, T137, T138, T139, T140, T141, T142, T143, T185
+  - T145, T146, T148, T149
+
+### US10
+
+- Run in parallel:
+  - T155, T156, T157, T158, T160
+  - T162, T163
+
+### US11
+
+- Run in parallel:
+  - T167, T168, T169, T170, T187
+
 ---
 
 ## Implementation Strategy
@@ -368,6 +569,15 @@
 2. Add US4 and US5 for robust handler and routing architecture.
 3. Add US6 middleware chain and US7 auth context/authorization pattern.
 4. Finish with Phase 10 quality and readiness checks.
+
+### Discovery Increment (Phases 11-16)
+
+1. Complete Phase 11 to establish the descriptor contract, model, and registry.
+2. Deliver US8 as the discovery MVP: a validated single source of truth, testable with no endpoint exposed.
+3. Add US9 to make agents visible and selectable by provider-compatible clients. This is the increment that delivers the requested `/v1/models` behavior end to end.
+4. Add US10 to prove the shared source works for the richer A2A card and to lock cross-surface consistency.
+5. Add US11 to close the information-disclosure surface.
+6. Finish with Phase 16 performance, parity, observability, and quickstart validation.
 
 ### Multi-Developer Strategy
 
