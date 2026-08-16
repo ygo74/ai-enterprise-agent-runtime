@@ -1,17 +1,18 @@
 import jwt
 
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
+    JwtAuthenticator,
     JwtValidationConfig,
     StaticSymmetricKeyResolver,
-    authenticate_jwt,
 )
 
 
 def test_jwt_auth_context() -> None:
     token = jwt.encode({"sub": "user-1"}, "secret-1", algorithm="HS256")
-    config = JwtValidationConfig(key_resolver=StaticSymmetricKeyResolver("secret-1"))
+    authenticator = JwtAuthenticator(JwtValidationConfig(key_resolver=StaticSymmetricKeyResolver("secret-1")))
 
-    ctx = authenticate_jwt(token, config)
+    ctx = authenticator.authenticate_token(token)
 
-    assert ctx["authType"] == "jwt"
-    assert ctx["identity"]["userId"] == "user-1"
+    assert ctx.auth_type == "jwt"
+    assert ctx.user_id == "user-1"
+    assert ctx.to_dict()["identity"]["userId"] == "user-1"

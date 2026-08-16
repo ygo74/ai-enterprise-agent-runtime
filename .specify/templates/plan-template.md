@@ -57,6 +57,10 @@
   reconfiguration strategy (levels/sinks), and OpenTelemetry redirection path.
 - **Domain Organization Gate**: Define domain-oriented namespace/package/module
   structure and discovery strategy for public APIs.
+- **Language Idiom Gate**: Confirm behavior is organized into cohesive types,
+  structured data uses explicit typed constructs rather than untyped maps, fixed
+  text value sets are modeled as enumerations, shared contracts are declared as
+  explicit abstractions, and strict static analysis passes in each language.
 - **Adoption Examples Gate**: Define runnable usage examples to ship with the
   feature and note framework defaults (.NET: Microsoft Agent Framework, Python:
   LangChain + FastAPI, Java: Spring AI + Spring Boot unless approved alternative).

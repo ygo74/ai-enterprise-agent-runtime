@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Protocol, cast
+from typing import Any, Mapping, Protocol
 
 import jwt
 from jwt import (
@@ -17,7 +17,9 @@ from jwt import (
 )
 from jwt.exceptions import PyJWKClientError
 
+from ygo74.agent_runtime.domains.auth.auth_context import AuthenticatedUserContext
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
+from ygo74.agent_runtime.domains.auth.claims_projection import ClaimsProjector
 
 
 class JwtKeyResolver(Protocol):
@@ -95,182 +97,152 @@ class JwtValidationConfig:
     groups_claim_path: str | None = None
 
 
-def authenticate_authorization_header(
-    authorization_header: str | None,
-    config: JwtValidationConfig,
-) -> dict[str, Any]:
-    if authorization_header is None:
-        raise AuthenticationError(
+class JwtAuthenticator:
+    """Authenticates callers presenting a Bearer JWT in the Authorization header."""
+
+    HEADER_NAME = "authorization"
+    SCHEME = "bearer"
+
+    def __init__(self, config: JwtValidationConfig | None = None) -> None:
+        self._config = config or JwtValidationConfig()
+        self._projector = ClaimsProjector(
+            roles_claim_path=self._config.roles_claim_path,
+            groups_claim_path=self._config.groups_claim_path,
+        )
+
+    @property
+    def auth_type(self) -> str:
+        return "jwt"
+
+    @property
+    def config(self) -> JwtValidationConfig:
+        return self._config
+
+    def can_authenticate(self, headers: Mapping[str, Any]) -> bool:
+        return headers.get(self.HEADER_NAME) is not None
+
+    def missing_credential_error(self) -> AuthenticationError:
+        return AuthenticationError(
             code="authorization_header_missing",
             message="Missing Authorization header",
         )
 
-    scheme, _, credentials = authorization_header.partition(" ")
-    if not scheme:
-        raise AuthenticationError(
-            code="malformed_authorization_header",
-            message="Malformed Authorization header",
+    def authenticate(self, headers: Mapping[str, Any]) -> AuthenticatedUserContext:
+        return self.authenticate_header(headers.get(self.HEADER_NAME))
+
+    def authenticate_header(self, authorization_header: str | None) -> AuthenticatedUserContext:
+        if authorization_header is None:
+            raise self.missing_credential_error()
+
+        scheme, _, credentials = authorization_header.partition(" ")
+        if not scheme:
+            raise AuthenticationError(
+                code="malformed_authorization_header",
+                message="Malformed Authorization header",
+            )
+
+        if scheme.lower() != self.SCHEME:
+            raise AuthenticationError(
+                code="authorization_scheme_invalid",
+                message="Authorization scheme must be Bearer",
+                details={"scheme": scheme},
+            )
+
+        token = credentials.strip()
+        if not token:
+            raise AuthenticationError(code="token_missing", message="Bearer token is missing")
+
+        return self.authenticate_token(token)
+
+    def authenticate_token(self, token: str) -> AuthenticatedUserContext:
+        if not token:
+            raise AuthenticationError(code="token_missing", message="Bearer token is missing")
+
+        unverified_header = self._read_header(token)
+        algorithm = self._validate_algorithm(unverified_header)
+        key = self._resolve_signing_key(token, unverified_header)
+        claims = self._decode(token, key, algorithm)
+        subject = self._read_subject(claims)
+
+        return AuthenticatedUserContext(
+            auth_type=self.auth_type,
+            identity=self._projector.identity(claims, subject),
+            roles=self._projector.roles(claims),
+            groups=self._projector.groups(claims),
+            scopes=self._projector.scopes(claims),
+            claims=self._projector.context_claims(claims),
         )
 
-    if scheme.lower() != "bearer":
-        raise AuthenticationError(
-            code="authorization_scheme_invalid",
-            message="Authorization scheme must be Bearer",
-            details={"scheme": scheme},
-        )
+    def _read_header(self, token: str) -> Mapping[str, Any]:
+        try:
+            return jwt.get_unverified_header(token)
+        except DecodeError as ex:
+            raise AuthenticationError(code="token_malformed", message="JWT token is malformed") from ex
 
-    token = credentials.strip()
-    if not token:
-        raise AuthenticationError(
-            code="token_missing",
-            message="Bearer token is missing",
-        )
+    def _validate_algorithm(self, unverified_header: Mapping[str, Any]) -> str:
+        algorithm = unverified_header.get("alg")
+        if not isinstance(algorithm, str):
+            raise AuthenticationError(code="algorithm_missing", message="JWT header algorithm is missing")
 
-    return authenticate_jwt(token, config)
+        if algorithm not in self._config.allowed_algorithms:
+            raise AuthenticationError(
+                code="algorithm_not_allowed",
+                message="JWT algorithm is not allowed",
+                details={
+                    "algorithm": algorithm,
+                    "allowed_algorithms": list(self._config.allowed_algorithms),
+                },
+            )
 
+        return algorithm
 
-def authenticate_jwt(token: str, config: JwtValidationConfig) -> dict[str, Any]:
-    if not token:
-        raise AuthenticationError(code="token_missing", message="Bearer token is missing")
+    def _resolve_signing_key(self, token: str, unverified_header: Mapping[str, Any]) -> Any:
+        if self._config.key_resolver is None:
+            raise AuthenticationError(
+                code="signing_key_unavailable",
+                message="JWT signing key resolver is not configured",
+            )
 
-    try:
-        unverified_header = jwt.get_unverified_header(token)
-    except DecodeError as ex:
-        raise AuthenticationError(code="token_malformed", message="JWT token is malformed") from ex
+        return self._config.key_resolver.resolve_key(token, unverified_header)
 
-    algorithm = unverified_header.get("alg")
-    if not isinstance(algorithm, str):
-        raise AuthenticationError(code="algorithm_missing", message="JWT header algorithm is missing")
+    def _decode(self, token: str, key: Any, algorithm: str) -> dict[str, Any]:
+        try:
+            return jwt.decode(
+                token,
+                key=key,
+                algorithms=[algorithm],
+                issuer=self._config.issuer,
+                audience=self._config.audience,
+                leeway=self._config.leeway_seconds,
+                options={"require": list(self._config.required_claims)},
+            )
+        except ExpiredSignatureError as ex:
+            raise AuthenticationError(code="token_expired", message="JWT token has expired") from ex
+        except ImmatureSignatureError as ex:
+            raise AuthenticationError(code="token_not_yet_valid", message="JWT token is not active yet") from ex
+        except InvalidIssuerError as ex:
+            raise AuthenticationError(code="issuer_invalid", message="JWT issuer is invalid") from ex
+        except InvalidAudienceError as ex:
+            raise AuthenticationError(code="audience_invalid", message="JWT audience is invalid") from ex
+        except MissingRequiredClaimError as ex:
+            raise AuthenticationError(
+                code="required_claim_missing",
+                message="JWT required claim is missing",
+                details={"claim": ex.claim},
+            ) from ex
+        except InvalidSignatureError as ex:
+            raise AuthenticationError(code="signature_invalid", message="JWT signature is invalid") from ex
+        except (InvalidAlgorithmError, DecodeError) as ex:
+            raise AuthenticationError(code="token_malformed", message="JWT token is malformed") from ex
 
-    if algorithm not in config.allowed_algorithms:
-        raise AuthenticationError(
-            code="algorithm_not_allowed",
-            message="JWT algorithm is not allowed",
-            details={"algorithm": algorithm, "allowed_algorithms": list(config.allowed_algorithms)},
-        )
+    def _read_subject(self, claims: Mapping[str, Any]) -> str:
+        subject = claims.get("sub")
+        if not isinstance(subject, str) or not subject.strip():
+            raise AuthenticationError(
+                code="required_claim_missing",
+                message="JWT subject claim is missing",
+                details={"claim": "sub"},
+            )
 
-    key = _resolve_signing_key(token, unverified_header, config)
+        return subject
 
-    try:
-        claims = jwt.decode(
-            token,
-            key=key,
-            algorithms=[algorithm],
-            issuer=config.issuer,
-            audience=config.audience,
-            leeway=config.leeway_seconds,
-            options={"require": list(config.required_claims)},
-        )
-    except ExpiredSignatureError as ex:
-        raise AuthenticationError(code="token_expired", message="JWT token has expired") from ex
-    except ImmatureSignatureError as ex:
-        raise AuthenticationError(code="token_not_yet_valid", message="JWT token is not active yet") from ex
-    except InvalidIssuerError as ex:
-        raise AuthenticationError(code="issuer_invalid", message="JWT issuer is invalid") from ex
-    except InvalidAudienceError as ex:
-        raise AuthenticationError(code="audience_invalid", message="JWT audience is invalid") from ex
-    except MissingRequiredClaimError as ex:
-        raise AuthenticationError(
-            code="required_claim_missing",
-            message="JWT required claim is missing",
-            details={"claim": ex.claim},
-        ) from ex
-    except InvalidSignatureError as ex:
-        raise AuthenticationError(code="signature_invalid", message="JWT signature is invalid") from ex
-    except (InvalidAlgorithmError, DecodeError) as ex:
-        raise AuthenticationError(code="token_malformed", message="JWT token is malformed") from ex
-
-    subject = claims.get("sub")
-    if not isinstance(subject, str) or not subject.strip():
-        raise AuthenticationError(
-            code="required_claim_missing",
-            message="JWT subject claim is missing",
-            details={"claim": "sub"},
-        )
-
-    context_claims = _extract_context_claims(claims)
-    roles = _extract_claim_path_values(claims, config.roles_claim_path)
-    groups = _extract_claim_path_values(claims, config.groups_claim_path)
-
-    return {
-        "authType": "jwt",
-        "identity": {
-            "subject": subject,
-            "userId": subject,
-            "username": claims.get("preferred_username"),
-            "name": claims.get("name"),
-            "givenName": claims.get("given_name"),
-            "familyName": claims.get("family_name"),
-            "email": claims.get("email"),
-            "emailVerified": claims.get("email_verified"),
-        },
-        "roles": roles,
-        "groups": groups,
-        "claims": context_claims,
-    }
-
-
-def _resolve_signing_key(token: str, unverified_header: Mapping[str, Any], config: JwtValidationConfig) -> Any:
-    if config.key_resolver is None:
-        raise AuthenticationError(
-            code="signing_key_unavailable",
-            message="JWT signing key resolver is not configured",
-        )
-
-    return config.key_resolver.resolve_key(token, unverified_header)
-
-
-def _extract_context_claims(claims: Mapping[str, Any]) -> dict[str, Any]:
-    projected: dict[str, Any] = {}
-    for key in (
-        "iss",
-        "aud",
-        "exp",
-        "nbf",
-        "iat",
-        "jti",
-        "scope",
-        "roles",
-        "name",
-        "given_name",
-        "family_name",
-        "preferred_username",
-        "email",
-        "email_verified",
-        "groups",
-        "realm_access",
-        "resource_access",
-    ):
-        if key in claims:
-            projected[key] = claims[key]
-    return projected
-
-
-def _resolve_claim_path(claims: Mapping[str, Any], path: str) -> Any:
-    """Resolve a dot-separated claim path (e.g. ``realm_access.roles`` or
-    ``resource_access.librechat.roles``) against the decoded claims, mirroring
-    the ``OPENID_REQUIRED_ROLE_PARAMETER_PATH``-style configuration used by
-    OIDC providers such as Keycloak.
-    """
-    value: Any = claims
-    for part in path.split("."):
-        if not isinstance(value, Mapping):
-            return None
-        current = cast("Mapping[str, Any]", value)
-        if part not in current:
-            return None
-        value = current[part]
-    return value
-
-
-def _extract_claim_path_values(claims: Mapping[str, Any], path: str | None) -> list[str]:
-    if not path:
-        return []
-
-    value = _resolve_claim_path(claims, path)
-    if isinstance(value, (list, tuple)):
-        items = cast("list[Any] | tuple[Any, ...]", value)
-        return [str(item) for item in items]
-    if isinstance(value, str):
-        return [value]
-    return []

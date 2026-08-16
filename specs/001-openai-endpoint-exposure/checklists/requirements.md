@@ -35,3 +35,6 @@
 - Scope note: this first feature targets OpenAI-compatible endpoint exposure (Chat Completions and Responses) and Anthropic-compatible Messages, including streaming behavior and a standard exchange payload model for handler input/output.
 - Security note: shared runtime authentication (JWT or API-key user hook) is in scope; authorization decisions remain developer-owned.
 - Packaging note: language artifacts use a unified `ygo74` namespace root identity.
+- Amendment 2026-08-16: agent capability discovery added (US6, US6b, US6c, US6d; FR-024..FR-044; SC-014..SC-019). A single provider-neutral agent descriptor feeds the OpenAI model listing, the Anthropic model listing, and the A2A agent card. Re-validated against all checklist items with no regressions.
+- Amendment scope boundary: discovery covers the descriptor plus three read-only projections. A2A task execution (submission, state transitions, push notifications) is deliberately excluded and deferred to a separate specification.
+- Amendment follow-up: `plan.md` and `tasks.md` predate this amendment and must be regenerated to cover the discovery requirements.

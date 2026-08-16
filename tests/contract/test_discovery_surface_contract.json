@@ -1,0 +1,33 @@
+{
+  "name": "discovery_surface_contract",
+  "version": "v1",
+  "surfaces": [
+    {"id": "openai_models", "path": "/v1/models", "dialect": "openai", "default_enabled": false},
+    {"id": "anthropic_models", "path": "/v1/models", "dialect": "anthropic", "default_enabled": false},
+    {"id": "agent_card", "path": "/.well-known/agent-card.json", "dialect": "a2a", "default_enabled": false}
+  ],
+  "dialect_selection": {
+    "header": "anthropic-version",
+    "supported_versions": ["2023-06-01"],
+    "absent_header": "openai",
+    "unsupported_version": "fail_with_unsupported_provider_version"
+  },
+  "rules": [
+    {"id": "opt_in_only", "expect": "no_routes_when_all_surfaces_disabled"},
+    {"id": "native_shape_preserved", "expect": "provider_native_attributes_unchanged"},
+    {"id": "additive_extension_only", "expect": "non_native_attributes_confined_to_x_agent_runtime"},
+    {"id": "no_route_key_disclosure", "expect": "route_key_absent_from_every_projection"},
+    {"id": "identifier_round_trip", "expect": "advertised_id_accepted_verbatim_as_model_field"},
+    {"id": "identifier_exact_match", "expect": "reject_case_variants_and_padded_ids"},
+    {"id": "hidden_agents_excluded", "expect": "absent_from_listing_and_retrieval"},
+    {"id": "empty_catalogue", "expect": "successful_empty_listing"},
+    {"id": "cross_dialect_parity", "expect": "shared_attributes_identical_across_dialects"},
+    {"id": "explicit_dialect_paths", "expect": "registered_only_when_both_surfaces_enabled"}
+  ],
+  "errors": [
+    {"code": "agent_not_found", "status": 404},
+    {"code": "discovery_surface_disabled", "status": 404},
+    {"code": "unsupported_provider_version", "status": 400},
+    {"code": "invalid_pagination", "status": 400}
+  ]
+}

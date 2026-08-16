@@ -20,3 +20,21 @@ class AuthenticationError(Exception):
 
     def to_dict(self) -> dict[str, Any]:
         return auth_error(self.code, self.message, self.category, self.details)
+
+
+@dataclass(slots=True)
+class AuthorizationError(Exception):
+    """Raised by developer-owned authorization logic to deny an authenticated request.
+
+    The runtime never raises this itself: authorization decisions belong to the
+    handler. When raised, the runtime short-circuits handler execution and maps
+    it to an HTTP 403 with a structured error envelope.
+    """
+
+    code: str = "forbidden"
+    message: str = "Access denied"
+    category: str = "authorization"
+    details: Any | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return auth_error(self.code, self.message, self.category, self.details)

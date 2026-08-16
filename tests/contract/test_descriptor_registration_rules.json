@@ -1,0 +1,18 @@
+{
+  "name": "descriptor_registration_rules",
+  "version": "v1",
+  "rules": [
+    {"id": "unique_agent_id", "expect": "fail_on_duplicate_agent_id"},
+    {"id": "agent_id_pattern", "expect": "fail_on_unsafe_agent_id"},
+    {"id": "agent_id_max_length", "expect": "fail_when_longer_than_128"},
+    {"id": "route_key_must_resolve", "expect": "fail_on_unresolved_route_key"},
+    {"id": "streaming_capability_matches_configuration", "expect": "fail_on_capability_contradiction"},
+    {"id": "endpoint_exposure_required", "expect": "fail_when_no_surface_enabled"},
+    {"id": "unique_skill_id", "expect": "fail_on_duplicate_skill_id"},
+    {"id": "skill_modalities_subset_of_capabilities", "expect": "fail_on_modality_outside_capabilities"},
+    {"id": "non_empty_modalities", "expect": "fail_on_empty_modality_list"},
+    {"id": "positive_size_limits", "expect": "fail_on_non_positive_size"},
+    {"id": "descriptor_optional", "expect": "derive_minimal_descriptor_from_route_key"},
+    {"id": "listing_order", "expect": "ascending_agent_id_code_point_order"}
+  ]
+}
