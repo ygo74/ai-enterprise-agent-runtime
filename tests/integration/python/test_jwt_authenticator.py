@@ -51,6 +51,48 @@ def test_jwt_valid(now: datetime) -> None:
     assert ctx["claims"]["iss"] == "https://issuer.example.com"
 
 
+def test_jwt_profile_and_roles_from_configurable_path(now: datetime) -> None:
+    claims = _base_claims(now)
+    claims.update(
+        {
+            "name": "Yannick GOBERT",
+            "given_name": "Yannick",
+            "family_name": "GOBERT",
+            "preferred_username": "admin",
+            "email": "admin@example.com",
+            "email_verified": True,
+            "realm_access": {"roles": ["offline_access", "admin", "uma_authorization"]},
+            "resource_access": {"librechat": {"roles": ["admin"]}},
+            "groups": ["/enterprise/agents"],
+        }
+    )
+    token = jwt.encode(claims, "secret", algorithm="HS256")
+    config = _config()
+    config.roles_claim_path = "resource_access.librechat.roles"
+    config.groups_claim_path = "groups"
+
+    ctx = authenticate_jwt(token, config)
+
+    assert ctx["identity"]["name"] == "Yannick GOBERT"
+    assert ctx["identity"]["givenName"] == "Yannick"
+    assert ctx["identity"]["familyName"] == "GOBERT"
+    assert ctx["identity"]["email"] == "admin@example.com"
+    assert ctx["roles"] == ["admin"]
+    assert ctx["groups"] == ["/enterprise/agents"]
+    assert ctx["claims"]["realm_access"]["roles"] == ["offline_access", "admin", "uma_authorization"]
+
+
+def test_jwt_roles_default_to_empty_without_configured_path(now: datetime) -> None:
+    claims = _base_claims(now)
+    claims["realm_access"] = {"roles": ["admin"]}
+    token = jwt.encode(claims, "secret", algorithm="HS256")
+
+    ctx = authenticate_jwt(token, _config())
+
+    assert ctx["roles"] == []
+    assert ctx["groups"] == []
+
+
 def test_jwt_expired(now: datetime) -> None:
     claims = _base_claims(now)
     claims["exp"] = int((now - timedelta(seconds=1)).timestamp())

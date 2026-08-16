@@ -42,13 +42,13 @@ Use only local/dev placeholders in this repository. Never commit real secrets.
 ## Run
 
 ```powershell
-python -m uvicorn openai_responses_jwt_app:app --reload --port 8002
+python -m uvicorn openai_responses_jwt_app:app --reload --port 8001
 ```
 
 ## Generate a test JWT
 
 ```powershell
-$token = python generate_dev_jwt.py --secret "change-me-in-local-env" --subject "alice"
+$token = python generate_dev_jwt.py --secret "change-me-in-local-env-please-32bytes" --subject "alice"
 ```
 
 ## Call protected endpoint
@@ -64,7 +64,7 @@ $body = @{
 } | ConvertTo-Json -Depth 10
 
 Invoke-RestMethod -Method Post `
-  -Uri "http://127.0.0.1:8002/v1/responses" `
+  -Uri "http://127.0.0.1:8001/v1/responses" `
   -ContentType "application/json" `
   -Headers @{ Authorization = "Bearer $token" } `
   -Body $body

@@ -36,7 +36,7 @@ jwt_config = JwtValidationConfig(
     audience=os.getenv("JWT_AUDIENCE", "runtime"),
     leeway_seconds=int(os.getenv("JWT_LEEWAY_SECONDS", "0")),
     key_resolver=StaticSymmetricKeyResolver(
-        os.getenv("JWT_HS256_SECRET", "change-me-in-local-env")
+        os.getenv("JWT_HS256_SECRET", "change-me-in-local-env-please-32bytes")
     ),
 )
 

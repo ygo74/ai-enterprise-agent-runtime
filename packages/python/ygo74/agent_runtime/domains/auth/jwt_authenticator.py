@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Protocol
+from typing import Any, Mapping, Protocol, cast
 
 import jwt
 from jwt import (
@@ -91,6 +91,8 @@ class JwtValidationConfig:
     audience: str | list[str] | tuple[str, ...] | None = None
     leeway_seconds: int = 0
     key_resolver: JwtKeyResolver | None = None
+    roles_claim_path: str | None = None
+    groups_claim_path: str | None = None
 
 
 def authenticate_authorization_header(
@@ -187,13 +189,23 @@ def authenticate_jwt(token: str, config: JwtValidationConfig) -> dict[str, Any]:
         )
 
     context_claims = _extract_context_claims(claims)
+    roles = _extract_claim_path_values(claims, config.roles_claim_path)
+    groups = _extract_claim_path_values(claims, config.groups_claim_path)
 
     return {
         "authType": "jwt",
         "identity": {
             "subject": subject,
             "userId": subject,
+            "username": claims.get("preferred_username"),
+            "name": claims.get("name"),
+            "givenName": claims.get("given_name"),
+            "familyName": claims.get("family_name"),
+            "email": claims.get("email"),
+            "emailVerified": claims.get("email_verified"),
         },
+        "roles": roles,
+        "groups": groups,
         "claims": context_claims,
     }
 
@@ -210,7 +222,55 @@ def _resolve_signing_key(token: str, unverified_header: Mapping[str, Any], confi
 
 def _extract_context_claims(claims: Mapping[str, Any]) -> dict[str, Any]:
     projected: dict[str, Any] = {}
-    for key in ("iss", "aud", "exp", "nbf", "iat", "jti", "scope", "roles"):
+    for key in (
+        "iss",
+        "aud",
+        "exp",
+        "nbf",
+        "iat",
+        "jti",
+        "scope",
+        "roles",
+        "name",
+        "given_name",
+        "family_name",
+        "preferred_username",
+        "email",
+        "email_verified",
+        "groups",
+        "realm_access",
+        "resource_access",
+    ):
         if key in claims:
             projected[key] = claims[key]
     return projected
+
+
+def _resolve_claim_path(claims: Mapping[str, Any], path: str) -> Any:
+    """Resolve a dot-separated claim path (e.g. ``realm_access.roles`` or
+    ``resource_access.librechat.roles``) against the decoded claims, mirroring
+    the ``OPENID_REQUIRED_ROLE_PARAMETER_PATH``-style configuration used by
+    OIDC providers such as Keycloak.
+    """
+    value: Any = claims
+    for part in path.split("."):
+        if not isinstance(value, Mapping):
+            return None
+        current = cast("Mapping[str, Any]", value)
+        if part not in current:
+            return None
+        value = current[part]
+    return value
+
+
+def _extract_claim_path_values(claims: Mapping[str, Any], path: str | None) -> list[str]:
+    if not path:
+        return []
+
+    value = _resolve_claim_path(claims, path)
+    if isinstance(value, (list, tuple)):
+        items = cast("list[Any] | tuple[Any, ...]", value)
+        return [str(item) for item in items]
+    if isinstance(value, str):
+        return [value]
+    return []
