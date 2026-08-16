@@ -131,21 +131,69 @@ def entrypoint(payload: dict):
 Pass a resolution hook; the runtime calls it and exposes only the resolved
 identity. The raw key is never copied into `auth_context`.
 
+The hook is a class implementing the `ApiKeyUserResolver` protocol and must
+return a `ResolvedUser` (or `None` for an unknown key).
+
 ```python
-def resolve_api_key(api_key: str) -> dict | None:
-    record = lookup_in_your_store(api_key)
-    if record is None:
-        return None                     # -> HTTP 401 api_key_invalid
-    return {"userId": record.user_id, "roles": record.roles}
+from ygo74.agent_runtime import ApiKeyUserResolver, ResolvedUser, add_ai_endpoints
+
+
+class StoreApiKeyResolver(ApiKeyUserResolver):
+    def resolve_user(self, api_key: str) -> ResolvedUser | None:
+        record = lookup_in_your_store(api_key)
+        if record is None:
+            return None                 # -> HTTP 401 api_key_invalid
+        return ResolvedUser(
+            user_id=record.user_id,
+            name=record.display_name,
+            email=record.email,
+            roles=record.roles,
+            tenant_id=record.tenant_id,
+        )
+
 
 add_ai_endpoints(
     app,
     entrypoint,
     default_route_key="my-agent",
-    api_key_resolver=resolve_api_key,
+    api_key_resolver=StoreApiKeyResolver(),
 )
 ```
 
 The hook is only consulted for the `x-api-key` header when no `Authorization`
-header was already authenticated, and must return a mapping containing a
-`userId` (otherwise `user_context_malformed` is raised).
+header was already authenticated, and the returned `ResolvedUser` must carry a
+non-empty `user_id` (otherwise `user_context_malformed` is raised).
+
+## Custom authentication schemes
+
+Authentication is class-based. `JwtAuthenticator` and `ApiKeyAuthenticator`
+both implement the `Authenticator` protocol, and `RequestAuthenticator` picks
+the right one based on the incoming headers.
+
+```python
+class Authenticator(Protocol):
+    @property
+    def auth_type(self) -> str: ...
+
+    def can_authenticate(self, headers: Mapping[str, str] | None) -> bool: ...
+
+    def authenticate(self, headers: Mapping[str, str] | None) -> AuthenticatedUserContext: ...
+
+    def missing_credential_error(self) -> AuthenticationError: ...
+```
+
+To support another scheme (mTLS header, HMAC signature, opaque token
+introspection...), implement the protocol and pass the chain explicitly:
+
+```python
+add_ai_endpoints(
+    app,
+    entrypoint,
+    default_route_key="my-agent",
+    authenticators=[JwtAuthenticator(jwt_config), MyCustomAuthenticator()],
+)
+```
+
+The first authenticator whose `can_authenticate` returns `True` handles the
+request. When no authenticator matches and `require_bearer_token=True`, the
+first one in the chain produces the missing-credential error.

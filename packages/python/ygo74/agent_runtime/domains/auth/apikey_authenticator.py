@@ -1,60 +1,111 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Mapping, Protocol
 
+from ygo74.agent_runtime.domains.auth.auth_context import AuthenticatedUserContext, ResolvedUser
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
 
-ApiKeyUserResolver = Callable[[str], dict[str, Any] | None]
 
+class ApiKeyUserResolver(Protocol):
+    """Contract a developer implements to map an API key to a user.
 
-def authenticate_api_key(api_key: str, resolver: ApiKeyUserResolver) -> dict[str, Any]:
-    """Resolve an API key to a normalized auth context via a developer-supplied hook.
-
-    The raw API key is never propagated into the returned context: only the
-    resolved user identity is exposed to the handler.
+    Returning ``None`` means the key is unknown and the request is rejected with
+    ``api_key_invalid``. The returned :class:`ResolvedUser` defines exactly which
+    user information is loaded into the handler's ``auth_context``.
     """
 
-    if not api_key:
-        raise AuthenticationError(code="token_missing", message="API key is missing")
+    def resolve_user(self, api_key: str) -> ResolvedUser | None:
+        ...
 
-    try:
-        user = resolver(api_key)
-    except AuthenticationError:
-        raise
-    except Exception as ex:
-        raise AuthenticationError(
-            code="user_resolution_failed",
-            message="API key user-resolution hook raised an error",
-        ) from ex
 
-    if not user:
-        raise AuthenticationError(code="api_key_invalid", message="API key is not recognized")
+@dataclass(slots=True)
+class StaticApiKeyUserResolver:
+    """In-memory resolver, mostly useful for local development and tests."""
 
-    if not isinstance(user, dict):
-        raise AuthenticationError(
-            code="user_context_malformed",
-            message="API key user-resolution hook must return a mapping",
+    users_by_key: dict[str, ResolvedUser]
+
+    def resolve_user(self, api_key: str) -> ResolvedUser | None:
+        return self.users_by_key.get(api_key)
+
+
+class ApiKeyAuthenticator:
+    """Authenticates callers presenting an API key header.
+
+    The raw key is never propagated into the resulting context: only the user
+    information returned by the resolver is exposed to the handler.
+    """
+
+    DEFAULT_HEADER_NAME = "x-api-key"
+
+    def __init__(self, resolver: ApiKeyUserResolver, *, header_name: str = DEFAULT_HEADER_NAME) -> None:
+        self._resolver = resolver
+        self._header_name = header_name.lower()
+
+    @property
+    def auth_type(self) -> str:
+        return "api_key"
+
+    @property
+    def header_name(self) -> str:
+        return self._header_name
+
+    def can_authenticate(self, headers: Mapping[str, Any]) -> bool:
+        return bool(headers.get(self._header_name))
+
+    def missing_credential_error(self) -> AuthenticationError:
+        return AuthenticationError(
+            code="api_key_header_missing",
+            message=f"Missing {self._header_name} header",
         )
 
-    context: dict[str, Any] = dict(user)
-    context["authType"] = "api_key"
+    def authenticate(self, headers: Mapping[str, Any]) -> AuthenticatedUserContext:
+        api_key = headers.get(self._header_name)
+        if not isinstance(api_key, str) or not api_key.strip():
+            raise self.missing_credential_error()
 
-    raw_identity = context.get("identity")
-    identity: dict[str, Any] = dict(raw_identity) if isinstance(raw_identity, dict) else {}
-    user_id = identity.get("userId") or context.get("userId") or identity.get("subject")
-    if not isinstance(user_id, str) or not user_id.strip():
-        raise AuthenticationError(
-            code="user_context_malformed",
-            message="API key user-resolution hook must provide a userId",
+        return self.authenticate_key(api_key)
+
+    def authenticate_key(self, api_key: str) -> AuthenticatedUserContext:
+        if not api_key:
+            raise self.missing_credential_error()
+
+        user = self._resolve(api_key)
+
+        return AuthenticatedUserContext(
+            auth_type=self.auth_type,
+            identity=user.to_identity(),
+            roles=list(user.roles),
+            groups=list(user.groups),
+            scopes=list(user.scopes),
+            claims=dict(user.claims),
+            tenant_id=user.tenant_id,
         )
 
-    identity.setdefault("userId", user_id)
-    identity.setdefault("subject", user_id)
-    context["identity"] = identity
-    context["userId"] = user_id
-    context.setdefault("roles", [])
-    context.setdefault("groups", [])
-    context.setdefault("claims", {})
+    def _resolve(self, api_key: str) -> ResolvedUser:
+        try:
+            resolved: object = self._resolver.resolve_user(api_key)
+        except AuthenticationError:
+            raise
+        except Exception as ex:
+            raise AuthenticationError(
+                code="user_resolution_failed",
+                message="API key user-resolution hook raised an error",
+            ) from ex
 
-    return context
+        if resolved is None:
+            raise AuthenticationError(code="api_key_invalid", message="API key is not recognized")
+
+        if not isinstance(resolved, ResolvedUser):
+            raise AuthenticationError(
+                code="user_context_malformed",
+                message="API key user-resolution hook must return a ResolvedUser",
+            )
+
+        if not resolved.user_id or not resolved.user_id.strip():
+            raise AuthenticationError(
+                code="user_context_malformed",
+                message="API key user-resolution hook must provide a user_id",
+            )
+
+        return resolved

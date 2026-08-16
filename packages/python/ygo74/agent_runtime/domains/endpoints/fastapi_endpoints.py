@@ -4,7 +4,7 @@ import inspect
 import json
 import logging
 import uuid
-from typing import Any, AsyncIterator, Awaitable, Callable
+from typing import Any, AsyncIterator, Awaitable, Callable, Sequence
 
 try:
     from fastapi import HTTPException, Request
@@ -22,12 +22,36 @@ except Exception as exc:  # pragma: no cover - depends on web runtime
 from ygo74.agent_runtime.domains.mapping.request_mapper import map_to_exchange
 from ygo74.agent_runtime.domains.mapping.response_mapper import map_response
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError, AuthorizationError
-from ygo74.agent_runtime.domains.auth.apikey_authenticator import ApiKeyUserResolver, authenticate_api_key
-from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtValidationConfig, authenticate_authorization_header
+from ygo74.agent_runtime.domains.auth.authenticator import Authenticator, RequestAuthenticator
+from ygo74.agent_runtime.domains.auth.apikey_authenticator import ApiKeyAuthenticator, ApiKeyUserResolver
+from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtAuthenticator, JwtValidationConfig
 
 AgentEntrypoint = Callable[[dict[str, Any]], Awaitable[Any] | Any]
 
 logger = logging.getLogger(__name__)
+
+
+def build_request_authenticator(
+    *,
+    jwt_validation: JwtValidationConfig | None = None,
+    api_key_resolver: ApiKeyUserResolver | None = None,
+    require_authentication: bool = False,
+    authenticators: Sequence[Authenticator] | None = None,
+) -> RequestAuthenticator:
+    """Assemble the authenticator chain used to authenticate incoming requests.
+
+    JWT is evaluated before API key, so an ``Authorization`` header always wins
+    over an ``x-api-key`` header when both are present.
+    """
+
+    if authenticators is not None:
+        return RequestAuthenticator(list(authenticators), require_authentication=require_authentication)
+
+    chain: list[Authenticator] = [JwtAuthenticator(jwt_validation)]
+    if api_key_resolver is not None:
+        chain.append(ApiKeyAuthenticator(api_key_resolver))
+
+    return RequestAuthenticator(chain, require_authentication=require_authentication)
 
 
 def add_ai_endpoints(
@@ -41,13 +65,19 @@ def add_ai_endpoints(
     jwt_validation: JwtValidationConfig | None = None,
     require_bearer_token: bool = False,
     api_key_resolver: ApiKeyUserResolver | None = None,
+    authenticators: Sequence[Authenticator] | None = None,
 ) -> None:
     """Register AI endpoints on a FastAPI app and forward a uniform payload to agent_entrypoint."""
 
     if not _FASTAPI_AVAILABLE:
         raise RuntimeError("fastapi is required to use add_ai_endpoints") from _FASTAPI_IMPORT_ERROR
 
-    jwt_validation = jwt_validation or JwtValidationConfig()
+    request_authenticator = build_request_authenticator(
+        jwt_validation=jwt_validation,
+        api_key_resolver=api_key_resolver,
+        require_authentication=require_bearer_token,
+        authenticators=authenticators,
+    )
 
     async def _invoke(endpoint_type: str, body: dict[str, Any], request: Request) -> Any:
         payload: dict[str, Any] = {
@@ -60,9 +90,7 @@ def add_ai_endpoints(
                 body,
                 request,
                 default_route_key,
-                jwt_validation=jwt_validation,
-                require_bearer_token=require_bearer_token,
-                api_key_resolver=api_key_resolver,
+                request_authenticator=request_authenticator,
             )
             exchange_request = map_to_exchange(endpoint_type, payload)
 
@@ -166,6 +194,7 @@ def add_ai_endpoint(
     jwt_validation: JwtValidationConfig | None = None,
     require_bearer_token: bool = False,
     api_key_resolver: ApiKeyUserResolver | None = None,
+    authenticators: Sequence[Authenticator] | None = None,
 ) -> None:
     """Alias for add_ai_endpoints with a singular name for API ergonomics."""
 
@@ -179,6 +208,7 @@ def add_ai_endpoint(
         jwt_validation=jwt_validation,
         require_bearer_token=require_bearer_token,
         api_key_resolver=api_key_resolver,
+        authenticators=authenticators,
     )
 
 
@@ -188,9 +218,7 @@ def _build_raw_payload(
     request: Any,
     default_route_key: str,
     *,
-    jwt_validation: JwtValidationConfig,
-    require_bearer_token: bool,
-    api_key_resolver: ApiKeyUserResolver | None = None,
+    request_authenticator: RequestAuthenticator,
 ) -> dict[str, Any]:
     metadata = dict(body.get("metadata") or {})
     route_key = str(metadata.get("route_key") or body.get("route_key") or default_route_key)
@@ -201,12 +229,7 @@ def _build_raw_payload(
     else:
         normalized_input = body.get("messages", body.get("input"))
 
-    auth_context = _extract_auth_context(
-        request,
-        jwt_validation=jwt_validation,
-        require_bearer_token=require_bearer_token,
-        api_key_resolver=api_key_resolver,
-    )
+    user_context = request_authenticator.authenticate(getattr(request, "headers", None))
 
     return {
         "request_id": request_id,
@@ -215,36 +238,8 @@ def _build_raw_payload(
         "input": normalized_input,
         "metadata": metadata,
         "stream": bool(body.get("stream", False)),
-        "auth_context": auth_context,
+        "auth_context": user_context.to_dict() if user_context is not None else None,
     }
-
-
-def _extract_auth_context(
-    request: Any,
-    *,
-    jwt_validation: JwtValidationConfig,
-    require_bearer_token: bool,
-    api_key_resolver: ApiKeyUserResolver | None = None,
-) -> dict[str, Any] | None:
-    headers = getattr(request, "headers", None)
-    if headers is None:
-        return None
-
-    context: dict[str, Any] = {}
-    authorization = headers.get("authorization")
-    if authorization is not None:
-        context.update(authenticate_authorization_header(authorization, jwt_validation))
-    elif require_bearer_token:
-        context.update(authenticate_authorization_header(None, jwt_validation))
-
-    if api_key_resolver is not None and not context:
-        api_key = headers.get("x-api-key")
-        if api_key:
-            # The raw key is deliberately never copied into the context handed to
-            # the handler: only the resolved user identity is exposed.
-            context.update(authenticate_api_key(api_key, api_key_resolver))
-
-    return context or None
 
 
 def _error_status_code(exchange_response: dict[str, Any]) -> int | None:

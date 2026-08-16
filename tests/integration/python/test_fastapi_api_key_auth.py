@@ -1,28 +1,33 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 
 import httpx
 import pytest
 from fastapi import FastAPI
 
+from ygo74.agent_runtime.domains.auth.auth_context import ResolvedUser
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
-from ygo74.agent_runtime.domains.auth.apikey_authenticator import authenticate_api_key
+from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
+    ApiKeyAuthenticator,
+    StaticApiKeyUserResolver,
+)
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 
 
-_USERS: dict[str, dict[str, Any]] = {
-    "key-admin": {
-        "userId": "svc-admin",
-        "roles": ["admin"],
-        "identity": {"name": "Service Admin", "email": "svc@example.com"},
-    }
-}
-
-
-def _resolver(api_key: str) -> dict[str, Any] | None:
-    return _USERS.get(api_key)
+def _resolver() -> StaticApiKeyUserResolver:
+    return StaticApiKeyUserResolver(
+        {
+            "key-admin": ResolvedUser(
+                user_id="svc-admin",
+                name="Service Admin",
+                email="svc@example.com",
+                roles=["admin"],
+                scopes=["agents.invoke"],
+                tenant_id="tenant-1",
+            )
+        }
+    )
 
 
 async def _entrypoint(payload: dict) -> dict:
@@ -51,33 +56,44 @@ def _build_app() -> FastAPI:
         app,
         _entrypoint,
         default_route_key="demo-route",
-        api_key_resolver=_resolver,
+        api_key_resolver=_resolver(),
     )
     return app
 
 
-def test_api_key_resolver_normalizes_user_context() -> None:
-    context = authenticate_api_key("key-admin", _resolver)
+def test_api_key_authenticator_normalizes_user_context() -> None:
+    context = ApiKeyAuthenticator(_resolver()).authenticate_key("key-admin")
 
-    assert context["authType"] == "api_key"
-    assert context["userId"] == "svc-admin"
-    assert context["identity"]["userId"] == "svc-admin"
-    assert context["identity"]["subject"] == "svc-admin"
-    assert context["roles"] == ["admin"]
+    assert context.auth_type == "api_key"
+    assert context.user_id == "svc-admin"
+    assert context.identity.subject == "svc-admin"
+    assert context.identity.email == "svc@example.com"
+    assert context.roles == ["admin"]
+    assert context.scopes == ["agents.invoke"]
+    assert context.tenant_id == "tenant-1"
 
 
-def test_api_key_resolver_rejects_unknown_key() -> None:
+def test_api_key_authenticator_rejects_unknown_key() -> None:
     with pytest.raises(AuthenticationError) as exc:
-        authenticate_api_key("nope", _resolver)
+        ApiKeyAuthenticator(_resolver()).authenticate_key("nope")
 
     assert exc.value.code == "api_key_invalid"
 
 
-def test_api_key_resolver_rejects_user_without_user_id() -> None:
+def test_api_key_authenticator_rejects_user_without_user_id() -> None:
+    resolver = StaticApiKeyUserResolver({"key-x": ResolvedUser(user_id="  ")})
+
     with pytest.raises(AuthenticationError) as exc:
-        authenticate_api_key("key-x", lambda _: {"roles": ["admin"]})
+        ApiKeyAuthenticator(resolver).authenticate_key("key-x")
 
     assert exc.value.code == "user_context_malformed"
+
+
+def test_api_key_authenticator_claims_only_its_own_header() -> None:
+    authenticator = ApiKeyAuthenticator(_resolver())
+
+    assert authenticator.can_authenticate({"x-api-key": "key-admin"}) is True
+    assert authenticator.can_authenticate({"authorization": "Bearer abc"}) is False
 
 
 def test_endpoint_invokes_resolver_and_never_leaks_raw_key() -> None:
@@ -94,6 +110,7 @@ def test_endpoint_invokes_resolver_and_never_leaks_raw_key() -> None:
     auth_context = response.json()["output"]["auth_context"]
     assert auth_context["authType"] == "api_key"
     assert auth_context["userId"] == "svc-admin"
+    assert auth_context["roles"] == ["admin"]
     assert "key-admin" not in str(auth_context)
 
 
