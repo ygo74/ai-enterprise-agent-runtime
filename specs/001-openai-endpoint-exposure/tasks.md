@@ -287,15 +287,15 @@ before this amendment and are retained as completed history.
 **CRITICAL**: No discovery user story work starts before this phase is complete.
 
 - [X] T113 Add agent descriptor contract schema in specs/001-openai-endpoint-exposure/contracts/agent-descriptor-v1.schema.json
-- [ ] T114 Add agent descriptor schema conformance contract tests in tests/contract/test_agent_descriptor_schema.py
-- [ ] T115 Implement Python agent descriptor, capability set, and skill models in packages/python/ygo74/agent_runtime/domains/discovery/agent_descriptor.py
+- [X] T114 Add agent descriptor schema conformance contract tests in tests/contract/test_agent_descriptor_schema.py
+- [X] T115 Implement Python agent descriptor, capability set, and skill models in packages/python/ygo74/agent_runtime/domains/discovery/agent_descriptor.py
 - [ ] T116 [P] Implement .NET agent descriptor, capability set, and skill models in packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/AgentDescriptor.cs
 - [ ] T117 [P] Implement Java agent descriptor, capability set, and skill models in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/AgentDescriptor.java
-- [ ] T118 Implement Python descriptor registry with uniqueness and deterministic ordering in packages/python/ygo74/agent_runtime/domains/discovery/descriptor_registry.py
+- [X] T118 Implement Python descriptor registry with uniqueness and deterministic ordering in packages/python/ygo74/agent_runtime/domains/discovery/descriptor_registry.py
 - [ ] T119 [P] Implement .NET descriptor registry with uniqueness and deterministic ordering in packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DescriptorRegistry.cs
 - [ ] T120 [P] Implement Java descriptor registry with uniqueness and deterministic ordering in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DescriptorRegistry.java
-- [ ] T121 Implement discovery error codes reusing the existing error envelope in packages/python/ygo74/agent_runtime/domains/discovery/discovery_errors.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DiscoveryErrors.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryErrors.java
-- [ ] T122 Export discovery domain entry points in packages/python/ygo74/agent_runtime/\_\_init\_\_.py, packages/dotnet/Ygo74.AgentRuntime/PublicApi.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/PublicApi.java
+- [ ] T121 (Python done) Implement discovery error codes reusing the existing error envelope in packages/python/ygo74/agent_runtime/domains/discovery/discovery_errors.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DiscoveryErrors.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryErrors.java
+- [ ] T122 (Python done) Export discovery domain entry points in packages/python/ygo74/agent_runtime/\_\_init\_\_.py, packages/dotnet/Ygo74.AgentRuntime/PublicApi.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/PublicApi.java
 
 **Checkpoint**: Descriptor contract and registry exist; discovery stories can start.
 
@@ -309,22 +309,22 @@ before this amendment and are retained as completed history.
 
 ### Tests for User Story 8
 
-- [ ] T123 [P] [US8] Add descriptor registration and validation contract tests in tests/contract/test_descriptor_registration_rules.json
-- [ ] T124 [P] [US8] Add Python descriptor registry tests in tests/integration/python/test_agent_descriptor_registry.py
+- [X] T123 [P] [US8] Add descriptor registration and validation contract tests in tests/contract/test_descriptor_registration_rules.json
+- [X] T124 [P] [US8] Add Python descriptor registry tests in tests/integration/python/test_agent_descriptor_registry.py
 - [ ] T125 [P] [US8] Add .NET descriptor registry tests in tests/integration/dotnet/AgentDescriptorRegistryTests.cs
 - [ ] T126 [P] [US8] Add Java descriptor registry tests in tests/integration/java/AgentDescriptorRegistryTest.java
-- [ ] T127 [P] [US8] Add duplicate identifier, unresolved route key, and capability contradiction fail-fast tests in tests/integration/python/test_descriptor_validation.py, tests/integration/dotnet/DescriptorValidationTests.cs, and tests/integration/java/DescriptorValidationTest.java
-- [ ] T128 [P] [US8] Add derived minimal descriptor tests for handlers registered without a descriptor in tests/integration/python/test_descriptor_defaults.py, tests/integration/dotnet/DescriptorDefaultsTests.cs, and tests/integration/java/DescriptorDefaultsTest.java
+- [ ] T127 (Python done) [P] [US8] Add duplicate identifier, unresolved route key, and capability contradiction fail-fast tests in tests/integration/python/test_descriptor_validation.py, tests/integration/dotnet/DescriptorValidationTests.cs, and tests/integration/java/DescriptorValidationTest.java
+- [ ] T128 (Python done) [P] [US8] Add derived minimal descriptor tests for handlers registered without a descriptor in tests/integration/python/test_descriptor_defaults.py, tests/integration/dotnet/DescriptorDefaultsTests.cs, and tests/integration/java/DescriptorDefaultsTest.java
 
 ### Implementation for User Story 8
 
-- [ ] T129 [US8] Implement Python descriptor defaulting and minimal derived descriptor in packages/python/ygo74/agent_runtime/domains/discovery/descriptor_defaults.py
+- [X] T129 [US8] Implement Python descriptor defaulting and minimal derived descriptor in packages/python/ygo74/agent_runtime/domains/discovery/descriptor_defaults.py
 - [ ] T130 [P] [US8] Implement .NET descriptor defaulting and minimal derived descriptor in packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DescriptorDefaults.cs
 - [ ] T131 [P] [US8] Implement Java descriptor defaulting and minimal derived descriptor in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DescriptorDefaults.java
-- [ ] T132 [US8] Implement capability-versus-configuration consistency validator in packages/python/ygo74/agent_runtime/domains/discovery/capability_validator.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/CapabilityValidator.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/CapabilityValidator.java
-- [ ] T133 [US8] Implement descriptor-to-route-key binding validation against the existing route registry in packages/python/ygo74/agent_runtime/domains/discovery/descriptor_binding.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DescriptorBinding.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DescriptorBinding.java
-- [ ] T134 [US8] Extend framework-native configuration binding with descriptor declaration in packages/python/ygo74/agent_runtime/domains/configuration/models.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Configuration/EndpointOptions.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/configuration/EndpointProperties.java
-- [ ] T135 [US8] Document descriptor declaration in docs/examples/python-langchain-fastapi/agent-descriptor.md, docs/examples/dotnet-agentframework/agent-descriptor.md, and docs/examples/java-springai-springboot/agent-descriptor.md
+- [ ] T132 (Python done) [US8] Implement capability-versus-configuration consistency validator in packages/python/ygo74/agent_runtime/domains/discovery/capability_validator.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/CapabilityValidator.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/CapabilityValidator.java
+- [ ] T133 (Python done) [US8] Implement descriptor-to-route-key binding validation against the existing route registry in packages/python/ygo74/agent_runtime/domains/discovery/descriptor_binding.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DescriptorBinding.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DescriptorBinding.java
+- [ ] T134 (Python done) [US8] Extend framework-native configuration binding with descriptor declaration in packages/python/ygo74/agent_runtime/domains/configuration/models.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Configuration/EndpointOptions.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/configuration/EndpointProperties.java
+- [ ] T135 (Python done) [US8] Document descriptor declaration in docs/examples/python-langchain-fastapi/agent-descriptor.md, docs/examples/dotnet-agentframework/agent-descriptor.md, and docs/examples/java-springai-springboot/agent-descriptor.md
 
 **Checkpoint**: A validated single source of truth exists for every exposed agent.
 
@@ -338,30 +338,30 @@ before this amendment and are retained as completed history.
 
 ### Tests for User Story 9
 
-- [ ] T136 [P] [US9] Add discovery surface contract tests in tests/contract/test_discovery_surface_contract.json
-- [ ] T137 [P] [US9] Add Python model discovery endpoint tests in tests/integration/python/test_model_discovery_endpoints.py
+- [X] T136 [P] [US9] Add discovery surface contract tests in tests/contract/test_discovery_surface_contract.json
+- [X] T137 [P] [US9] Add Python model discovery endpoint tests in tests/integration/python/test_model_discovery_endpoints.py
 - [ ] T138 [P] [US9] Add .NET model discovery endpoint tests in tests/integration/dotnet/ModelDiscoveryEndpointsTests.cs
 - [ ] T139 [P] [US9] Add Java model discovery endpoint tests in tests/integration/java/ModelDiscoveryEndpointsTest.java
-- [ ] T140 [P] [US9] Add dialect selection tests for header present, header absent, and configuration override in tests/integration/python/test_discovery_dialect_selection.py, tests/integration/dotnet/DiscoveryDialectSelectionTests.cs, and tests/integration/java/DiscoveryDialectSelectionTest.java
-- [ ] T141 [P] [US9] Add Anthropic pagination and continuation indicator tests in tests/integration/python/test_discovery_pagination.py, tests/integration/dotnet/DiscoveryPaginationTests.cs, and tests/integration/java/DiscoveryPaginationTest.java
-- [ ] T142 [P] [US9] Add discovery-to-invocation round-trip tests asserting every advertised identifier routes to its agent in tests/integration/python/test_discovery_round_trip.py, tests/integration/dotnet/DiscoveryRoundTripTests.cs, and tests/integration/java/DiscoveryRoundTripTest.java
-- [ ] T143 [P] [US9] Add discovery error tests for unknown identifier, unsupported provider version, and invalid pagination in tests/integration/python/test_discovery_errors.py, tests/integration/dotnet/DiscoveryErrorsTests.cs, and tests/integration/java/DiscoveryErrorsTest.java
-- [ ] T185 [P] [US9] Add identifier matching tests rejecting case-variant and whitespace-padded identifiers, and empty-catalogue tests asserting a successful empty listing per dialect, in tests/integration/python/test_discovery_identifier_matching.py, tests/integration/dotnet/DiscoveryIdentifierMatchingTests.cs, and tests/integration/java/DiscoveryIdentifierMatchingTest.java
+- [ ] T140 (Python done) [P] [US9] Add dialect selection tests for header present, header absent, and configuration override in tests/integration/python/test_discovery_dialect_selection.py, tests/integration/dotnet/DiscoveryDialectSelectionTests.cs, and tests/integration/java/DiscoveryDialectSelectionTest.java
+- [ ] T141 (Python done) [P] [US9] Add Anthropic pagination and continuation indicator tests in tests/integration/python/test_discovery_pagination.py, tests/integration/dotnet/DiscoveryPaginationTests.cs, and tests/integration/java/DiscoveryPaginationTest.java
+- [ ] T142 (Python done) [P] [US9] Add discovery-to-invocation round-trip tests asserting every advertised identifier routes to its agent in tests/integration/python/test_discovery_round_trip.py, tests/integration/dotnet/DiscoveryRoundTripTests.cs, and tests/integration/java/DiscoveryRoundTripTest.java
+- [ ] T143 (Python done) [P] [US9] Add discovery error tests for unknown identifier, unsupported provider version, and invalid pagination in tests/integration/python/test_discovery_errors.py, tests/integration/dotnet/DiscoveryErrorsTests.cs, and tests/integration/java/DiscoveryErrorsTest.java
+- [ ] T185 (Python done) [P] [US9] Add identifier matching tests rejecting case-variant and whitespace-padded identifiers, and empty-catalogue tests asserting a successful empty listing per dialect, in tests/integration/python/test_discovery_identifier_matching.py, tests/integration/dotnet/DiscoveryIdentifierMatchingTests.cs, and tests/integration/java/DiscoveryIdentifierMatchingTest.java
 
 ### Implementation for User Story 9
 
-- [ ] T144 [US9] Implement Python OpenAI model projection in packages/python/ygo74/agent_runtime/domains/discovery/openai_model_projection.py
+- [X] T144 [US9] Implement Python OpenAI model projection in packages/python/ygo74/agent_runtime/domains/discovery/openai_model_projection.py
 - [ ] T145 [P] [US9] Implement .NET OpenAI model projection in packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/OpenAiModelProjection.cs
 - [ ] T146 [P] [US9] Implement Java OpenAI model projection in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/OpenAiModelProjection.java
-- [ ] T147 [US9] Implement Python Anthropic model projection with list envelope in packages/python/ygo74/agent_runtime/domains/discovery/anthropic_model_projection.py
+- [X] T147 [US9] Implement Python Anthropic model projection with list envelope in packages/python/ygo74/agent_runtime/domains/discovery/anthropic_model_projection.py
 - [ ] T148 [P] [US9] Implement .NET Anthropic model projection with list envelope in packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/AnthropicModelProjection.cs
 - [ ] T149 [P] [US9] Implement Java Anthropic model projection with list envelope in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/AnthropicModelProjection.java
-- [ ] T150 [US9] Implement provider dialect selector with header detection and configuration override in packages/python/ygo74/agent_runtime/domains/discovery/dialect_selector.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DialectSelector.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DialectSelector.java
-- [ ] T151 [US9] Implement Anthropic-style pagination with page size limits in packages/python/ygo74/agent_runtime/domains/discovery/pagination.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DiscoveryPagination.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryPagination.java
-- [ ] T152 [US9] Implement additive capability extension section shared by both provider projections in packages/python/ygo74/agent_runtime/domains/discovery/capability_extensions.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/CapabilityExtensions.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/CapabilityExtensions.java
-- [ ] T153 [US9] Register model listing and single-model routes in packages/python/ygo74/agent_runtime/domains/endpoints/fastapi_endpoints.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Endpoints/EndpointAdapters.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/endpoints/EndpointAdapters.java
-- [ ] T154 [US9] Implement discovery surface enable/disable toggles returning structured not-found in packages/python/ygo74/agent_runtime/domains/discovery/discovery_configuration.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DiscoveryConfiguration.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryConfiguration.java
-- [ ] T186 [US9] Implement exact case-sensitive identifier matching, empty-catalogue success responses, and the externally reachable base URL setting in packages/python/ygo74/agent_runtime/domains/discovery/discovery_configuration.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DiscoveryConfiguration.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryConfiguration.java
+- [ ] T150 (Python done) [US9] Implement provider dialect selector with header detection and configuration override in packages/python/ygo74/agent_runtime/domains/discovery/dialect_selector.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DialectSelector.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DialectSelector.java
+- [ ] T151 (Python done) [US9] Implement Anthropic-style pagination with page size limits in packages/python/ygo74/agent_runtime/domains/discovery/pagination.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DiscoveryPagination.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryPagination.java
+- [ ] T152 (Python done) [US9] Implement additive capability extension section shared by both provider projections in packages/python/ygo74/agent_runtime/domains/discovery/capability_extensions.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/CapabilityExtensions.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/CapabilityExtensions.java
+- [ ] T153 (Python done) [US9] Register model listing and single-model routes in packages/python/ygo74/agent_runtime/domains/endpoints/fastapi_endpoints.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Endpoints/EndpointAdapters.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/endpoints/EndpointAdapters.java
+- [ ] T154 (Python done) [US9] Implement discovery surface enable/disable toggles returning structured not-found in packages/python/ygo74/agent_runtime/domains/discovery/discovery_configuration.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DiscoveryConfiguration.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryConfiguration.java
+- [ ] T186 (Python done) [US9] Implement exact case-sensitive identifier matching, empty-catalogue success responses, and the externally reachable base URL setting in packages/python/ygo74/agent_runtime/domains/discovery/discovery_configuration.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DiscoveryConfiguration.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryConfiguration.java
 
 **Checkpoint**: Provider-compatible clients can discover and then invoke every exposed agent.
 

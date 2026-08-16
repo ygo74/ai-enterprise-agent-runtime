@@ -25,6 +25,19 @@ from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError, Au
 from ygo74.agent_runtime.domains.auth.authenticator import Authenticator, RequestAuthenticator
 from ygo74.agent_runtime.domains.auth.apikey_authenticator import ApiKeyAuthenticator, ApiKeyUserResolver
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtAuthenticator, JwtValidationConfig
+from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
+from ygo74.agent_runtime.domains.discovery.dialect_selector import ProviderDialect
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
+    DiscoveryConfiguration,
+    DiscoveryService,
+)
+from ygo74.agent_runtime.domains.discovery.discovery_errors import (
+    DiscoveryError,
+    DiscoveryErrorCategory,
+    DiscoveryErrorCode,
+)
+from ygo74.agent_runtime.domains.discovery.model_route_resolver import ModelRouteResolver
+from ygo74.agent_runtime.domains.discovery.pagination import PaginationRequest
 
 AgentEntrypoint = Callable[[dict[str, Any]], Awaitable[Any] | Any]
 
@@ -66,6 +79,8 @@ def add_ai_endpoints(
     require_bearer_token: bool = False,
     api_key_resolver: ApiKeyUserResolver | None = None,
     authenticators: Sequence[Authenticator] | None = None,
+    descriptor_registry: DescriptorRegistry | None = None,
+    discovery: DiscoveryConfiguration | None = None,
 ) -> None:
     """Register AI endpoints on a FastAPI app and forward a uniform payload to agent_entrypoint."""
 
@@ -77,6 +92,10 @@ def add_ai_endpoints(
         api_key_resolver=api_key_resolver,
         require_authentication=require_bearer_token,
         authenticators=authenticators,
+    )
+
+    model_route_resolver = (
+        None if descriptor_registry is None else ModelRouteResolver(descriptor_registry)
     )
 
     async def _invoke(endpoint_type: str, body: dict[str, Any], request: Request) -> Any:
@@ -91,6 +110,7 @@ def add_ai_endpoints(
                 request,
                 default_route_key,
                 request_authenticator=request_authenticator,
+                model_route_resolver=model_route_resolver,
             )
             exchange_request = map_to_exchange(endpoint_type, payload)
 
@@ -182,6 +202,118 @@ def add_ai_endpoints(
         async def anthropic_messages(body: dict[str, Any], request: Request) -> Any:
             return await _invoke("anthropic.messages", body, request)
 
+    if descriptor_registry is not None and discovery is not None:
+        add_discovery_endpoints(app, descriptor_registry, discovery)
+
+
+def add_discovery_endpoints(
+    app: Any,
+    descriptor_registry: DescriptorRegistry,
+    discovery: DiscoveryConfiguration,
+) -> None:
+    """Register the model discovery routes.
+
+    The shared ``/v1/models`` path serves whichever dialect the request selects.
+    The per-dialect paths are registered only when both surfaces are enabled, so a
+    host that exposes a single provider does not advertise the other one.
+    """
+
+    if not _FASTAPI_AVAILABLE:
+        raise RuntimeError("fastapi is required to use add_discovery_endpoints") from _FASTAPI_IMPORT_ERROR
+
+    if not discovery.any_model_surface_enabled:
+        return
+
+    service = DiscoveryService(descriptor_registry, discovery)
+    prefix = discovery.route_prefix.rstrip("/")
+
+    def _list(request: Request, dialect: ProviderDialect | None) -> Any:
+        try:
+            return service.list_models(
+                headers=getattr(request, "headers", None),
+                dialect=dialect,
+                pagination=_pagination_from_query(request),
+            )
+        except DiscoveryError as ex:
+            raise _discovery_http_error(ex) from ex
+
+    def _get(request: Request, model_id: str, dialect: ProviderDialect | None) -> Any:
+        try:
+            return service.get_model(
+                model_id,
+                headers=getattr(request, "headers", None),
+                dialect=dialect,
+            )
+        except DiscoveryError as ex:
+            raise _discovery_http_error(ex) from ex
+
+    @app.get(f"{prefix}/v1/models")
+    async def list_models(request: Request) -> Any:
+        return _list(request, None)
+
+    @app.get(f"{prefix}/v1/models/{{model_id}}")
+    async def get_model(model_id: str, request: Request) -> Any:
+        return _get(request, model_id, None)
+
+    if discovery.enable_openai_models and discovery.enable_anthropic_models:
+
+        @app.get(f"{prefix}/openai/v1/models")
+        async def list_openai_models(request: Request) -> Any:
+            return _list(request, ProviderDialect.OPENAI)
+
+        @app.get(f"{prefix}/openai/v1/models/{{model_id}}")
+        async def get_openai_model(model_id: str, request: Request) -> Any:
+            return _get(request, model_id, ProviderDialect.OPENAI)
+
+        @app.get(f"{prefix}/anthropic/v1/models")
+        async def list_anthropic_models(request: Request) -> Any:
+            return _list(request, ProviderDialect.ANTHROPIC)
+
+        @app.get(f"{prefix}/anthropic/v1/models/{{model_id}}")
+        async def get_anthropic_model(model_id: str, request: Request) -> Any:
+            return _get(request, model_id, ProviderDialect.ANTHROPIC)
+
+
+_DISCOVERY_STATUS_BY_CATEGORY: dict[str, int] = {
+    str(DiscoveryErrorCategory.NOT_FOUND): 404,
+    str(DiscoveryErrorCategory.VALIDATION): 400,
+    str(DiscoveryErrorCategory.CONFIGURATION): 500,
+}
+
+
+def _discovery_http_error(error: DiscoveryError) -> Any:
+    status_code = _DISCOVERY_STATUS_BY_CATEGORY.get(str(error.category), 500)
+    logger.info("Discovery request failed code=%s category=%s", error.code, error.category)
+    return HTTPException(status_code=status_code, detail={"error": error.to_dict()})
+
+
+def _pagination_from_query(request: Any) -> PaginationRequest:
+    params = getattr(request, "query_params", None)
+    getter = getattr(params, "get", None)
+    if not callable(getter):
+        return PaginationRequest()
+
+    raw_limit = getter("limit")
+    limit: int | None = None
+    if isinstance(raw_limit, str) and raw_limit.strip():
+        try:
+            limit = int(raw_limit)
+        except ValueError as exc:
+            raise DiscoveryError(
+                code=DiscoveryErrorCode.INVALID_PAGINATION,
+                message="limit must be an integer",
+            ) from exc
+
+    return PaginationRequest(
+        limit=limit,
+        after_id=_optional_query(getter("after_id")),
+        before_id=_optional_query(getter("before_id")),
+    )
+
+
+def _optional_query(value: object) -> str | None:
+    return value if isinstance(value, str) and value else None
+
 
 def add_ai_endpoint(
     app: Any,
@@ -195,6 +327,8 @@ def add_ai_endpoint(
     require_bearer_token: bool = False,
     api_key_resolver: ApiKeyUserResolver | None = None,
     authenticators: Sequence[Authenticator] | None = None,
+    descriptor_registry: DescriptorRegistry | None = None,
+    discovery: DiscoveryConfiguration | None = None,
 ) -> None:
     """Alias for add_ai_endpoints with a singular name for API ergonomics."""
 
@@ -209,6 +343,8 @@ def add_ai_endpoint(
         require_bearer_token=require_bearer_token,
         api_key_resolver=api_key_resolver,
         authenticators=authenticators,
+        descriptor_registry=descriptor_registry,
+        discovery=discovery,
     )
 
 
@@ -219,9 +355,19 @@ def _build_raw_payload(
     default_route_key: str,
     *,
     request_authenticator: RequestAuthenticator,
+    model_route_resolver: ModelRouteResolver | None = None,
 ) -> dict[str, Any]:
     metadata = dict(body.get("metadata") or {})
-    route_key = str(metadata.get("route_key") or body.get("route_key") or default_route_key)
+    route_key = str(
+        metadata.get("route_key")
+        or body.get("route_key")
+        # An identifier advertised by discovery is accepted verbatim as `model`, so
+        # clients can round-trip a listing entry without knowing the internal route
+        # key. An explicit route key still wins, and an unknown model falls back to
+        # the default rather than being routed somewhere unintended.
+        or (model_route_resolver.route_key_for(body.get("model")) if model_route_resolver else None)
+        or default_route_key
+    )
     request_id = str(metadata.get("request_id") or body.get("request_id") or f"req-{uuid.uuid4().hex[:12]}")
 
     if endpoint_type == "openai.responses":

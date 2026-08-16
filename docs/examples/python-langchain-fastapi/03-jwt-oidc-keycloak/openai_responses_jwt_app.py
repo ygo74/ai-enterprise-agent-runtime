@@ -1,11 +1,21 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import FastAPI
 
-from ygo74.agent_runtime import AuthorizationError, add_ai_endpoints
+from ygo74.agent_runtime import (
+    AgentCapabilitySet,
+    AgentDescriptor,
+    AgentSkill,
+    AuthorizationError,
+    DescriptorRegistry,
+    DiscoveryConfiguration,
+    Modality,
+    add_ai_endpoints,
+)
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwksKeyResolver, JwtValidationConfig
 
 
@@ -71,13 +81,46 @@ jwt_config = JwtValidationConfig(
 )
 
 
+# Declaring an identity is what makes this agent discoverable via GET /v1/models.
+# See ../agent-descriptor.md for the full guide.
+AGENT_ID = "jwt-protected-agent"
+
+agent_descriptor = AgentDescriptor(
+    agent_id=AGENT_ID,
+    route_key=AGENT_ID,
+    display_name="OIDC Protected Agent",
+    description=(
+        "Echoes the authenticated caller's identity, roles, and groups resolved "
+        "from a Keycloak-issued token."
+    ),
+    version="1.0.0",
+    owner="ai-enterprise-agent-runtime",
+    created_at_utc=datetime(2026, 8, 16, tzinfo=timezone.utc),
+    capabilities=AgentCapabilitySet(
+        streaming=False,
+        input_modalities=(Modality.TEXT,),
+        output_modalities=(Modality.TEXT,),
+    ),
+    tags=("authentication", "oidc", "keycloak"),
+    security_schemes=("jwt", "oidc"),
+    skills=(
+        AgentSkill(
+            skill_id="whoami",
+            name="Who am I",
+            description="Returns the authenticated subject, roles, and groups resolved from the OIDC token.",
+        ),
+    ),
+)
+
 add_ai_endpoints(
     app,
     _entrypoint,
-    default_route_key="jwt-protected-agent",
+    default_route_key=AGENT_ID,
     enable_openai_responses=True,
     enable_openai_chat_completions=True,
     enable_anthropic_messages=False,
     jwt_validation=jwt_config,
     require_bearer_token=True,
+    descriptor_registry=DescriptorRegistry([agent_descriptor]),
+    discovery=DiscoveryConfiguration(enable_openai_models=True, enable_anthropic_models=True),
 )
