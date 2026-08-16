@@ -1,7 +1,8 @@
 # Authorization Extension (Python)
 
 The runtime authenticates the caller and hands you a normalized `auth_context`.
-It never makes an authorization decision: that stays in your code.
+It never invents an authorization rule on its own: you supply the rule, once,
+and the runtime applies it consistently.
 
 ## What you receive
 
@@ -42,7 +43,67 @@ JwtValidationConfig(
 
 ## Denying a request
 
-### Option 1 - raise `AuthorizationError` (recommended)
+### Option 0 - a shared `AgentAccessPolicy` (recommended when you declare descriptors)
+
+If your agents are registered in a `DescriptorRegistry` for discovery (see
+[agent-descriptor.md](agent-descriptor.md)), a rule written inside one
+entrypoint has no way to influence `GET /v1/models`: a caller who cannot
+invoke the agent would still see it listed. `AgentAccessPolicy` fixes this by
+letting you define the rule once and having the runtime call it both places:
+
+```python
+from dataclasses import dataclass
+
+from ygo74.agent_runtime import (
+    AgentAccessPolicy,
+    AgentDescriptor,
+    AuthenticatedUserContext,
+    RoleRequiredAccessPolicy,
+    add_ai_endpoints,
+)
+
+# Built-in: deny every agent to callers missing a single role.
+policy = RoleRequiredAccessPolicy(required_role="admin")
+
+# Or implement the protocol yourself for per-agent rules, e.g. based on tags:
+@dataclass(slots=True)
+class TagBasedPolicy:
+    def is_authorized(self, descriptor: AgentDescriptor, auth_context: AuthenticatedUserContext | None) -> bool:
+        if "admin-only" not in descriptor.tags:
+            return True
+        return auth_context is not None and auth_context.has_role("admin")
+
+add_ai_endpoints(
+    app,
+    entrypoint,
+    default_route_key="my-agent",
+    descriptor_registry=registry,
+    discovery=discovery_configuration,
+    authorization_policy=policy,
+)
+```
+
+The runtime then:
+
+- Calls `is_authorized(descriptor, auth_context)` once before dispatching an
+  invocation (`/v1/responses`, `/v1/chat/completions`, `/v1/messages`),
+  resolving `descriptor` from the request's route key. A denial raises the
+  same `AuthorizationError` -> HTTP 403 as a manual check.
+- Filters `GET /v1/models` down to the agents the caller is authorized for.
+- Reports `GET /v1/models/{id}` as **404**, not 403, for a denied agent --
+  identical to a hidden agent, so existence is not leaked to a caller who
+  cannot use it.
+
+This is still developer-owned authorization: the runtime never ships a
+default rule and never decides anything on its own. It only guarantees the
+one rule you wrote is asked at every agent-scoped route instead of being
+copy-pasted into every entrypoint.
+
+### Option 1 - raise `AuthorizationError` inside the entrypoint
+
+Still fully supported, and the right choice for agents that are not
+registered for discovery, or for checks that depend on the request body
+rather than just on identity (e.g. a field in the input):
 
 ```python
 from ygo74.agent_runtime import AuthorizationError

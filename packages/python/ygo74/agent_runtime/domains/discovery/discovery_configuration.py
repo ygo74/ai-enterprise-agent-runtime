@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Mapping, Sequence
 
+from ygo74.agent_runtime.domains.auth.auth_context import AuthenticatedUserContext
+from ygo74.agent_runtime.domains.discovery.agent_access_policy import AgentAccessPolicy
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentDescriptor
 from ygo74.agent_runtime.domains.discovery.anthropic_model_projection import AnthropicModelProjection
 from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
@@ -30,6 +33,9 @@ class DiscoverySurface(StrEnum):
     OPENAI_MODELS = "openai_models"
     ANTHROPIC_MODELS = "anthropic_models"
     AGENT_CARD = "agent_card"
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -102,6 +108,8 @@ class DiscoveryService:
         self,
         registry: DescriptorRegistry,
         configuration: DiscoveryConfiguration | None = None,
+        *,
+        access_policy: AgentAccessPolicy | None = None,
     ) -> None:
         self._registry = registry
         self._configuration = configuration or DiscoveryConfiguration()
@@ -110,6 +118,7 @@ class DiscoveryService:
             default_page_size=self._configuration.default_page_size,
             max_page_size=self._configuration.max_page_size,
         )
+        self._access_policy = access_policy
 
     @property
     def configuration(self) -> DiscoveryConfiguration:
@@ -125,16 +134,20 @@ class DiscoveryService:
         dialect: ProviderDialect | None = None,
         pagination: PaginationRequest | None = None,
         descriptors: Sequence[AgentDescriptor] | None = None,
+        auth_context: AuthenticatedUserContext | None = None,
     ) -> dict[str, Any]:
         """Render the model listing in the resolved dialect.
 
-        An empty catalogue is a successful empty listing, never an error.
+        An empty catalogue is a successful empty listing, never an error. When
+        an access policy is configured, an agent the caller is not authorized
+        to invoke is silently excluded rather than surfaced and then denied.
         """
 
         resolved = dialect or self.select_dialect(headers)
         self._require_dialect_enabled(resolved)
 
         catalogue = tuple(descriptors) if descriptors is not None else self._registry.list_discoverable()
+        catalogue = self._authorized_only(catalogue, auth_context)
 
         if resolved is ProviderDialect.OPENAI:
             return OpenAiModelProjection.project_list(catalogue)
@@ -153,13 +166,18 @@ class DiscoveryService:
         headers: Mapping[str, Any] | None = None,
         dialect: ProviderDialect | None = None,
         descriptors: Sequence[AgentDescriptor] | None = None,
+        auth_context: AuthenticatedUserContext | None = None,
     ) -> dict[str, Any]:
-        """Retrieve a single model entry by exact, case-sensitive identifier."""
+        """Retrieve a single model entry by exact, case-sensitive identifier.
+
+        An agent the caller is not authorized to invoke reports the same
+        not-found error as a hidden or unknown identifier.
+        """
 
         resolved = dialect or self.select_dialect(headers)
         self._require_dialect_enabled(resolved)
 
-        descriptor = self._find_visible(agent_id, descriptors)
+        descriptor = self._find_visible(agent_id, descriptors, auth_context)
         if descriptor is None:
             raise DiscoveryErrors.agent_not_found(agent_id)
 
@@ -171,17 +189,50 @@ class DiscoveryService:
         self,
         agent_id: str,
         descriptors: Sequence[AgentDescriptor] | None,
+        auth_context: AuthenticatedUserContext | None,
     ) -> AgentDescriptor | None:
         if agent_id != agent_id.strip():
             return None
 
         if descriptors is not None:
-            return next((item for item in descriptors if item.agent_id == agent_id), None)
+            descriptor = next((item for item in descriptors if item.agent_id == agent_id), None)
+        else:
+            descriptor = self._registry.find(agent_id)
+            if descriptor is not None and not descriptor.is_listed:
+                descriptor = None
 
-        descriptor = self._registry.find(agent_id)
-        if descriptor is None or not descriptor.is_listed:
+        if descriptor is None or not self._is_authorized(descriptor, auth_context):
             return None
         return descriptor
+
+    def _authorized_only(
+        self,
+        catalogue: tuple[AgentDescriptor, ...],
+        auth_context: AuthenticatedUserContext | None,
+    ) -> tuple[AgentDescriptor, ...]:
+        if self._access_policy is None:
+            return catalogue
+        return tuple(descriptor for descriptor in catalogue if self._is_authorized(descriptor, auth_context))
+
+    def _is_authorized(
+        self,
+        descriptor: AgentDescriptor,
+        auth_context: AuthenticatedUserContext | None,
+    ) -> bool:
+        if self._access_policy is None:
+            return True
+
+        try:
+            return self._access_policy.is_authorized(descriptor, auth_context)
+        except Exception:
+            # Fail closed: a raising policy must not leak an unevaluated agent
+            # into a listing or a retrieval.
+            logger.warning(
+                "Discovery access policy raised for agent_id=%s; treating as denied",
+                descriptor.agent_id,
+                exc_info=True,
+            )
+            return False
 
     def _require_dialect_enabled(self, dialect: ProviderDialect) -> None:
         surface = (

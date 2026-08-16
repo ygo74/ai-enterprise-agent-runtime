@@ -30,6 +30,7 @@ class DescriptorRegistry:
         ordering: DescriptorOrdering = DescriptorOrdering.AGENT_ID_ASCENDING,
     ) -> None:
         self._descriptors: dict[str, AgentDescriptor] = {}
+        self._by_route_key: dict[str, AgentDescriptor] = {}
         self._ordering = ordering
         for descriptor in descriptors or ():
             self.register(descriptor)
@@ -53,6 +54,7 @@ class DescriptorRegistry:
         if descriptor.agent_id in self._descriptors:
             raise DiscoveryErrors.duplicate_agent_id(descriptor.agent_id)
         self._descriptors[descriptor.agent_id] = descriptor
+        self._by_route_key[descriptor.route_key] = descriptor
 
     def register_all(self, descriptors: Iterable[AgentDescriptor]) -> None:
         for descriptor in descriptors:
@@ -62,6 +64,15 @@ class DescriptorRegistry:
         """Exact, case-sensitive, O(1) lookup. Returns ``None`` when absent."""
 
         return self._descriptors.get(agent_id)
+
+    def find_by_route_key(self, route_key: str) -> AgentDescriptor | None:
+        """Exact lookup by internal route key, used to gate invocation by descriptor.
+
+        If two descriptors were registered with the same ``route_key`` (unusual,
+        and not otherwise validated), the most recently registered one wins.
+        """
+
+        return self._by_route_key.get(route_key)
 
     def get(self, agent_id: str) -> AgentDescriptor:
         """Exact, case-sensitive lookup raising a structured not-found error."""

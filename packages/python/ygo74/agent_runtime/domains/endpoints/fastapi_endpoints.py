@@ -25,6 +25,7 @@ from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError, Au
 from ygo74.agent_runtime.domains.auth.authenticator import Authenticator, RequestAuthenticator
 from ygo74.agent_runtime.domains.auth.apikey_authenticator import ApiKeyAuthenticator, ApiKeyUserResolver
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtAuthenticator, JwtValidationConfig
+from ygo74.agent_runtime.domains.discovery.agent_access_policy import AgentAccessPolicy
 from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
 from ygo74.agent_runtime.domains.discovery.dialect_selector import ProviderDialect
 from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
@@ -81,8 +82,15 @@ def add_ai_endpoints(
     authenticators: Sequence[Authenticator] | None = None,
     descriptor_registry: DescriptorRegistry | None = None,
     discovery: DiscoveryConfiguration | None = None,
+    authorization_policy: AgentAccessPolicy | None = None,
 ) -> None:
-    """Register AI endpoints on a FastAPI app and forward a uniform payload to agent_entrypoint."""
+    """Register AI endpoints on a FastAPI app and forward a uniform payload to agent_entrypoint.
+
+    When both ``descriptor_registry`` and ``authorization_policy`` are supplied,
+    the policy is consulted once per invocation (using the descriptor resolved
+    for the request's route key) and again for every discovery request, so a
+    caller denied at invocation time never sees the agent listed either.
+    """
 
     if not _FASTAPI_AVAILABLE:
         raise RuntimeError("fastapi is required to use add_ai_endpoints") from _FASTAPI_IMPORT_ERROR
@@ -111,6 +119,8 @@ def add_ai_endpoints(
                 default_route_key,
                 request_authenticator=request_authenticator,
                 model_route_resolver=model_route_resolver,
+                descriptor_registry=descriptor_registry,
+                authorization_policy=authorization_policy,
             )
             exchange_request = map_to_exchange(endpoint_type, payload)
 
@@ -203,19 +213,36 @@ def add_ai_endpoints(
             return await _invoke("anthropic.messages", body, request)
 
     if descriptor_registry is not None and discovery is not None:
-        add_discovery_endpoints(app, descriptor_registry, discovery)
+        discovery_authenticator = RequestAuthenticator(
+            list(request_authenticator.authenticators),
+            require_authentication=discovery.require_authentication,
+        )
+        add_discovery_endpoints(
+            app,
+            descriptor_registry,
+            discovery,
+            authenticator=discovery_authenticator,
+            access_policy=authorization_policy,
+        )
 
 
 def add_discovery_endpoints(
     app: Any,
     descriptor_registry: DescriptorRegistry,
     discovery: DiscoveryConfiguration,
+    *,
+    authenticator: RequestAuthenticator | None = None,
+    access_policy: AgentAccessPolicy | None = None,
 ) -> None:
     """Register the model discovery routes.
 
     The shared ``/v1/models`` path serves whichever dialect the request selects.
     The per-dialect paths are registered only when both surfaces are enabled, so a
     host that exposes a single provider does not advertise the other one.
+
+    ``authenticator`` identifies the caller (best-effort unless
+    ``discovery.require_authentication`` is set) so ``access_policy`` can filter
+    listings and single-model retrieval the same way it gates invocation.
     """
 
     if not _FASTAPI_AVAILABLE:
@@ -224,26 +251,39 @@ def add_discovery_endpoints(
     if not discovery.any_model_surface_enabled:
         return
 
-    service = DiscoveryService(descriptor_registry, discovery)
+    service = DiscoveryService(descriptor_registry, discovery, access_policy=access_policy)
     prefix = discovery.route_prefix.rstrip("/")
+
+    def _authenticate(request: Request) -> Any:
+        if authenticator is None:
+            return None
+        return authenticator.authenticate(getattr(request, "headers", None))
 
     def _list(request: Request, dialect: ProviderDialect | None) -> Any:
         try:
+            auth_context = _authenticate(request)
             return service.list_models(
                 headers=getattr(request, "headers", None),
                 dialect=dialect,
                 pagination=_pagination_from_query(request),
+                auth_context=auth_context,
             )
+        except AuthenticationError as ex:
+            raise _discovery_auth_error(ex) from ex
         except DiscoveryError as ex:
             raise _discovery_http_error(ex) from ex
 
     def _get(request: Request, model_id: str, dialect: ProviderDialect | None) -> Any:
         try:
+            auth_context = _authenticate(request)
             return service.get_model(
                 model_id,
                 headers=getattr(request, "headers", None),
                 dialect=dialect,
+                auth_context=auth_context,
             )
+        except AuthenticationError as ex:
+            raise _discovery_auth_error(ex) from ex
         except DiscoveryError as ex:
             raise _discovery_http_error(ex) from ex
 
@@ -285,6 +325,11 @@ def _discovery_http_error(error: DiscoveryError) -> Any:
     status_code = _DISCOVERY_STATUS_BY_CATEGORY.get(str(error.category), 500)
     logger.info("Discovery request failed code=%s category=%s", error.code, error.category)
     return HTTPException(status_code=status_code, detail={"error": error.to_dict()})
+
+
+def _discovery_auth_error(error: AuthenticationError) -> Any:
+    logger.warning("Discovery request authentication failed code=%s", error.code)
+    return HTTPException(status_code=401, detail={"error": error.to_dict()})
 
 
 def _pagination_from_query(request: Any) -> PaginationRequest:
@@ -329,6 +374,7 @@ def add_ai_endpoint(
     authenticators: Sequence[Authenticator] | None = None,
     descriptor_registry: DescriptorRegistry | None = None,
     discovery: DiscoveryConfiguration | None = None,
+    authorization_policy: AgentAccessPolicy | None = None,
 ) -> None:
     """Alias for add_ai_endpoints with a singular name for API ergonomics."""
 
@@ -345,8 +391,8 @@ def add_ai_endpoint(
         authenticators=authenticators,
         descriptor_registry=descriptor_registry,
         discovery=discovery,
+        authorization_policy=authorization_policy,
     )
-
 
 def _build_raw_payload(
     endpoint_type: str,
@@ -356,6 +402,8 @@ def _build_raw_payload(
     *,
     request_authenticator: RequestAuthenticator,
     model_route_resolver: ModelRouteResolver | None = None,
+    descriptor_registry: DescriptorRegistry | None = None,
+    authorization_policy: AgentAccessPolicy | None = None,
 ) -> dict[str, Any]:
     metadata = dict(body.get("metadata") or {})
     route_key = str(
@@ -376,6 +424,29 @@ def _build_raw_payload(
         normalized_input = body.get("messages", body.get("input"))
 
     user_context = request_authenticator.authenticate(getattr(request, "headers", None))
+
+    # The same policy that filters discovery listings gates invocation here, so
+    # a caller never invokes an agent it would not have seen listed. A raising
+    # policy fails closed: the agent is treated as denied rather than letting
+    # the exception surface as an unrelated 500.
+    if authorization_policy is not None and descriptor_registry is not None:
+        target_descriptor = descriptor_registry.find_by_route_key(route_key)
+        if target_descriptor is not None:
+            try:
+                authorized = authorization_policy.is_authorized(target_descriptor, user_context)
+            except Exception:
+                logger.warning(
+                    "Authorization policy raised for agent_id=%s; treating as denied",
+                    target_descriptor.agent_id,
+                    exc_info=True,
+                )
+                authorized = False
+            if not authorized:
+                raise AuthorizationError(
+                    code="agent_access_denied",
+                    message=f"Access to agent '{target_descriptor.agent_id}' is denied",
+                    details={"agentId": target_descriptor.agent_id},
+                )
 
     return {
         "request_id": request_id,

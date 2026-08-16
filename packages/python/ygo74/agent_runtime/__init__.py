@@ -17,6 +17,7 @@ from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
     DiscoveryVisibility,
     Modality,
 )
+from ygo74.agent_runtime.domains.discovery.agent_access_policy import AgentAccessPolicy, RoleRequiredAccessPolicy
 from ygo74.agent_runtime.domains.discovery.anthropic_model_projection import AnthropicModelProjection
 from ygo74.agent_runtime.domains.discovery.capability_extensions import CapabilityExtensions
 from ygo74.agent_runtime.domains.discovery.capability_validator import CapabilityValidator
@@ -74,6 +75,8 @@ __all__ = [
     "CapabilitySizeUnit",
     "DiscoveryVisibility",
     "Modality",
+    "AgentAccessPolicy",
+    "RoleRequiredAccessPolicy",
     "DescriptorRegistry",
     "DescriptorOrdering",
     "DescriptorDefaults",

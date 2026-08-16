@@ -123,6 +123,13 @@ A hidden agent is absent from listings and returns 404 on direct retrieval — i
 an agent that does not exist — yet remains fully invocable by callers that already know its route.
 Use this for agents that are orchestrated internally but should not be offered to end users.
 
+Hiding is unconditional: it applies the same way to every caller. When visibility should instead
+depend on *who* is asking (e.g. only admins can see and invoke a given agent), pass an
+`AgentAccessPolicy` to `add_ai_endpoints` — see
+[authorization.md](authorization.md#option-0---a-shared-agentaccesspolicy-recommended-when-you-declare-descriptors).
+A denied agent behaves exactly like a hidden one for that caller: absent from the listing, 404 on
+direct retrieval, and a 403 if invocation is attempted anyway.
+
 ## Letting the runtime derive a descriptor
 
 If you register a handler without a descriptor, the runtime derives a minimal one from the route key

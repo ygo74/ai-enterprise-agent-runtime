@@ -10,10 +10,10 @@ from ygo74.agent_runtime import (
     AgentCapabilitySet,
     AgentDescriptor,
     AgentSkill,
-    AuthorizationError,
     DescriptorRegistry,
     DiscoveryConfiguration,
     Modality,
+    RoleRequiredAccessPolicy,
     add_ai_endpoints,
 )
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwksKeyResolver, JwtValidationConfig
@@ -21,22 +21,18 @@ from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwksKeyResolver, 
 
 app = FastAPI(title="OpenAI Responses + JWT (OIDC/Keycloak) Authentication Example")
 
-# Authorization is owned by the developer: the runtime only authenticates and
-# projects the user context. Leave empty to allow any authenticated caller.
+# Authorization is owned by the developer, but the rule is now defined once and
+# invoked consistently by the runtime on every agent-scoped route: an
+# unauthorized caller neither sees the agent in GET /v1/models nor can invoke
+# it. Leave REQUIRED_ROLE empty to allow any authenticated caller.
 required_role = os.getenv("REQUIRED_ROLE", "")
+authorization_policy = RoleRequiredAccessPolicy(required_role=required_role)
 
 
 async def _entrypoint(payload: dict[str, Any]) -> dict[str, Any]:
     auth_context = payload.get("auth_context") or {}
     identity = auth_context.get("identity") or {}
     roles = auth_context.get("roles", [])
-
-    if required_role and required_role not in roles:
-        raise AuthorizationError(
-            code="role_required",
-            message=f"Role '{required_role}' is required",
-            details={"required_role": required_role, "granted_roles": roles},
-        )
 
     return {
         "request_id": payload["request_id"],
@@ -123,4 +119,5 @@ add_ai_endpoints(
     require_bearer_token=True,
     descriptor_registry=DescriptorRegistry([agent_descriptor]),
     discovery=DiscoveryConfiguration(enable_openai_models=True, enable_anthropic_models=True),
+    authorization_policy=authorization_policy,
 )
