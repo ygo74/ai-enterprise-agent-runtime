@@ -21,6 +21,8 @@ except Exception as exc:  # pragma: no cover - depends on web runtime
 
 from ygo74.agent_runtime.domains.mapping.request_mapper import map_to_exchange
 from ygo74.agent_runtime.domains.mapping.response_mapper import map_response
+from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
+from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtValidationConfig, authenticate_authorization_header
 
 AgentEntrypoint = Callable[[dict[str, Any]], Awaitable[Any] | Any]
 
@@ -35,16 +37,30 @@ def add_ai_endpoints(
     enable_openai_responses: bool = True,
     enable_openai_chat_completions: bool = True,
     enable_anthropic_messages: bool = False,
+    jwt_validation: JwtValidationConfig | None = None,
+    require_bearer_token: bool = False,
 ) -> None:
     """Register AI endpoints on a FastAPI app and forward a uniform payload to agent_entrypoint."""
 
     if not _FASTAPI_AVAILABLE:
         raise RuntimeError("fastapi is required to use add_ai_endpoints") from _FASTAPI_IMPORT_ERROR
 
-    async def _invoke(endpoint_type: str, body: dict[str, Any], request: Request) -> Any:
-        payload = _build_raw_payload(endpoint_type, body, request, default_route_key)
+    jwt_validation = jwt_validation or JwtValidationConfig()
 
+    async def _invoke(endpoint_type: str, body: dict[str, Any], request: Request) -> Any:
+        payload: dict[str, Any] = {
+            "request_id": str((body.get("metadata") or {}).get("request_id") or body.get("request_id") or "unknown"),
+            "route_key": str((body.get("metadata") or {}).get("route_key") or body.get("route_key") or default_route_key),
+        }
         try:
+            payload = _build_raw_payload(
+                endpoint_type,
+                body,
+                request,
+                default_route_key,
+                jwt_validation=jwt_validation,
+                require_bearer_token=require_bearer_token,
+            )
             exchange_request = map_to_exchange(endpoint_type, payload)
 
             uniform_payload = {
@@ -73,6 +89,15 @@ def add_ai_endpoints(
 
             exchange_response = _normalize_agent_result(result, exchange_request.request_id, exchange_request.route_key)
             return map_response(endpoint_type, exchange_response)
+        except AuthenticationError as ex:
+            payload = body.get("metadata") or {}
+            logger.warning("Authentication failed for endpoint_type=%s", endpoint_type)
+            err = {
+                "request_id": str(payload.get("request_id") or body.get("request_id") or "unknown"),
+                "status": "error",
+                "error": ex.to_dict(),
+            }
+            raise HTTPException(status_code=401, detail=map_response(endpoint_type, err)) from ex
         except Exception as ex:
             logger.exception(
                 "Agent execution failed for endpoint_type=%s request_id=%s route_key=%s",
@@ -118,6 +143,8 @@ def add_ai_endpoint(
     enable_openai_responses: bool = True,
     enable_openai_chat_completions: bool = True,
     enable_anthropic_messages: bool = False,
+    jwt_validation: JwtValidationConfig | None = None,
+    require_bearer_token: bool = False,
 ) -> None:
     """Alias for add_ai_endpoints with a singular name for API ergonomics."""
 
@@ -128,6 +155,8 @@ def add_ai_endpoint(
         enable_openai_responses=enable_openai_responses,
         enable_openai_chat_completions=enable_openai_chat_completions,
         enable_anthropic_messages=enable_anthropic_messages,
+        jwt_validation=jwt_validation,
+        require_bearer_token=require_bearer_token,
     )
 
 
@@ -136,6 +165,9 @@ def _build_raw_payload(
     body: dict[str, Any],
     request: Any,
     default_route_key: str,
+    *,
+    jwt_validation: JwtValidationConfig,
+    require_bearer_token: bool,
 ) -> dict[str, Any]:
     metadata = dict(body.get("metadata") or {})
     route_key = str(metadata.get("route_key") or body.get("route_key") or default_route_key)
@@ -146,7 +178,11 @@ def _build_raw_payload(
     else:
         normalized_input = body.get("messages", body.get("input"))
 
-    auth_context = _extract_auth_context(request)
+    auth_context = _extract_auth_context(
+        request,
+        jwt_validation=jwt_validation,
+        require_bearer_token=require_bearer_token,
+    )
 
     return {
         "request_id": request_id,
@@ -159,15 +195,22 @@ def _build_raw_payload(
     }
 
 
-def _extract_auth_context(request: Any) -> dict[str, Any] | None:
+def _extract_auth_context(
+    request: Any,
+    *,
+    jwt_validation: JwtValidationConfig,
+    require_bearer_token: bool,
+) -> dict[str, Any] | None:
     headers = getattr(request, "headers", None)
     if headers is None:
         return None
 
     context: dict[str, Any] = {}
     authorization = headers.get("authorization")
-    if authorization:
-        context["authorization"] = authorization
+    if authorization is not None:
+        context.update(authenticate_authorization_header(authorization, jwt_validation))
+    elif require_bearer_token:
+        context.update(authenticate_authorization_header(None, jwt_validation))
 
     api_key = headers.get("x-api-key")
     if api_key:

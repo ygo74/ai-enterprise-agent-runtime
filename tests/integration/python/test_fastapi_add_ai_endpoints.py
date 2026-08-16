@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+
+import httpx
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 
@@ -29,14 +31,16 @@ def test_add_ai_endpoints_registers_and_uniformizes_responses() -> None:
         enable_anthropic_messages=False,
     )
 
-    client = TestClient(app)
-    response = client.post(
-        "/v1/responses",
-        json={
-            "model": "gpt-5-chat",
-            "input": "hello",
-            "metadata": {"request_id": "r-1"},
-        },
+    response = asyncio.run(
+        _post_json(
+            app,
+            "/v1/responses",
+            {
+                "model": "gpt-5-chat",
+                "input": "hello",
+                "metadata": {"request_id": "r-1"},
+            },
+        )
     )
 
     assert response.status_code == 200
@@ -58,12 +62,14 @@ def test_add_ai_endpoints_registers_chat_completions_without_custom_models() -> 
         enable_anthropic_messages=False,
     )
 
-    client = TestClient(app)
-    response = client.post(
-        "/v1/chat/completions",
-        json={
-            "messages": [{"role": "user", "content": "hello"}],
-        },
+    response = asyncio.run(
+        _post_json(
+            app,
+            "/v1/chat/completions",
+            {
+                "messages": [{"role": "user", "content": "hello"}],
+            },
+        )
     )
 
     assert response.status_code == 200
@@ -71,3 +77,9 @@ def test_add_ai_endpoints_registers_chat_completions_without_custom_models() -> 
     assert body["status"] == "success"
     assert body["endpoint_type"] == "openai.chat_completions"
     assert isinstance(body["output"]["echo"], list)
+
+
+async def _post_json(app: FastAPI, url: str, payload: dict) -> httpx.Response:
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        return await client.post(url, json=payload)
