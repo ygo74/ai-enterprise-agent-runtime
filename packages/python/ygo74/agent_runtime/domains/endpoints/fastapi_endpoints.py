@@ -56,12 +56,21 @@ def build_request_authenticator(
 
     JWT is evaluated before API key, so an ``Authorization`` header always wins
     over an ``x-api-key`` header when both are present.
+
+    ``JwtAuthenticator`` is only added to the chain when JWT was actually
+    requested, i.e. ``jwt_validation`` was supplied or ``require_authentication``
+    is set. Otherwise a host that never asked for authentication would still
+    have every request bearing an ``Authorization: Bearer`` header intercepted
+    and validated against a default JWT config it never configured, breaking an
+    endpoint that was meant to stay unprotected.
     """
 
     if authenticators is not None:
         return RequestAuthenticator(list(authenticators), require_authentication=require_authentication)
 
-    chain: list[Authenticator] = [JwtAuthenticator(jwt_validation)]
+    chain: list[Authenticator] = []
+    if jwt_validation is not None or require_authentication:
+        chain.append(JwtAuthenticator(jwt_validation))
     if api_key_resolver is not None:
         chain.append(ApiKeyAuthenticator(api_key_resolver))
 

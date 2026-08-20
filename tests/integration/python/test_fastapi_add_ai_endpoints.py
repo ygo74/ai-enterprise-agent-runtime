@@ -79,7 +79,39 @@ def test_add_ai_endpoints_registers_chat_completions_without_custom_models() -> 
     assert isinstance(body["output"]["echo"], list)
 
 
-async def _post_json(app: FastAPI, url: str, payload: dict) -> httpx.Response:
+def test_add_ai_endpoints_ignores_bearer_token_when_no_auth_configured() -> None:
+    """A host that never configured JWT/API-key/authenticators must stay unprotected.
+
+    Regression test: build_request_authenticator used to always add a default
+    JwtAuthenticator to the chain, so any client sending an unrelated
+    `Authorization: Bearer ...` header (e.g. its own upstream token) would be
+    rejected trying to validate it as a JWT, even though the developer never
+    asked for authentication.
+    """
+
+    app = FastAPI()
+    add_ai_endpoints(app, _entrypoint, default_route_key="demo-route")
+
+    response = asyncio.run(
+        _post_json(
+            app,
+            "/v1/responses",
+            {"model": "gpt-5-chat", "input": "hello"},
+            headers={"Authorization": "Bearer not-a-jwt-and-not-meant-to-be-validated"},
+        )
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+
+
+async def _post_json(
+    app: FastAPI,
+    url: str,
+    payload: dict,
+    *,
+    headers: dict[str, str] | None = None,
+) -> httpx.Response:
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        return await client.post(url, json=payload)
+        return await client.post(url, json=payload, headers=headers)
