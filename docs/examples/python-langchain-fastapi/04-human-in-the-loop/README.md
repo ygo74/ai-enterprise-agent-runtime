@@ -174,6 +174,7 @@ endpoints:
     - name: 'mon-agent-hitl'
       apiKey: '${AGENT_API_KEY}'
       baseURL: 'https://mon-microservice/v1'
+      titleConvo: false
       headers:
         Content-Type: 'application/json'
         Authorization: 'Bearer {{LIBRECHAT_OPENID_TOKEN}}'
@@ -187,6 +188,35 @@ endpoints:
 In this example implementation, `X-Conversation-ID` is used as the checkpoint
 key (`thread_id`), so the user's `oui` / `non` / `modifie: ...` reply resumes
 the exact paused tool call for that conversation.
+
+`titleConvo: false` is recommended: LibreChat otherwise fires a *title
+generation* request against the same endpoint, with the **same**
+`X-Conversation-ID`, **concurrently** with the user's message. See
+[Concurrent requests on one conversation](#concurrent-requests-on-one-conversation)
+below — the server already defends against it, but disabling it avoids the
+extra model call entirely. Pointing `titleModel` at a different endpoint works
+too.
+
+## Concurrent requests on one conversation
+
+LangGraph checkpoints are **linear per `thread_id`**: every turn appends a
+checkpoint, and `aget_state()` returns the newest one. If two turns run at the
+same time on one thread, the one finishing last hides whatever the other saved
+— including a paused tool call. That is exactly what a chat client's
+background title request does: the real question saves an interrupt, the title
+request finishes afterwards and writes a clean checkpoint on top, and the
+user's `oui` then finds nothing to resume and starts a brand-new turn.
+
+Two defenses are implemented here:
+
+- `UtilityPromptDetector` (in `openai_responses_app.py`) recognizes
+  client-issued utility prompts (title, summary) and routes them to a throwaway
+  `"{conversation_id}::utility::{request_id}"` thread, so they never touch the
+  conversation's checkpoint. Extend `MARKERS` if your client uses other
+  wording.
+- `ThreadLockRegistry` (in `agent_solution_architect.py`) holds a per-thread
+  `asyncio.Lock`, so turns on one conversation are strictly serialized even
+  when requests arrive in parallel.
 
 ## Notes
 
@@ -211,30 +241,40 @@ these lines across the two requests (the question, then the reply):
 
 ```text
 capture_request_headers: POST /v1/responses x-conversation-id='...'
-_resolve_thread_id: using X-Conversation-ID header thread_id='...'
-solution_architect_entrypoint: request_id=... thread_id='...' extracted_input='...'
+_resolve_conversation_id: using X-Conversation-ID header '...'
+solution_architect_entrypoint: request_id=... conversation_id='...' thread_id='...' kind=user_turn extracted_input='...'
 _pending_actions: thread_id='...' checkpoint_id=... next=(...) interrupt_count=...
-run_turn: thread_id='...' has N pending action(s); resuming instead of starting a new turn
+_run_turn: thread_id='...' has N pending action(s); resuming instead of starting a new turn
 _resume_turn: thread_id='...' reply='...' parsed_decision=...
 ```
 
 Most common root causes, in order of likelihood:
 
-1. **`thread_id` differs between the two calls.** Compare the
-   `x-conversation-id` / `thread_id` value logged on the first call (the one
-   that ends with `awaiting_approval`) against the value logged on the
+1. **A concurrent request overwrote the paused checkpoint.** Look for two
+   different `request_id` values sharing one `conversation_id`, where the
+   second one's `extracted_input` is not something the user typed (e.g.
+   `"Provide a concise, 5-word-or-less title for the conversation..."`). The
+   turn that finishes last wins, so the interrupt saved by the real question
+   becomes invisible (`interrupt_count=1` followed later by
+   `interrupt_count=0`). See
+   [Concurrent requests on one conversation](#concurrent-requests-on-one-conversation);
+   set `titleConvo: false` in `librechat.yaml`, and check that `kind=utility`
+   is logged for such requests.
+2. **`thread_id` differs between the two calls.** Compare the
+   `x-conversation-id` / `conversation_id` value logged on the first call (the
+   one that ends with `awaiting_approval`) against the value logged on the
    second call (the reply). If they differ, the client isn't resending the
    same `X-Conversation-ID` — check the chat client's header templating (some
    clients only populate a conversation id *after* the first response, so the
    very first turn of a brand-new conversation may go out with an empty or
    different id than the follow-up turn).
-2. **`interrupt_count=0` on the resume call even though `thread_id` matches.**
+3. **`interrupt_count=0` on the resume call even though `thread_id` matches.**
    This means the checkpoint for that thread has no paused state anymore —
    typically because the server process restarted in between (e.g.
    `uvicorn --reload` restarting after a code edit) and wiped the process-local
    `InMemorySaver`. Use a persistent checkpointer if this needs to survive
    restarts.
-3. **`parsed_decision=None` in `_resume_turn`.** The `thread_id` and pending
+4. **`parsed_decision=None` in `_resume_turn`.** The `thread_id` and pending
    state were found correctly, but `ChatApprovalParser` didn't recognize the
    reply text — the log line prints the raw `reply` that failed to match; add
    the phrase to `ChatApprovalParser.APPROVALS` / `REJECTIONS` if it's a

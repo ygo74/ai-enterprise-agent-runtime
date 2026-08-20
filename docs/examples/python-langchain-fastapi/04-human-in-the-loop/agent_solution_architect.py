@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from collections.abc import Mapping, Sequence
@@ -228,6 +229,27 @@ def _extract_final_message_text(state: Any) -> str:
     return str(state)
 
 
+class ThreadLockRegistry:
+    """Serializes the turns of a single conversation thread.
+
+    LangGraph checkpoints are linear per `thread_id`: each turn appends a new
+    checkpoint and `aget_state` returns the latest one. Two turns running
+    concurrently on the same thread therefore race, and the one finishing last
+    hides whatever the other saved — including a paused tool call waiting for
+    approval. Holding a per-thread lock keeps turns strictly sequential.
+    """
+
+    def __init__(self) -> None:
+        self._locks: dict[str, asyncio.Lock] = {}
+
+    def acquire(self, thread_id: str) -> asyncio.Lock:
+        lock = self._locks.get(thread_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._locks[thread_id] = lock
+        return lock
+
+
 class SolutionArchitectAgent:
     """LangChain agent whose research tool is gated by in-chat human approval.
 
@@ -252,6 +274,7 @@ class SolutionArchitectAgent:
         self._agent = self._build_agent()
         self._approval_parser = approval_parser or ChatApprovalParser()
         self._approval_prompt = approval_prompt or ApprovalPrompt()
+        self._thread_locks = ThreadLockRegistry()
 
     def _build_agent(self) -> Any:
         model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -281,16 +304,28 @@ class SolutionArchitectAgent:
             user_input[:120],
         )
 
+        lock = self._thread_locks.acquire(thread_id)
+        if lock.locked():
+            logger.info(
+                "run_turn: thread_id=%r already has a turn in flight; waiting for it to finish before "
+                "reading the checkpoint",
+                thread_id,
+            )
+
+        async with lock:
+            return await self._run_turn(thread_id, user_input)
+
+    async def _run_turn(self, thread_id: str, user_input: str) -> AgentTurnResult:
         pending = await self._pending_actions(thread_id)
         if pending:
             logger.info(
-                "run_turn: thread_id=%r has %d pending action(s); resuming instead of starting a new turn",
+                "_run_turn: thread_id=%r has %d pending action(s); resuming instead of starting a new turn",
                 thread_id,
                 len(pending),
             )
             return await self._resume_turn(thread_id, user_input, pending)
 
-        logger.info("run_turn: thread_id=%r has no pending action; starting a new turn", thread_id)
+        logger.info("_run_turn: thread_id=%r has no pending action; starting a new turn", thread_id)
         result = await self._agent.ainvoke(
             {"messages": [{"role": "user", "content": user_input}]},
             config=self._config(thread_id),

@@ -4,6 +4,7 @@ from contextvars import ContextVar
 import logging
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
+from enum import StrEnum
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -155,26 +156,74 @@ class ConversationInputReader:
 _input_reader = ConversationInputReader()
 
 
-def _resolve_thread_id(payload: dict[str, Any]) -> str:
-    """Resolve the LangGraph thread_id used to persist/resume this conversation."""
+class ConversationTurnKind(StrEnum):
+    """Why the client called the endpoint."""
+
+    USER_TURN = "user_turn"
+    """A real message typed by the user, belonging to the conversation."""
+
+    UTILITY = "utility"
+    """A prompt the client issues on its own behalf (title, summary, ...)."""
+
+
+class UtilityPromptDetector:
+    """Recognizes out-of-band prompts a chat client sends for its own needs.
+
+    LibreChat (like most chat UIs) fires a *title generation* request against
+    the same endpoint, with the same `X-Conversation-ID`, concurrently with the
+    user's real message. Since LangGraph checkpoints are linear per thread,
+    letting that request share the conversation thread means it appends its own
+    checkpoint on top of the one holding a paused tool call — `aget_state` then
+    returns the newest checkpoint, the interrupt is no longer visible, and the
+    user's `oui` starts a brand-new turn instead of resuming.
+
+    Utility prompts are therefore routed to a throwaway thread so the
+    conversation's own checkpoint is never touched.
+    """
+
+    MARKERS: tuple[str, ...] = (
+        "title for the conversation",
+        "concise title",
+        "generate a title",
+        "write a title",
+        "summarize the conversation",
+        "conversation summary",
+    )
+
+    def classify(self, user_input: str) -> ConversationTurnKind:
+        normalized = user_input.strip().lower()
+        for marker in self.MARKERS:
+            if marker in normalized:
+                return ConversationTurnKind.UTILITY
+        return ConversationTurnKind.USER_TURN
+
+
+_utility_detector = UtilityPromptDetector()
+
+
+def _resolve_conversation_id(payload: dict[str, Any]) -> str:
+    """Resolve the stable conversation id advertised by the client."""
 
     headers = _REQUEST_HEADERS.get()
     conversation_header = headers.get("x-conversation-id")
     if isinstance(conversation_header, str) and conversation_header:
-        logger.info("_resolve_thread_id: using X-Conversation-ID header thread_id=%r", conversation_header)
+        logger.info("_resolve_conversation_id: using X-Conversation-ID header %r", conversation_header)
         return conversation_header
 
     metadata = payload.get("metadata") or {}
     thread_id = metadata.get("thread_id")
     if isinstance(thread_id, str) and thread_id:
-        logger.info("_resolve_thread_id: X-Conversation-ID header missing; using metadata.thread_id=%r", thread_id)
+        logger.info(
+            "_resolve_conversation_id: X-Conversation-ID header missing; using metadata.thread_id=%r",
+            thread_id,
+        )
         return thread_id
 
     fallback = str(payload["request_id"])
     logger.warning(
-        "_resolve_thread_id: no X-Conversation-ID header and no metadata.thread_id; falling back to "
-        "request_id=%r as thread_id. Every call without a stable conversation id starts a brand-new "
-        "thread, so a pending tool approval can never be found on the next call.",
+        "_resolve_conversation_id: no X-Conversation-ID header and no metadata.thread_id; falling back to "
+        "request_id=%r. Every call without a stable conversation id starts a brand-new thread, so a "
+        "pending tool approval can never be found on the next call.",
         fallback,
     )
     return fallback
@@ -202,22 +251,38 @@ def _turn_output(turn: AgentTurnResult) -> dict[str, Any]:
 
 
 async def solution_architect_entrypoint(payload: dict[str, Any]) -> dict[str, Any]:
-    thread_id = _resolve_thread_id(payload)
+    conversation_id = _resolve_conversation_id(payload)
     user_input = _input_reader.latest_user_text(payload)
+    turn_kind = _utility_detector.classify(user_input)
+
+    if turn_kind is ConversationTurnKind.UTILITY:
+        thread_id = f"{conversation_id}::utility::{payload['request_id']}"
+        logger.info(
+            "solution_architect_entrypoint: request_id=%r conversation_id=%r looks like a client utility "
+            "prompt (title/summary); isolating it on ephemeral thread_id=%r so it cannot overwrite a "
+            "pending approval",
+            payload.get("request_id"),
+            conversation_id,
+            thread_id,
+        )
+    else:
+        thread_id = conversation_id
+
     logger.info(
-        "solution_architect_entrypoint: request_id=%r thread_id=%r extracted_input=%r",
+        "solution_architect_entrypoint: request_id=%r conversation_id=%r thread_id=%r kind=%s extracted_input=%r",
         payload.get("request_id"),
+        conversation_id,
         thread_id,
+        turn_kind.value,
         user_input[:200],
     )
 
     turn = await run_solution_architect_agent(thread_id=thread_id, user_input=user_input)
     logger.info(
-        "solution_architect_entrypoint: request_id=%r thread_id=%r turn.status=%s turn.thread_id=%r",
+        "solution_architect_entrypoint: request_id=%r thread_id=%r turn.status=%s",
         payload.get("request_id"),
         thread_id,
         turn.status.value,
-        turn.thread_id,
     )
 
     return {
@@ -227,7 +292,7 @@ async def solution_architect_entrypoint(payload: dict[str, Any]) -> dict[str, An
         "metadata": {
             "route_key": payload["route_key"],
             "thread_id": turn.thread_id,
-            "conversation_id": turn.thread_id,
+            "conversation_id": conversation_id,
         },
     }
 
