@@ -20,7 +20,7 @@ except Exception as exc:  # pragma: no cover - depends on web runtime
     _FASTAPI_IMPORT_ERROR = exc
 
 from ygo74.agent_runtime.domains.mapping.request_mapper import map_to_exchange
-from ygo74.agent_runtime.domains.mapping.response_mapper import map_response
+from ygo74.agent_runtime.domains.mapping.response_mapper import extract_output_text, map_response
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError, AuthorizationError
 from ygo74.agent_runtime.domains.auth.authenticator import Authenticator, RequestAuthenticator
 from ygo74.agent_runtime.domains.auth.apikey_authenticator import ApiKeyAuthenticator, ApiKeyUserResolver
@@ -149,7 +149,7 @@ def add_ai_endpoints(
                 result = await result
 
             exchange_response = _normalize_agent_result(result, exchange_request.request_id, exchange_request.route_key)
-            mapped = map_response(endpoint_type, exchange_response)
+            mapped = map_response(endpoint_type, exchange_response, model=payload.get("model"))
             status_code = _error_status_code(exchange_response)
             if status_code is not None:
                 raise HTTPException(status_code=status_code, detail=mapped)
@@ -532,19 +532,13 @@ def _extract_delta_text(chunk: Any) -> str:
 
 
 def _extract_output_text(output: Any) -> str:
-    """Extract plain text from a normalized (non-streaming) agent output."""
+    """Extract plain text from a normalized (non-streaming) agent output.
 
-    if isinstance(output, str):
-        return output
+    Delegates to the mapping domain so a streamed chunk and a single response
+    reduce an output to text the same way.
+    """
 
-    if isinstance(output, dict):
-        content = output.get("content")
-        if isinstance(content, str):
-            return content
-
-        return json.dumps(output, ensure_ascii=True)
-
-    return str(output)
+    return extract_output_text(output)
 
 
 def _sse_frame(data: dict[str, Any], *, event: str | None = None) -> str:

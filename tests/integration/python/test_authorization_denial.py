@@ -153,7 +153,8 @@ def test_authorized_request_executes_business_logic() -> None:
     )
 
     assert response.status_code == 200
-    assert response.json()["status"] == "success"
+    assert response.json()["status"] == "completed"
+    assert response.json()["output_text"] == "secret"
 
 
 def test_handler_exception_still_maps_to_500() -> None:

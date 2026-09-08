@@ -45,10 +45,13 @@ def test_add_ai_endpoints_registers_and_uniformizes_responses() -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "success"
-    assert body["endpoint_type"] == "openai.responses"
-    assert body["output"]["endpoint_type"] == "openai.responses"
-    assert body["output"]["route_key"] == "demo-route"
+    # The route is published as an OpenAI Responses endpoint, so it answers with
+    # a Responses object. What the use case returned is rendered as its text.
+    assert body["object"] == "response"
+    assert body["status"] == "completed"
+    assert body["model"] == "gpt-5-chat"
+    assert "openai.responses" in body["output_text"]
+    assert "demo-route" in body["output_text"]
 
 
 def test_add_ai_endpoints_registers_chat_completions_without_custom_models() -> None:
@@ -74,9 +77,9 @@ def test_add_ai_endpoints_registers_chat_completions_without_custom_models() -> 
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "success"
-    assert body["endpoint_type"] == "openai.chat_completions"
-    assert isinstance(body["output"]["echo"], list)
+    assert body["object"] == "chat.completion"
+    assert body["choices"][0]["message"]["role"] == "assistant"
+    assert "hello" in body["choices"][0]["message"]["content"]
 
 
 async def _post_json(app: FastAPI, url: str, payload: dict) -> httpx.Response:
