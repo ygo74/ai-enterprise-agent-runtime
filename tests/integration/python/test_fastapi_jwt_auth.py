@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import asyncio
+import json
 
 import httpx
 import jwt
@@ -110,8 +111,8 @@ def test_fastapi_authenticates_bearer_and_normalizes_auth_context() -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "success"
-    auth_context = body["output"]["auth_context"]
+    assert body["object"] == "response"
+    auth_context = json.loads(body["output_text"])["auth_context"]
     assert auth_context["authType"] == "jwt"
     assert auth_context["identity"]["userId"] == "user-abc"
 

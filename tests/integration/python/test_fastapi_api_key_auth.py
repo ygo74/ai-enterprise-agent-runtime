@@ -38,6 +38,18 @@ async def _entrypoint(payload: dict) -> dict:
     }
 
 
+def _auth_context_of(response: httpx.Response) -> dict | None:
+    """Read back what the handler saw.
+
+    The endpoint answers in the OpenAI Responses shape, so a structured output is
+    carried as the message text. Parsing it here keeps the test about the auth
+    context rather than about the wire format.
+    """
+    import json
+
+    return json.loads(response.json()["output_text"])["auth_context"]
+
+
 async def _post_json(
     app: FastAPI,
     url: str,
@@ -107,11 +119,11 @@ def test_endpoint_invokes_resolver_and_never_leaks_raw_key() -> None:
     )
 
     assert response.status_code == 200
-    auth_context = response.json()["output"]["auth_context"]
+    auth_context = _auth_context_of(response)
     assert auth_context["authType"] == "api_key"
     assert auth_context["userId"] == "svc-admin"
     assert auth_context["roles"] == ["admin"]
-    assert "key-admin" not in str(auth_context)
+    assert "key-admin" not in response.text
 
 
 def test_endpoint_rejects_unknown_api_key() -> None:
@@ -142,4 +154,4 @@ def test_api_key_header_ignored_when_no_resolver_configured() -> None:
     )
 
     assert response.status_code == 200
-    assert response.json()["output"]["auth_context"] is None
+    assert _auth_context_of(response) is None
