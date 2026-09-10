@@ -52,6 +52,12 @@ from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import (
     add_ai_endpoints,
     add_discovery_endpoints,
 )
+from ygo74.agent_runtime.domains.endpoints.header_forwarding import (
+    CREDENTIAL_HEADERS,
+    DEFAULT_CONVERSATION_HEADER,
+    DEFAULT_FORWARDED_HEADERS,
+    RequestHeaderForwarder,
+)
 
 __all__ = [
     "StandardExchangeRequest",
@@ -102,4 +108,8 @@ __all__ = [
     "add_ai_endpoint",
     "add_ai_endpoints",
     "add_discovery_endpoints",
+    "RequestHeaderForwarder",
+    "CREDENTIAL_HEADERS",
+    "DEFAULT_CONVERSATION_HEADER",
+    "DEFAULT_FORWARDED_HEADERS",
 ]

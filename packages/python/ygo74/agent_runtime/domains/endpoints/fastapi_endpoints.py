@@ -39,6 +39,10 @@ from ygo74.agent_runtime.domains.discovery.discovery_errors import (
 )
 from ygo74.agent_runtime.domains.discovery.model_route_resolver import ModelRouteResolver
 from ygo74.agent_runtime.domains.discovery.pagination import PaginationRequest
+from ygo74.agent_runtime.domains.endpoints.header_forwarding import (
+    DEFAULT_CONVERSATION_HEADER,
+    RequestHeaderForwarder,
+)
 
 AgentEntrypoint = Callable[[dict[str, Any]], Awaitable[Any] | Any]
 
@@ -61,7 +65,10 @@ def build_request_authenticator(
     if authenticators is not None:
         return RequestAuthenticator(list(authenticators), require_authentication=require_authentication)
 
-    chain: list[Authenticator] = [JwtAuthenticator(jwt_validation)]
+    chain: list[Authenticator] = []
+    if jwt_validation is not None:
+        chain.append(JwtAuthenticator(jwt_validation))
+
     if api_key_resolver is not None:
         chain.append(ApiKeyAuthenticator(api_key_resolver))
 
@@ -83,6 +90,8 @@ def add_ai_endpoints(
     descriptor_registry: DescriptorRegistry | None = None,
     discovery: DiscoveryConfiguration | None = None,
     authorization_policy: AgentAccessPolicy | None = None,
+    forwarded_headers: Sequence[str] | None = None,
+    conversation_header: str = DEFAULT_CONVERSATION_HEADER,
 ) -> None:
     """Register AI endpoints on a FastAPI app and forward a uniform payload to agent_entrypoint.
 
@@ -90,6 +99,13 @@ def add_ai_endpoints(
     the policy is consulted once per invocation (using the descriptor resolved
     for the request's route key) and again for every discovery request, so a
     caller denied at invocation time never sees the agent listed either.
+
+    ``forwarded_headers`` names the request headers a handler may read from
+    ``metadata["headers"]``; ``conversation_header`` is additionally promoted to
+    ``metadata["conversation_id"]`` so a multi-turn handler finds the
+    conversation without knowing the transport. Both are allowlists, and a
+    header carrying a credential - including the one the authenticator chain
+    reads - is refused here rather than forwarded.
     """
 
     if not _FASTAPI_AVAILABLE:
@@ -100,6 +116,12 @@ def add_ai_endpoints(
         api_key_resolver=api_key_resolver,
         require_authentication=require_bearer_token,
         authenticators=authenticators,
+    )
+
+    header_forwarder = RequestHeaderForwarder.create(
+        forwarded=forwarded_headers,
+        conversation_header=conversation_header,
+        credential_headers=_credential_headers(request_authenticator),
     )
 
     model_route_resolver = (
@@ -121,6 +143,7 @@ def add_ai_endpoints(
                 model_route_resolver=model_route_resolver,
                 descriptor_registry=descriptor_registry,
                 authorization_policy=authorization_policy,
+                header_forwarder=header_forwarder,
             )
             exchange_request = map_to_exchange(endpoint_type, payload)
 
@@ -375,6 +398,8 @@ def add_ai_endpoint(
     descriptor_registry: DescriptorRegistry | None = None,
     discovery: DiscoveryConfiguration | None = None,
     authorization_policy: AgentAccessPolicy | None = None,
+    forwarded_headers: Sequence[str] | None = None,
+    conversation_header: str = DEFAULT_CONVERSATION_HEADER,
 ) -> None:
     """Alias for add_ai_endpoints with a singular name for API ergonomics."""
 
@@ -392,7 +417,27 @@ def add_ai_endpoint(
         descriptor_registry=descriptor_registry,
         discovery=discovery,
         authorization_policy=authorization_policy,
+        forwarded_headers=forwarded_headers,
+        conversation_header=conversation_header,
     )
+
+
+def _credential_headers(authenticator: RequestAuthenticator) -> tuple[str, ...]:
+    """Return the headers the authenticator chain reads a credential from.
+
+    Collected from the chain rather than hard-coded, so renaming an API key
+    header keeps it out of a handler's reach instead of silently making it
+    forwardable.
+    """
+
+    names: list[str] = []
+    for scheme in authenticator.authenticators:
+        name = getattr(scheme, "header_name", None) or getattr(scheme, "HEADER_NAME", None)
+        if isinstance(name, str) and name.strip():
+            names.append(name)
+
+    return tuple(names)
+
 
 def _build_raw_payload(
     endpoint_type: str,
@@ -404,8 +449,10 @@ def _build_raw_payload(
     model_route_resolver: ModelRouteResolver | None = None,
     descriptor_registry: DescriptorRegistry | None = None,
     authorization_policy: AgentAccessPolicy | None = None,
+    header_forwarder: RequestHeaderForwarder | None = None,
 ) -> dict[str, Any]:
-    metadata = dict(body.get("metadata") or {})
+    forwarder = header_forwarder or RequestHeaderForwarder.create()
+    metadata = forwarder.apply(body.get("metadata") or {}, getattr(request, "headers", None))
     route_key = str(
         metadata.get("route_key")
         or body.get("route_key")
