@@ -37,9 +37,21 @@ The runtime is organized around reusable domains:
 - **Endpoint adapters** to map endpoint payloads to standard contracts;
 - **Request/response mapping** to keep transport details separate from use-case logic;
 - **Routing and dispatch** to call registered handlers by route key;
-- **Authentication context** for JWT/API key flows;
+- **Authentication context** for JWT/API key flows, and a typed `AgentPrincipal` projection of the authenticated caller;
+- **Agent contracts** - the conversation port a serving surface needs from an agent, the manifest that describes a capability, and the registry an orchestrator builds its tools from;
+- **Security model** - permissions declared by the domain that owns them, user contexts, the read/write and risk classification of an operation, the posture floor a configuration may not go below, and an audit trail;
 - **Middleware pipeline** for ordered pre/post processing;
 - **Observability** hooks for logging and OpenTelemetry.
+
+The security model and the agent contracts are currently **Python only**; see
+[`docs/parity-status.md`](docs/parity-status.md) for what .NET and Java must
+implement to reach parity, and for the behaviour those implementations have to
+preserve.
+
+The Python package resolves its public names lazily, so importing a domain does
+not load the others. `import ygo74.agent_runtime.domains.security.permissions`
+brings in no endpoint code and no web framework, while
+`from ygo74.agent_runtime import add_ai_endpoints` works unchanged.
 
 ## Getting Started
 
@@ -53,6 +65,7 @@ Important documents:
 - Implementation plan: [`specs/001-openai-endpoint-exposure/plan.md`](specs/001-openai-endpoint-exposure/plan.md)
 - Validation scenarios: [`specs/001-openai-endpoint-exposure/quickstart.md`](specs/001-openai-endpoint-exposure/quickstart.md)
 - Contracts: [`specs/001-openai-endpoint-exposure/contracts/`](specs/001-openai-endpoint-exposure/contracts/)
+- Cross-language parity status: [`docs/parity-status.md`](docs/parity-status.md)
 
 ## Quickstart for contributors
 

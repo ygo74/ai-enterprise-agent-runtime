@@ -4,11 +4,33 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ygo74-agent-runtime"
-version = "0.0.3"
+version = "0.0.4"
 description = "Cross-language AI enterprise agent runtime"
+# 3.11 is the floor the shipped code actually needs: `StrEnum` and the modern
+# union syntax, nothing more. Raising it to 3.12 is a separate decision, and the
+# only component that would force it - a generic conversation state cache using
+# PEP 695 syntax - is not part of this package yet.
 requires-python = ">=3.11"
 dependencies = [
   "pydantic>=2.7",
   "typing-extensions>=4.12",
   "PyJWT>=2.8"
 ]
+
+[project.optional-dependencies]
+# Serving the endpoints over HTTP. `fastapi` is imported defensively in
+# `domains.endpoints.fastapi_endpoints`, so a host that only needs the contracts,
+# the security model or the discovery descriptors installs none of this.
+http = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+]
+
+[tool.setuptools.packages.find]
+include = ["ygo74*"]
+namespaces = true
+
+# Without this marker a consumer's type checker ignores the annotations of this
+# package even though every module is fully typed, and has to waive it instead.
+[tool.setuptools.package-data]
+"ygo74.agent_runtime" = ["py.typed"]
