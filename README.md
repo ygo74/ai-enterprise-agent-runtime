@@ -41,6 +41,9 @@ The runtime is organized around reusable domains:
 - **Agent contracts** - the conversation port a serving surface needs from an agent, the manifest that describes a capability, and the registry an orchestrator builds its tools from;
 - **Security model** - permissions declared by the domain that owns them, user contexts, the read/write and risk classification of an operation, the posture floor a configuration may not go below, and an audit trail;
 - **Human approval** - a deterministic policy deciding what needs a person's answer, tickets that carry an operation and its exact arguments across two requests, a literal `CONFIRM`/`CANCEL` parser that runs before the model, and a gated runner that authorises, executes and audits;
+- **Untrusted content** - a redacted-by-construction wrapper for anything a third party wrote, and a fence that keeps it from escaping into the instruction space of a prompt;
+- **Session state** - one runtime per conversation per authenticated subject, leased so nothing closes what a request is using, bounded and expiring;
+- **Tool access** - Model Context Protocol transport lifecycle, binding schema, dialect registry and the generic OAuth pieces, behind the `mcp` extra;
 - **Middleware pipeline** for ordered pre/post processing;
 - **Observability** hooks for logging and OpenTelemetry.
 

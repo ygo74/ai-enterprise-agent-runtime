@@ -153,6 +153,31 @@ _EXPORTS: dict[str, str] = {
     "PendingConfirmationRenderer":         "domains.humanapproval.pending_renderer",
     "OperationCatalogue":                  "domains.humanapproval.gated_operations",
     "GatedOperationRunner":                "domains.humanapproval.gated_operations",
+    "UntrustedOrigin":                 "domains.security.untrusted",
+    "UntrustedText":                   "domains.security.untrusted",
+    "untrusted":                       "domains.security.untrusted",
+    "UntrustedFence":                  "domains.security.fencing",
+    "untrusted_contract":              "domains.security.fencing",
+    "UNTRUSTED_CONTRACT":              "domains.security.fencing",
+    "DEFAULT_UNTRUSTED_SOURCE":        "domains.security.fencing",
+    "UntrustedSection":                "domains.security.prompt_envelope",
+    "ReasoningRequest":                "domains.security.prompt_envelope",
+    "PromptEnvelopeBuilder":           "domains.security.prompt_envelope",
+    "ConversationRuntimeCache":        "domains.sessions.conversation_cache",
+    "OidcDiscovery":                   "domains.auth.oidc_discovery",
+    "AgentHttpSettings":               "domains.configuration.agent_http_settings",
+    "McpError":                        "domains.mcp.mcp_errors",
+    "McpBindingError":                 "domains.mcp.mcp_errors",
+    "McpToolUnavailableError":         "domains.mcp.mcp_errors",
+    "McpTransport":                    "domains.mcp.binding",
+    "McpServerBinding":                "domains.mcp.binding",
+    "McpServerBindingLoader":          "domains.mcp.binding",
+    "McpConnection":                   "domains.mcp.binding",
+    "DialectRegistry":                 "domains.mcp.dialects",
+    "LoopbackConsent":                 "domains.mcp.oauth",
+    "FileTokenStorage":                "domains.mcp.oauth",
+    "PinnedScopeOAuthProvider":        "domains.mcp.oauth",
+    "loopback_redirect_uri":           "domains.mcp.oauth",
 }
 
 __all__ = [
@@ -163,6 +188,7 @@ __all__ = [
     "AgentContractError",
     "AgentDescriptor",
     "AgentDescriptorFactory",
+    "AgentHttpSettings",
     "AgentManifest",
     "AgentPrincipal",
     "AgentReply",
@@ -206,15 +232,18 @@ __all__ = [
     "ConfirmedOperationRunner",
     "ConversationEngine",
     "ConversationPayloadReader",
+    "ConversationRuntimeCache",
     "ConversationTurn",
     "DEFAULT_CONVERSATION",
     "DEFAULT_CONVERSATION_HEADER",
     "DEFAULT_FORWARDED_HEADERS",
+    "DEFAULT_UNTRUSTED_SOURCE",
     "DelegatedTokenSource",
     "DescriptorBinding",
     "DescriptorDefaults",
     "DescriptorOrdering",
     "DescriptorRegistry",
+    "DialectRegistry",
     "DialectSelection",
     "DialectSelector",
     "DiscoveryConfiguration",
@@ -228,6 +257,7 @@ __all__ = [
     "DiscoveryVisibility",
     "EmptyRequestError",
     "ErrorEnvelope",
+    "FileTokenStorage",
     "GatedOperationRunner",
     "InMemoryAuditTrail",
     "InMemoryConfirmationLedger",
@@ -236,8 +266,17 @@ __all__ = [
     "JwtAuthenticator",
     "JwtValidationConfig",
     "LoggingAuditTrail",
+    "LoopbackConsent",
+    "McpBindingError",
+    "McpConnection",
+    "McpError",
+    "McpServerBinding",
+    "McpServerBindingLoader",
+    "McpToolUnavailableError",
+    "McpTransport",
     "Modality",
     "ModelRouteResolver",
+    "OidcDiscovery",
     "OpenAiModelProjection",
     "OperationCatalogue",
     "OperationFloor",
@@ -249,8 +288,11 @@ __all__ = [
     "Permission",
     "PermissionDeniedError",
     "PermissionRegistry",
+    "PinnedScopeOAuthProvider",
     "PrincipalError",
+    "PromptEnvelopeBuilder",
     "ProviderDialect",
+    "ReasoningRequest",
     "RequestAuthenticator",
     "RequestHeaderForwarder",
     "ResolvedUser",
@@ -275,16 +317,24 @@ __all__ = [
     "TokenVerificationError",
     "TokenVerifier",
     "ToolOperationDescriptor",
+    "UNTRUSTED_CONTRACT",
     "UnattendedApprovalAuthority",
     "UnknownPermissionError",
     "UnknownTicketError",
+    "UntrustedFence",
+    "UntrustedOrigin",
+    "UntrustedSection",
+    "UntrustedText",
     "UserContext",
     "UserIdentity",
     "add_ai_endpoint",
     "add_ai_endpoints",
     "add_discovery_endpoints",
     "latest_message",
+    "loopback_redirect_uri",
     "new_ticket_id",
+    "untrusted",
+    "untrusted_contract",
 ]
 
 
@@ -304,6 +354,43 @@ def __dir__() -> list[str]:
 
 
 if TYPE_CHECKING:  # pragma: no cover - re-exported for type checkers only
+    from ygo74.agent_runtime.domains.auth.oidc_discovery import OidcDiscovery
+    from ygo74.agent_runtime.domains.configuration.agent_http_settings import AgentHttpSettings
+    from ygo74.agent_runtime.domains.mcp.binding import (
+        McpConnection,
+        McpServerBinding,
+        McpServerBindingLoader,
+        McpTransport,
+    )
+    from ygo74.agent_runtime.domains.mcp.dialects import DialectRegistry
+    from ygo74.agent_runtime.domains.mcp.mcp_errors import (
+        McpBindingError,
+        McpError,
+        McpToolUnavailableError,
+    )
+    from ygo74.agent_runtime.domains.mcp.oauth import (
+        FileTokenStorage,
+        LoopbackConsent,
+        PinnedScopeOAuthProvider,
+        loopback_redirect_uri,
+    )
+    from ygo74.agent_runtime.domains.security.fencing import (
+        DEFAULT_UNTRUSTED_SOURCE,
+        UNTRUSTED_CONTRACT,
+        UntrustedFence,
+        untrusted_contract,
+    )
+    from ygo74.agent_runtime.domains.security.prompt_envelope import (
+        PromptEnvelopeBuilder,
+        ReasoningRequest,
+        UntrustedSection,
+    )
+    from ygo74.agent_runtime.domains.security.untrusted import (
+        UntrustedOrigin,
+        UntrustedText,
+        untrusted,
+    )
+    from ygo74.agent_runtime.domains.sessions.conversation_cache import ConversationRuntimeCache
     from ygo74.agent_runtime.domains.humanapproval.approval_errors import (
         ConfirmationMismatchError,
         ConfirmationRejectedError,

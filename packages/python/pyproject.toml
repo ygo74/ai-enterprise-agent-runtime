@@ -26,6 +26,16 @@ http = [
   "uvicorn[standard]>=0.30",
 ]
 
+# Reaching tools through the Model Context Protocol. Only `domains.mcp` needs it,
+# and that package imports the SDK defensively for the same reason `http` does: a
+# host composing an agent from in-process tools should not have to install a
+# protocol client to do it.
+mcp = [
+  "mcp>=1.24",
+  "httpx>=0.27",
+  "PyYAML>=6",
+]
+
 [tool.setuptools.packages.find]
 include = ["ygo74*"]
 namespaces = true

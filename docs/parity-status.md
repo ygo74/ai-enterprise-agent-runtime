@@ -39,6 +39,10 @@ satisfy.
 | Manifest-derived descriptor | `domains.discovery.manifest_descriptor` | pending | pending | `tests/integration/python/test_manifest_descriptor.py` |
 | Human-approval domain | `domains.humanapproval` | pending | pending | `tests/integration/python/test_human_approval.py` |
 | Gated operation runner | `domains.humanapproval.gated_operations` | pending | pending | `tests/integration/python/test_gated_operations.py` |
+| Untrusted content and prompt fence | `domains.security.untrusted`, `.fencing`, `.prompt_envelope` | pending | pending | `tests/integration/python/test_untrusted_content.py` |
+| Conversation state cache | `domains.sessions.conversation_cache` | pending | pending | `tests/integration/python/test_conversation_cache.py` |
+| OIDC discovery and HTTP settings | `domains.auth.oidc_discovery`, `domains.configuration.agent_http_settings` | pending | pending | `tests/integration/python/test_agent_http_settings.py` |
+| MCP transport, binding, dialects, OAuth | `domains.mcp` | pending | pending | `tests/integration/python/test_mcp_plumbing.py` |
 
 ### What the .NET and Java implementations must preserve
 
@@ -105,6 +109,28 @@ incomplete, it is wrong.
 - **The four audit outcomes stay distinguishable.** "Nobody was asked" and
   "somebody said no" are different events, and an audit trail that conflated them
   would answer its most important question wrongly.
+- **Untrusted content is redacted by construction and readable only on purpose.**
+  `repr` and `str` never reveal a payload; `expose()` is the only way in, which is
+  what makes every dereference reviewable. The origin is a value object declared
+  by the domain that owns it, never an enumeration in this library.
+- **Fenced content cannot close its own block.** The delimiter is unguessable and
+  differs per rendering, any copy of it found inside the content is neutralised,
+  and a request carrying no untrusted context renders no fence at all - announcing
+  one that is not there teaches a model to discount the announcement when it is.
+- **A leased conversation is never closed.** Eviction and expiry skip an entry
+  somebody is using, and a cache at its bound is allowed to overshoot rather than
+  close a runtime mid-turn. Builds and closers are awaited off the lock, so one
+  unresponsive server cannot stall every conversation in the process.
+- **A signing key set is discovered, not guessed.** Appending a path to the issuer
+  works for one provider; reading `jwks_uri` from its OpenID configuration works
+  for all of them. An explicit override still wins.
+- **An undeclared capability is never offered to the model.** A binding that
+  advertised one without naming the tool behind it would fail on the first call -
+  for a gated operation, *after* somebody approved it - so it fails at load time.
+- **The requested OAuth scope is re-pinned before every authorisation attempt.**
+  Without it the SDK substitutes whatever the resource server advertises, which
+  for at least one well-known server means full mailbox control including
+  permanent deletion.
 
 ### Deliberate omissions
 
@@ -125,3 +151,12 @@ incomplete, it is wrong.
   would have to know all of them. See
   `docs/examples/python-langchain-fastapi/04-human-in-the-loop` for what such a
   bridge looks like.
+- `domains.sessions` and `domains.mcp` are **Python-first for a stronger reason**
+  than the rest: the first is built on `asyncio` primitives and the second on the
+  Python MCP SDK. Their .NET and Java equivalents will be rewrites against the
+  same behaviour contract rather than transliterations.
+- `domains.mcp` deliberately **does not** interpret an application's capability
+  names, withdraw a capability by itself, or know a provider. A binding's
+  `read_only_variable` is carried as schema; deciding what it means for a given
+  deployment is the application's call. Scope *values* likewise stay with whoever
+  knows which provider they belong to - only the pinning mechanism is here.
