@@ -16,13 +16,25 @@ import httpx
 import pytest
 from discovery_fixtures import FIXED_CREATED_AT, make_descriptor
 from fastapi import FastAPI
-
-from ygo74.agent_runtime import ApiKeyUserResolver, ResolvedUser
-from ygo74.agent_runtime.domains.auth.auth_context import AuthenticatedUserContext, UserIdentity
-from ygo74.agent_runtime.domains.discovery.agent_access_policy import AgentAccessPolicy, RoleRequiredAccessPolicy
-from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentCapabilitySet, AgentDescriptor, AgentSkill
+from ygo74.agent_runtime.domains.auth.apikey_authenticator import ApiKeyUserResolver
+from ygo74.agent_runtime.domains.auth.auth_context import (
+    AuthenticatedUserContext,
+    ResolvedUser,
+    UserIdentity,
+)
+from ygo74.agent_runtime.domains.discovery.agent_access_policy import (
+    AgentAccessPolicy,
+    RoleRequiredAccessPolicy,
+)
+from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
+    AgentCapabilitySet,
+    AgentDescriptor,
+    AgentSkill,
+)
 from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
-from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
+    DiscoveryConfiguration,
+)
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 
 ADMIN_KEY = "admin-key"

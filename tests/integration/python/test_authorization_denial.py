@@ -7,9 +7,11 @@ import httpx
 import jwt
 import pytest
 from fastapi import FastAPI, HTTPException
-
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthorizationError, auth_error
-from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtValidationConfig, StaticSymmetricKeyResolver
+from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
+    JwtValidationConfig,
+    StaticSymmetricKeyResolver,
+)
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 
 

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pytest
 from discovery_fixtures import ANTHROPIC_HEADERS, DiscoveryHarness, make_descriptor
-
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import DiscoveryVisibility
 
 

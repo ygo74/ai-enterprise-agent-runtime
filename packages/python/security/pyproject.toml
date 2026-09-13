@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ygo74-agent-runtime-security"
+version = "0.1.0"
+description = "Security and authentication foundation of the ygo74 agent runtime"
+# 3.12 is the floor the shipped code needs.
+requires-python = ">=3.12"
+
+# The foundation of the runtime: the security model (permissions, user context,
+# operation classification, security floor, audit, untrusted content) and the
+# authentication schemes (API key with a pluggable user resolver, JWT against an
+# OIDC issuer, and the `Authenticator` protocol a host extends).
+#
+# It depends on no other domain of this runtime, which is what lets an agent host
+# and an MCP server host share one authentication model instead of growing two.
+dependencies = [
+  "pydantic>=2.7",
+  # `domains.auth.jwt_authenticator` validates tokens against a published key set.
+  "PyJWT>=2.8",
+]
+
+[tool.setuptools.packages.find]
+include = ["ygo74*"]
+namespaces = true
+
+# `ygo74`, `ygo74.agent_runtime` and `ygo74.agent_runtime.domains` are namespace
+# portions shared with the other distributions, so the typing marker cannot sit at
+# any of those levels - two distributions shipping the same path would collide.
+# It goes in each domain this distribution alone owns. Without it a consumer's type
+# checker silently treats every type here as `Any`, which is exactly the wrong
+# place to lose type safety.
+[tool.setuptools.package-data]
+"ygo74.agent_runtime.domains.security" = ["py.typed"]
+"ygo74.agent_runtime.domains.auth" = ["py.typed"]

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pytest
 from discovery_fixtures import ANTHROPIC_HEADERS, both_dialects_enabled, make_descriptor
-
 from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
 from ygo74.agent_runtime.domains.discovery.dialect_selector import (
     DialectSelection,
@@ -13,7 +12,10 @@ from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
     DiscoveryConfiguration,
     DiscoveryService,
 )
-from ygo74.agent_runtime.domains.discovery.discovery_errors import DiscoveryError, DiscoveryErrorCode
+from ygo74.agent_runtime.domains.discovery.discovery_errors import (
+    DiscoveryError,
+    DiscoveryErrorCode,
+)
 
 
 def _service(configuration: DiscoveryConfiguration | None = None) -> DiscoveryService:

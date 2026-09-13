@@ -11,7 +11,6 @@ import asyncio
 
 import pytest
 from pydantic import BaseModel
-
 from ygo74.agent_runtime.domains.contracts.capability_registry import (
     SkillDescriptor,
     SkillRegistry,

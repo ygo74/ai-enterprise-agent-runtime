@@ -9,7 +9,7 @@ declare one when you want the agent to be discoverable, skip it when the agent i
 ```python
 from datetime import datetime, timezone
 
-from ygo74.agent_runtime import AgentCapabilitySet, AgentDescriptor
+from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentCapabilitySet, AgentDescriptor
 
 descriptor = AgentDescriptor(
     agent_id="support-assistant",
@@ -45,7 +45,7 @@ different agents, and a padded `" support-assistant "` is rejected rather than t
 `AgentCapabilitySet` is what clients read to decide whether they can talk to your agent at all.
 
 ```python
-from ygo74.agent_runtime import AgentCapabilitySet, CapabilitySizeUnit, Modality
+from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentCapabilitySet, CapabilitySizeUnit, Modality
 
 capabilities = AgentCapabilitySet(
     streaming=True,
@@ -68,7 +68,7 @@ Declared capabilities are validated against your configuration at startup. Decla
 Skills describe *what* the agent does, in terms a human or a planner agent can act on.
 
 ```python
-from ygo74.agent_runtime import AgentSkill
+from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentSkill
 
 skills = (
     AgentSkill(
@@ -89,11 +89,9 @@ the agent's capabilities already allow — a skill cannot promise more than the 
 ```python
 from fastapi import FastAPI
 
-from ygo74.agent_runtime import (
-    DescriptorRegistry,
-    DiscoveryConfiguration,
-    add_ai_endpoints,
-)
+from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
+from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 
 app = FastAPI()
 
@@ -114,7 +112,7 @@ Listings are ordered by ascending `agent_id` so repeated calls return a stable s
 ## Hiding an agent without disabling it
 
 ```python
-from ygo74.agent_runtime import DiscoveryVisibility
+from ygo74.agent_runtime.domains.discovery.agent_descriptor import DiscoveryVisibility
 
 internal = AgentDescriptor(..., discovery_visibility=DiscoveryVisibility.HIDDEN)
 ```
@@ -136,7 +134,7 @@ If you register a handler without a descriptor, the runtime derives a minimal on
 so the agent remains internally consistent:
 
 ```python
-from ygo74.agent_runtime import DescriptorDefaults
+from ygo74.agent_runtime.domains.discovery.descriptor_defaults import DescriptorDefaults
 
 descriptor = DescriptorDefaults(owner="agent-runtime", version="1.0.0").derive("support/billing")
 # agent_id == "support-billing"

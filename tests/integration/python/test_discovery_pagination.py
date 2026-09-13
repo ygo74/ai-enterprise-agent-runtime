@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import pytest
 from discovery_fixtures import ANTHROPIC_HEADERS, DiscoveryHarness, make_descriptor
-
-from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
-from ygo74.agent_runtime.domains.discovery.discovery_errors import DiscoveryError, DiscoveryErrorCode
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
+    DiscoveryConfiguration,
+)
+from ygo74.agent_runtime.domains.discovery.discovery_errors import (
+    DiscoveryError,
+    DiscoveryErrorCode,
+)
 from ygo74.agent_runtime.domains.discovery.pagination import (
     DiscoveryPagination,
     PaginationRequest,

@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import asyncio
 import json
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import jwt
 from fastapi import FastAPI
-
-from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtValidationConfig, StaticSymmetricKeyResolver
+from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
+    JwtValidationConfig,
+    StaticSymmetricKeyResolver,
+)
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 
 

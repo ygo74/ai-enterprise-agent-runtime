@@ -1,0 +1,2 @@
+# The MCP hosting distribution, with the HTTP transport.
+ygo74-agent-runtime-mcp[http]>=0.1,<0.2

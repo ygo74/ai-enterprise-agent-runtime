@@ -16,14 +16,16 @@ from enum import StrEnum
 from pathlib import Path
 
 import pytest
-
 from ygo74.agent_runtime.domains.mcp.binding import (
     McpServerBinding,
     McpServerBindingLoader,
     McpTransport,
 )
 from ygo74.agent_runtime.domains.mcp.dialects import DialectRegistry
-from ygo74.agent_runtime.domains.mcp.mcp_errors import McpBindingError, McpToolUnavailableError
+from ygo74.agent_runtime.domains.mcp.mcp_errors import (
+    McpBindingError,
+    McpToolUnavailableError,
+)
 from ygo74.agent_runtime.domains.mcp.oauth import (
     CALLBACK_PATH,
     PinnedScopeOAuthProvider,

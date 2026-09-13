@@ -7,7 +7,6 @@ import httpx
 import pytest
 from discovery_fixtures import ANTHROPIC_HEADERS, both_dialects_enabled, make_descriptor
 from fastapi import FastAPI
-
 from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 

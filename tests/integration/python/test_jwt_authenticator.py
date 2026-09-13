@@ -4,7 +4,6 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 import pytest
-
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
     JwtAuthenticator,

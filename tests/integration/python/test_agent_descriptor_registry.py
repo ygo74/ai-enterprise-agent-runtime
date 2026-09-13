@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
-
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
     AgentCapabilitySet,
     AgentDescriptor,
@@ -13,7 +12,10 @@ from ygo74.agent_runtime.domains.discovery.descriptor_registry import (
     DescriptorOrdering,
     DescriptorRegistry,
 )
-from ygo74.agent_runtime.domains.discovery.discovery_errors import DiscoveryError, DiscoveryErrorCode
+from ygo74.agent_runtime.domains.discovery.discovery_errors import (
+    DiscoveryError,
+    DiscoveryErrorCode,
+)
 
 
 def _descriptor(agent_id: str, *, visibility: DiscoveryVisibility = DiscoveryVisibility.LISTED) -> AgentDescriptor:

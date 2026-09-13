@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from discovery_fixtures import ANTHROPIC_HEADERS, DiscoveryHarness, make_descriptor
-
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import DiscoveryVisibility
 from ygo74.agent_runtime.domains.discovery.capability_extensions import EXTENSION_KEY
-from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
+    DiscoveryConfiguration,
+)
 
 
 def test_openai_listing_returns_one_entry_per_discoverable_agent() -> None:

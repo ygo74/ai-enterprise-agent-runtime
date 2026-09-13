@@ -12,7 +12,6 @@ import asyncio
 import inspect
 
 import pytest
-
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
 from ygo74.agent_runtime.domains.auth.tokens import (
     AccessToken,
@@ -25,7 +24,7 @@ from ygo74.agent_runtime.domains.security.security_errors import SecurityError
 
 # A fabricated string that merely looks like a token, so the redaction tests can
 # assert it never appears in a representation.
-SECRET = "ey.this-is-a-token-value"  # noqa: S105
+SECRET = "ey.this-is-a-token-value"
 
 ADA = AgentPrincipal(subject="3f9a-user", email="ada@example.com")
 

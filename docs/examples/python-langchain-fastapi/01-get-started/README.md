@@ -60,7 +60,7 @@ $env:MSLEARN_MCP_TOOL="microsoft_docs_search"
 `ygo74` package source is in this repo, so include it in `PYTHONPATH` while running the example:
 
 ```powershell
-$env:PYTHONPATH="../../..\packages/python"
+$env:PYTHONPATH="../../../packages/python/security;../../../packages/python/agents"
 ```
 
 ## Run
