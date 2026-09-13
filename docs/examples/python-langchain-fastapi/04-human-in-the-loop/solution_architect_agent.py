@@ -24,14 +24,10 @@ from env_loader import ensure_env_loaded
 from langgraph_approval import LangGraphApprovalBridge
 from mcp_mslearn_tool import mslearn_mcp_search
 
-from ygo74.agent_runtime import (
-    ConfirmationPolicy,
-    OperationType,
-    Permission,
-    RiskLevel,
-    ToolOperationDescriptor,
-    UserContext,
-)
+from ygo74.agent_runtime.domains.humanapproval.confirmation import ConfirmationPolicy
+from ygo74.agent_runtime.domains.security.operations import OperationType, RiskLevel, ToolOperationDescriptor
+from ygo74.agent_runtime.domains.security.permissions import Permission
+from ygo74.agent_runtime.domains.security.user_context import UserContext
 
 ensure_env_loaded()
 

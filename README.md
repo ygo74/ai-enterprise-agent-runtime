@@ -23,12 +23,41 @@ The first feature specification scope is documented in [specs/001-openai-endpoin
 
 ## Repository Layout
 
-- [`packages/python/`](packages/python/): Python package (`ygo74-agent-runtime`)
+- [`packages/python/`](packages/python/): Python distributions — see [Python packaging](#python-packaging)
 - [`packages/dotnet/`](packages/dotnet/): .NET package (`Ygo74.AgentRuntime`)
 - [`packages/java/`](packages/java/): Java package (`ygo74-agent-runtime`)
 - [`tests/`](tests/): contract, integration, parity, and performance tests
 - [`docs/examples/`](docs/examples/): example integrations
 - [`specs/001-openai-endpoint-exposure/`](specs/001-openai-endpoint-exposure/): feature specification, plan, and contracts
+
+## Python packaging
+
+The Python runtime ships as three distributions plus a meta-package. They are split
+so that a host installs the machinery it actually runs: an MCP server has no agent,
+no conversation and no discovery descriptor, but it has exactly the same question to
+answer about who is calling.
+
+| Distribution | Install it to | Depends on |
+|---|---|---|
+| `ygo74-agent-runtime-security` | Authenticate a caller and classify what they may do | — |
+| `ygo74-agent-runtime-agents` | Host an agent behind OpenAI/Anthropic endpoints | security |
+| `ygo74-agent-runtime-mcp` | Host a Model Context Protocol server | security |
+| `ygo74-agent-runtime` | Everything, as before | the three |
+
+They all contribute to the same namespace, so the import path does not say which
+distribution a name came from:
+
+```python
+from ygo74.agent_runtime.domains.security.permissions import Permission
+from ygo74.agent_runtime.domains.auth.authenticator import RequestAuthenticator
+from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
+```
+
+> **Breaking change in 0.1.0.** The flat facade `from ygo74.agent_runtime import X`
+> is gone. A regular package can be contributed by exactly one distribution, so
+> keeping it would have made an editable install of the other two invisible. Import
+> from the domain module instead, which is what nearly all consumer code already
+> did.
 
 ## Architecture at a Glance
 
@@ -52,10 +81,12 @@ The security model and the agent contracts are currently **Python only**; see
 implement to reach parity, and for the behaviour those implementations have to
 preserve.
 
-The Python package resolves its public names lazily, so importing a domain does
-not load the others. `import ygo74.agent_runtime.domains.security.permissions`
-brings in no endpoint code and no web framework, while
-`from ygo74.agent_runtime import add_ai_endpoints` works unchanged.
+The Python distributions keep their domains separable, so importing one loads no
+more than it needs. `import ygo74.agent_runtime.domains.security.permissions`
+brings in no endpoint code, no web framework and no protocol client — which is the
+property that lets an MCP server share this authentication model without inheriting
+an agent's dependencies. `tests/integration/python/test_public_surface.py` is what
+keeps that true.
 
 ## Getting Started
 

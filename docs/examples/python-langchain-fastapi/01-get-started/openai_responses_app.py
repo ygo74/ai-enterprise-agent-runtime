@@ -8,15 +8,15 @@ from fastapi import FastAPI
 
 from agent_solution_architect import run_solution_architect_agent, run_solution_architect_agent_stream
 from env_loader import ensure_env_loaded
-from ygo74.agent_runtime import (
+from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
     AgentCapabilitySet,
     AgentDescriptor,
     AgentSkill,
-    DescriptorRegistry,
-    DiscoveryConfiguration,
     Modality,
-    add_ai_endpoints,
 )
+from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
+from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 
 ensure_env_loaded()
 

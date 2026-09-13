@@ -54,13 +54,10 @@ letting you define the rule once and having the runtime call it both places:
 ```python
 from dataclasses import dataclass
 
-from ygo74.agent_runtime import (
-    AgentAccessPolicy,
-    AgentDescriptor,
-    AuthenticatedUserContext,
-    RoleRequiredAccessPolicy,
-    add_ai_endpoints,
-)
+from ygo74.agent_runtime.domains.auth.auth_context import AuthenticatedUserContext
+from ygo74.agent_runtime.domains.discovery.agent_access_policy import AgentAccessPolicy, RoleRequiredAccessPolicy
+from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentDescriptor
+from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 
 # Built-in: deny every agent to callers missing a single role.
 policy = RoleRequiredAccessPolicy(required_role="admin")
@@ -106,7 +103,7 @@ registered for discovery, or for checks that depend on the request body
 rather than just on identity (e.g. a field in the input):
 
 ```python
-from ygo74.agent_runtime import AuthorizationError
+from ygo74.agent_runtime.domains.auth.auth_errors import AuthorizationError
 
 async def entrypoint(payload: dict) -> dict:
     auth = payload["auth_context"] or {}
@@ -196,7 +193,9 @@ The hook is a class implementing the `ApiKeyUserResolver` protocol and must
 return a `ResolvedUser` (or `None` for an unknown key).
 
 ```python
-from ygo74.agent_runtime import ApiKeyUserResolver, ResolvedUser, add_ai_endpoints
+from ygo74.agent_runtime.domains.auth.apikey_authenticator import ApiKeyUserResolver
+from ygo74.agent_runtime.domains.auth.auth_context import ResolvedUser
+from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 
 
 class StoreApiKeyResolver(ApiKeyUserResolver):

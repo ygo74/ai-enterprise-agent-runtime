@@ -17,7 +17,8 @@ import pytest
 from discovery_fixtures import FIXED_CREATED_AT, make_descriptor
 from fastapi import FastAPI
 
-from ygo74.agent_runtime import ApiKeyUserResolver, ResolvedUser
+from ygo74.agent_runtime.domains.auth.apikey_authenticator import ApiKeyUserResolver
+from ygo74.agent_runtime.domains.auth.auth_context import ResolvedUser
 from ygo74.agent_runtime.domains.auth.auth_context import AuthenticatedUserContext, UserIdentity
 from ygo74.agent_runtime.domains.discovery.agent_access_policy import AgentAccessPolicy, RoleRequiredAccessPolicy
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentCapabilitySet, AgentDescriptor, AgentSkill

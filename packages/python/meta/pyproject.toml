@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ygo74-agent-runtime"
+version = "0.1.0"
+description = "Cross-language AI enterprise agent runtime (meta-package)"
+requires-python = ">=3.11"
+
+# This distribution ships no code. It exists so that the name already published on
+# PyPI keeps meaning "the whole runtime", and a consumer that installed 0.0.4 has
+# one line to change rather than three to discover.
+#
+# Depend on this to get everything; depend on one of the three below to get only
+# what you host:
+#
+#   ygo74-agent-runtime-security   the security and authentication foundation
+#   ygo74-agent-runtime-agents     hosting an agent
+#   ygo74-agent-runtime-mcp        hosting an MCP server
+dependencies = [
+  "ygo74-agent-runtime-security==0.1.0",
+  "ygo74-agent-runtime-agents==0.1.0",
+  "ygo74-agent-runtime-mcp==0.1.0",
+]
+
+[project.optional-dependencies]
+# Passed through, so `ygo74-agent-runtime[http]` keeps working as it did.
+http = ["ygo74-agent-runtime-agents[http]==0.1.0"]
+mcp = ["ygo74-agent-runtime-agents[mcp]==0.1.0"]
+mcp-server = ["ygo74-agent-runtime-mcp[http]==0.1.0"]
+
+[tool.setuptools]
+# No package to find: this distribution is its dependency list.
+packages = []

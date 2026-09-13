@@ -27,10 +27,20 @@ jobs:
           python-version: "3.12"
 
       - name: Build release distributions
+        # Four artifacts now: the three that carry code, and the meta-package that
+        # keeps the published `ygo74-agent-runtime` name meaning "all of it".
+        #
+        # Order matters only for readability - they are independent builds - but the
+        # meta-package pins the other three by exact version, so publishing a subset
+        # would produce a release that cannot be installed.
         run: |
-          # NOTE: put your own distribution build steps here.
           python -m pip install build
-          python -m build --outdir "${{ github.workspace }}/dist" packages/python
+          for project in security agents mcpserver meta; do
+            echo "::group::build $project"
+            python -m build --outdir "${{ github.workspace }}/dist" "packages/python/$project"
+            echo "::endgroup::"
+          done
+          ls -l "${{ github.workspace }}/dist"
 
       - name: Upload distributions
         uses: actions/upload-artifact@v4

@@ -37,29 +37,29 @@ from langgraph_approval import LangGraphApprovalBridge
 from solution_architect_agent import OPERATIONS, answer_of, build_agent, interrupts_of
 
 from env_loader import ensure_env_loaded
-from ygo74.agent_runtime import (
-    AdvertisedSecurity,
-    AgentDescriptorFactory,
-    AgentManifest,
-    ConfirmationCommandParser,
+from ygo74.agent_runtime.domains.auth.apikey_authenticator import StaticApiKeyUserResolver
+from ygo74.agent_runtime.domains.auth.auth_context import ResolvedUser
+from ygo74.agent_runtime.domains.contracts.manifests import AgentManifest, SkillManifest
+from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
+from ygo74.agent_runtime.domains.discovery.manifest_descriptor import AdvertisedSecurity, AgentDescriptorFactory
+from ygo74.agent_runtime.domains.endpoints.conversation_payloads import latest_message
+from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
+from ygo74.agent_runtime.domains.humanapproval.commands import ConfirmationCommandParser
+from ygo74.agent_runtime.domains.humanapproval.confirmation import (
+    ConfiguredConfirmationPolicy,
     ConfirmationDetail,
     ConfirmationRequest,
-    ConfiguredConfirmationPolicy,
-    ConfirmationTicket,
-    DescriptorRegistry,
-    DiscoveryConfiguration,
     InMemoryConfirmationPreferenceStore,
-    InMemoryPendingConfirmationStore,
-    PendingConfirmationRenderer,
-    ResolvedUser,
-    SecurityFloor,
-    SkillManifest,
-    StaticApiKeyUserResolver,
-    UnknownTicketError,
-    UserContext,
-    add_ai_endpoints,
-    latest_message,
 )
+from ygo74.agent_runtime.domains.humanapproval.pending_renderer import PendingConfirmationRenderer
+from ygo74.agent_runtime.domains.humanapproval.tickets import (
+    ConfirmationTicket,
+    InMemoryPendingConfirmationStore,
+    UnknownTicketError,
+)
+from ygo74.agent_runtime.domains.security.floor import SecurityFloor
+from ygo74.agent_runtime.domains.security.user_context import UserContext
 
 ensure_env_loaded()
 logging.basicConfig(level=logging.INFO)

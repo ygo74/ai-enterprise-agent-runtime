@@ -28,7 +28,7 @@ pip install -r requirements.txt
 Set `PYTHONPATH` to use the package from this repository:
 
 ```powershell
-$env:PYTHONPATH="../../..\packages\python"
+$env:PYTHONPATH="../../../packages/python/security;../../../packages/python/agents"
 ```
 
 ## Configure

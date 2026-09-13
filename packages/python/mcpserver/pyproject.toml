@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ygo74-agent-runtime-mcp"
+version = "0.1.0"
+description = "MCP server hosting for the ygo74 agent runtime: transport, authentication and health"
+requires-python = ">=3.11"
+
+# Hosting a Model Context Protocol *server* - the other side of
+# `ygo74-agent-runtime-agents`' `domains.mcp`, which is the client.
+#
+# It depends on the security distribution and not on the agents one, deliberately:
+# an MCP server has no agent, no conversation and no discovery descriptor, but it
+# has exactly the same question to answer about who is calling. Sharing the
+# authentication model is the point; sharing the agent machinery would be baggage.
+dependencies = [
+  "ygo74-agent-runtime-security==0.1.0",
+  "pydantic>=2.7",
+]
+
+[project.optional-dependencies]
+# Serving a server over streamable HTTP. Stdio needs none of this, which is why it
+# is an extra: a server reached as a child process should not have to install a web
+# stack to be one.
+#
+# The `mcp` upper bound is deliberate - 2.0 moved to `httpx2` and reshaped the
+# transport API. See the agents distribution for the full reason.
+http = [
+  "mcp>=1.24,<2",
+  "starlette>=0.37",
+  "uvicorn[standard]>=0.30",
+]
+
+[tool.setuptools.packages.find]
+include = ["ygo74*"]
+namespaces = true
+
+[tool.setuptools.package-data]
+"ygo74.agent_runtime.domains.mcpserver" = ["py.typed"]

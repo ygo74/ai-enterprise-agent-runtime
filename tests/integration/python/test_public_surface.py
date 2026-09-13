@@ -1,15 +1,17 @@
-"""Tests of the package's public surface.
+"""Tests of the public surface, now that it is split across three distributions.
 
-Two things are asserted here, and both exist because the surface is resolved
-lazily. Names are looked up on first use so that importing the security model or
-an agent contract does not load the endpoint adapters - and with them, FastAPI -
-into a process that has no use for a web stack.
+The runtime used to advertise one flat list of 154 names from
+``ygo74.agent_runtime``. That facade could not survive the split: a regular package
+can be contributed by exactly one distribution, so an editable install of the other
+two became invisible - which is how this repository develops. The names are reached
+through their domain module now, which is what the overwhelming majority of
+consumer code already did.
 
-Laziness has a cost: the export table and ``__all__`` are two lists of the same
-thing, and a name added to one and forgotten in the other would either be
-invisible to ``from ... import *`` or advertised and unresolvable. The first test
-pins them together. The second pins the isolation the laziness was introduced
-for, in a subprocess, because this test session imports FastAPI elsewhere.
+What is asserted here is what replaced it. First, that the three distributions
+really do merge into one namespace rather than shadowing each other. Second, and
+more important than before, that they stay *separable*: the reason for splitting is
+that hosting an MCP server should not drag in an agent's web stack, and that claim
+is only worth making if something checks it.
 """
 
 from __future__ import annotations
@@ -20,51 +22,81 @@ import textwrap
 
 import pytest
 
-import ygo74.agent_runtime as runtime
+SECURITY_MODULES = (
+    "ygo74.agent_runtime.domains.security.permissions",
+    "ygo74.agent_runtime.domains.security.user_context",
+    "ygo74.agent_runtime.domains.auth.authenticator",
+    "ygo74.agent_runtime.domains.auth.apikey_authenticator",
+)
+
+AGENT_MODULES = (
+    "ygo74.agent_runtime.domains.contracts.capability_registry",
+    "ygo74.agent_runtime.domains.discovery.agent_descriptor",
+    "ygo74.agent_runtime.domains.humanapproval.confirmation",
+)
+
+NEWLINE = "\n"
 
 
-def test_every_advertised_name_resolves() -> None:
-    unresolvable = [name for name in runtime.__all__ if not hasattr(runtime, name)]
+def _modules_loaded_by(imports: tuple[str, ...], watched: tuple[str, ...]) -> str:
+    """Import modules in a clean interpreter and report which watched ones loaded.
 
-    assert not unresolvable, f"advertised but not importable: {unresolvable}"
-
-
-def test_the_export_table_and_all_stay_in_step() -> None:
-    assert sorted(runtime.__all__) == sorted(runtime._EXPORTS)
-
-
-def test_dir_lists_the_surface_without_importing_it() -> None:
-    assert sorted(dir(runtime)) == sorted(runtime.__all__)
-
-
-def test_an_unknown_name_raises_attribute_error() -> None:
-    with pytest.raises(AttributeError, match="no attribute 'NotAThing'"):
-        runtime.NotAThing  # type: ignore[attr-defined]  # noqa: B018
-
-
-def test_importing_a_domain_does_not_load_the_transport() -> None:
-    """The reason the surface is lazy at all.
-
-    A subprocess, deliberately: by the time this runs, the suite has exercised
-    the FastAPI endpoints, so an in-process assertion would prove nothing.
+    A subprocess, deliberately: by the time these run, the session has imported half
+    the runtime, so an in-process assertion about what is *not* loaded would prove
+    nothing.
     """
-    probe = textwrap.dedent(
+    body = textwrap.dedent(
         """
         import sys
 
-        import ygo74.agent_runtime.domains.security.permissions
-        import ygo74.agent_runtime.domains.contracts.capability_registry
-        import ygo74.agent_runtime.domains.auth.agent_principal
+        {imports}
 
-        print(",".join(sorted(name for name in sys.modules if name in {"fastapi", "starlette"})))
+        watched = {watched!r}
+        print(",".join(sorted(name for name in sys.modules if name in watched)))
         """
-    )
+    ).format(imports=NEWLINE.join(f"import {module}" for module in imports), watched=set(watched))
 
     finished = subprocess.run(
-        [sys.executable, "-c", probe],
+        [sys.executable, "-c", body],
         capture_output=True,
         text=True,
         check=True,
     )
+    return finished.stdout.strip()
 
-    assert finished.stdout.strip() == "", f"a domain import pulled in a web stack: {finished.stdout.strip()}"
+
+@pytest.mark.parametrize("module", SECURITY_MODULES + AGENT_MODULES)
+def test_a_domain_of_either_distribution_imports(module: str) -> None:
+    """The namespace merges: neither distribution shadows the other."""
+    __import__(module)
+
+
+def test_the_namespace_is_contributed_by_more_than_one_distribution() -> None:
+    """The property the whole split rests on.
+
+    If this collapses to a single path, a regular package has reappeared somewhere
+    under ``ygo74.agent_runtime`` and one distribution has silently swallowed the
+    others' modules.
+    """
+    import ygo74.agent_runtime.domains as domains
+
+    assert len(list(domains.__path__)) >= 2, f"namespace collapsed to {list(domains.__path__)}"
+
+
+def test_the_security_foundation_loads_no_web_stack() -> None:
+    """The reason the security distribution depends on nothing else.
+
+    An MCP server hosts no agent and serves no discovery descriptor. If importing its
+    authentication model pulled in FastAPI, the separation would be a directory
+    layout rather than a fact.
+    """
+    loaded = _modules_loaded_by(SECURITY_MODULES, ("fastapi", "starlette", "mcp"))
+
+    assert loaded == "", f"the security foundation pulled in {loaded}"
+
+
+def test_a_domain_import_does_not_load_the_transport() -> None:
+    """Kept from the lazy-facade era, because the guarantee outlived the facade."""
+    loaded = _modules_loaded_by(AGENT_MODULES, ("fastapi", "starlette"))
+
+    assert loaded == "", f"a domain import pulled in a web stack: {loaded}"

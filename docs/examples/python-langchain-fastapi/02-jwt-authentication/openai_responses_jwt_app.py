@@ -6,15 +6,15 @@ from typing import Any
 
 from fastapi import FastAPI
 
-from ygo74.agent_runtime import (
+from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
     AgentCapabilitySet,
     AgentDescriptor,
     AgentSkill,
-    DescriptorRegistry,
-    DiscoveryConfiguration,
     Modality,
-    add_ai_endpoints,
 )
+from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
+from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtValidationConfig, StaticSymmetricKeyResolver
 
 
