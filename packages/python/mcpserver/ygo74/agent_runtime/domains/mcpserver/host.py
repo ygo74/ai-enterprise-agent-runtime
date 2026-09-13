@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import hmac
 import logging
+from fnmatch import fnmatch
 from typing import TYPE_CHECKING, Any
 
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
@@ -47,8 +48,6 @@ from ygo74.agent_runtime.domains.mcpserver.server_errors import (
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
     from starlette.applications import Starlette
-
-MISDIRECTED_REQUEST = 421
 
 # The scope key the authenticated caller is published under. Named rather than
 # inlined because the next piece of work - making that identity authoritative over
@@ -150,38 +149,50 @@ class McpServerHost:
         tools.add_middleware(BaseHTTPMiddleware, dispatch=guard)
         return tools
 
-    def verify_reachable(self, tools: Starlette) -> None:
-        """Refuse to serve an application that would reject its own callers.
+    def verify_reachable(self, transport_security: object | None) -> None:
+        """Refuse to serve a server that would reject its own callers.
 
-        Sends one synthetic request carrying the public host, before the port is
-        opened. A ``FastMCP`` server whose DNS-rebinding allow-list was frozen to
-        loopback answers 421 here - which is the same answer every real caller would
-        get, except that this one happens at start-up where somebody is watching.
+        ``FastMCP`` derives a DNS-rebinding allow-list from the bind address at
+        construction and never revisits it, then enforces it *inside* the streamable
+        HTTP handler. A server built with the default address therefore answers every
+        request carrying a service name in ``Host`` with 421 - after authentication,
+        before any tool, with the health probe still green because the probe never
+        reaches that handler.
+
+        The allow-list is read rather than probed. A synthetic request cannot find
+        this: the only route that enforces the rule is the one this host has just
+        put an authentication guard in front of, so a probe would be refused at the
+        door and learn nothing. Reading the configuration is also a better error -
+        it can say which host was expected and which were allowed.
         """
-        from starlette.testclient import TestClient
+        allowed = self._allowed_hosts(transport_security)
+        if allowed is None:
+            return
 
-        with TestClient(tools) as client:
-            response = client.get(
-                "/mcp",
-                headers={"Host": self._binding.public_host},
-                follow_redirects=False,
-            )
-
-        if response.status_code != MISDIRECTED_REQUEST:
+        public_host = self._binding.public_host
+        if any(fnmatch(public_host, pattern) for pattern in allowed):
             return
 
         raise McpServerUnreachableError(
-            f"this server answers 421 to a request for host {self._binding.public_host!r}: "
-            "its transport security was derived from a bind address that does not include it. "
-            "FastMCP freezes that allow-list at construction, so pass the real bind address to "
-            "the constructor rather than assigning to settings afterwards"
+            f"this server would answer 421 to a request for host {public_host!r}: its DNS-rebinding "
+            f"allow-list is {sorted(allowed)}, derived from a bind address that does not include it. "
+            "FastMCP freezes that allow-list at construction, so pass the real bind address to the "
+            "constructor rather than assigning to settings afterwards"
         )
 
-    def serve(self, tools: Starlette) -> None:
-        """Verify, then serve until stopped."""
+    def serve(self, server: object) -> None:
+        """Verify, wrap, then serve until stopped.
+
+        Takes the ``FastMCP`` server rather than its application, because the
+        allow-list that decides reachability lives in its settings and is gone by the
+        time the application exists.
+        """
         import uvicorn
 
-        self.verify_reachable(tools)
+        settings = getattr(server, "settings", None)
+        self.verify_reachable(getattr(settings, "transport_security", None))
+
+        application = self.application(server.streamable_http_app())  # type: ignore[attr-defined]
         _logger.info(
             "serving MCP over HTTP on %s:%s as %s - %s",
             self._binding.host,
@@ -189,7 +200,20 @@ class McpServerHost:
             self._binding.public_host,
             self._policy.describe(),
         )
-        uvicorn.run(self.application(tools), host=self._binding.host, port=self._binding.port)
+        uvicorn.run(application, host=self._binding.host, port=self._binding.port)
+
+    @staticmethod
+    def _allowed_hosts(transport_security: object | None) -> list[str] | None:
+        """The hosts a server accepts, or None when it accepts every host.
+
+        ``None`` covers both "no transport security" and "protection switched off",
+        which is what FastMCP produces for any non-loopback bind address.
+        """
+        if transport_security is None:
+            return None
+        if not getattr(transport_security, "enable_dns_rebinding_protection", False):
+            return None
+        return list(getattr(transport_security, "allowed_hosts", []) or [])
 
     def _is_open(self, path: str) -> bool:
         """Whether a path is reachable without a credential.

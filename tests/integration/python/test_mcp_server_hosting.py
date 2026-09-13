@@ -27,6 +27,7 @@ issuer by itself instead of being told out of band.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 
 import pytest
 from starlette.applications import Starlette
@@ -48,6 +49,22 @@ from ygo74.agent_runtime.domains.mcpserver.server_errors import (
 
 SECRET = "a-shared-deployment-secret"  # noqa: S105 - a fixture, not a credential
 SERVICE_HOST = "mail-mcp-gmail:9100"
+
+
+@dataclass(frozen=True)
+class _TransportSecurity:
+    """The shape of `mcp.server.transport_security.TransportSecuritySettings`.
+
+    Reproduced rather than imported so the check can be exercised without standing
+    up a FastMCP server. The real thing is exercised too - see
+    `test_a_real_fastmcp_server_is_read_correctly`.
+    """
+
+    enable_dns_rebinding_protection: bool
+    allowed_hosts: list[str]
+
+
+_LOOPBACK_ONLY = _TransportSecurity(True, ["127.0.0.1:*", "localhost:*", "[::1]:*"])
 
 
 def _policy() -> AuthenticationPolicy:
@@ -230,10 +247,21 @@ class TestTheMisdirectedRequestTrap:
     """The defect this host exists to make impossible.
 
     `FastMCP` freezes its DNS-rebinding allow-list to loopback when built with the
-    default bind address. A server deployed in a container then answers every real
-    request - which arrives with a service name in `Host` - with 421, and the health
-    probe stays green, so nothing says why.
+    default bind address, and enforces it *inside* the streamable HTTP handler. A
+    server deployed in a container then answers every real request - which arrives
+    with a service name in `Host` - with 421, while the health probe stays green
+    because the probe never reaches that handler. Nothing says why.
+
+    The allow-list is read rather than probed, because the only route that enforces
+    it is the one this host has just put an authentication guard in front of: a
+    synthetic request would be refused at the door and learn nothing.
     """
+
+    def _host(self) -> McpServerHost:
+        return McpServerHost(
+            policy=_policy(),
+            binding=McpHttpBinding(host="0.0.0.0", port=9100, public_host=SERVICE_HOST),  # noqa: S104
+        )
 
     def test_a_service_name_in_host_reaches_the_tools(self):
         with _client() as client:
@@ -245,36 +273,56 @@ class TestTheMisdirectedRequestTrap:
         assert response.status_code != 421
         assert response.status_code == 200
 
-    def test_a_server_that_would_answer_421_refuses_to_start(self):
+    def test_a_loopback_allow_list_refuses_to_serve_a_service_name(self):
         """Loud at start-up rather than silent at the first tool call."""
-        host = McpServerHost(
-            policy=_policy(),
-            binding=McpHttpBinding(host="0.0.0.0", port=9100, public_host=SERVICE_HOST),  # noqa: S104
-        )
-
         with pytest.raises(McpServerUnreachableError, match="421"):
-            host.verify_reachable(_misdirecting_app())
+            self._host().verify_reachable(_LOOPBACK_ONLY)
 
-    def test_a_server_that_answers_is_accepted(self):
-        host = McpServerHost(
-            policy=_policy(),
-            binding=McpHttpBinding(host="0.0.0.0", port=9100, public_host=SERVICE_HOST),  # noqa: S104
-        )
+    def test_an_allow_list_covering_the_public_host_is_accepted(self):
+        self._host().verify_reachable(_TransportSecurity(True, [f"{SERVICE_HOST}", "127.0.0.1:*"]))
 
-        host.verify_reachable(_tools_app())
+    def test_a_wildcard_pattern_is_honoured(self):
+        """FastMCP writes its allow-list with port wildcards."""
+        self._host().verify_reachable(_TransportSecurity(True, ["mail-mcp-gmail:*"]))
+
+    def test_protection_switched_off_accepts_everything(self):
+        """What FastMCP produces for any non-loopback bind address."""
+        self._host().verify_reachable(_TransportSecurity(False, ["127.0.0.1:*"]))
+
+    def test_no_transport_security_at_all_accepts_everything(self):
+        self._host().verify_reachable(None)
 
     def test_the_refusal_explains_the_cause_rather_than_the_symptom(self):
-        host = McpServerHost(
-            policy=_policy(),
-            binding=McpHttpBinding(host="0.0.0.0", port=9100, public_host=SERVICE_HOST),  # noqa: S104
-        )
-
         with pytest.raises(McpServerUnreachableError) as refusal:
-            host.verify_reachable(_misdirecting_app())
+            self._host().verify_reachable(_LOOPBACK_ONLY)
 
         message = str(refusal.value)
         assert SERVICE_HOST in message
+        assert "127.0.0.1:*" in message
         assert "bind address" in message
+
+    def test_a_loopback_deployment_is_not_tripped_up_by_its_own_defaults(self):
+        """The common workstation case must stay silent."""
+        host = McpServerHost(policy=_policy(), binding=McpHttpBinding(host="127.0.0.1", port=9100))
+
+        host.verify_reachable(_LOOPBACK_ONLY)
+
+    def test_a_real_fastmcp_server_is_read_correctly(self):
+        """The reproduction above is only worth as much as this.
+
+        Both halves of the trap, taken from the library rather than described: a
+        loopback bind freezes the allow-list, a container bind switches the
+        protection off entirely.
+        """
+        from mcp.server.fastmcp import FastMCP
+
+        trapped = FastMCP("probe", host="127.0.0.1", port=9100)
+        correct = FastMCP("probe", host="0.0.0.0", port=9100)  # noqa: S104 - what a container binds
+
+        with pytest.raises(McpServerUnreachableError):
+            self._host().verify_reachable(trapped.settings.transport_security)
+
+        self._host().verify_reachable(correct.settings.transport_security)
 
 
 class TestOAuthProtectedResourceDiscovery:
@@ -353,14 +401,19 @@ class TestTheBinding:
 def _misdirecting_app() -> Starlette:
     """An application that rejects any Host it was not built for.
 
-    Reproduces what `TransportSecurityMiddleware` does to a FastMCP server whose
-    allow-list was frozen to loopback.
+    Kept as a shape reference for what `TransportSecurityMiddleware` does, and used
+    by nothing that probes it: the check reads the allow-list instead.
     """
 
     async def guard(request):  # noqa: ANN001, ANN202 - a Starlette route
         host = request.headers.get("host", "")
-        if not host.startswith(("127.0.0.1", "localhost", "[::1]")):
+        if not host.startswith(("127.0.0.1", "localhost", "[::1]", "testserver")):
             return JSONResponse({"error": "Invalid Host header"}, status_code=421)
         return JSONResponse({"reached": True})
 
-    return Starlette(routes=[Route("/mcp", guard, methods=["GET", "POST"])])
+    return Starlette(
+        routes=[
+            Route("/mcp", guard, methods=["GET", "POST"]),
+            Route(HEALTH_PATH, guard, methods=["GET"]),
+        ]
+    )
