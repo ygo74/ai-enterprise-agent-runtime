@@ -34,13 +34,27 @@ class ApiKeyAuthenticator:
 
     The raw key is never propagated into the resulting context: only the user
     information returned by the resolver is exposed to the handler.
+
+    ``scheme`` exists because not every deployment carries its key in a header of
+    its own. A server reached at ``Authorization: Bearer <secret>`` is presenting an
+    API key wearing a scheme, and reading the raw header value there would resolve
+    the literal string ``Bearer <secret>`` as the key. When a scheme is named, a
+    header that does not carry it is not claimed at all - so this authenticator
+    cannot swallow a credential meant for another one sharing the same header.
     """
 
     DEFAULT_HEADER_NAME = "x-api-key"
 
-    def __init__(self, resolver: ApiKeyUserResolver, *, header_name: str = DEFAULT_HEADER_NAME) -> None:
+    def __init__(
+        self,
+        resolver: ApiKeyUserResolver,
+        *,
+        header_name: str = DEFAULT_HEADER_NAME,
+        scheme: str = "",
+    ) -> None:
         self._resolver = resolver
         self._header_name = header_name.lower()
+        self._scheme = scheme.strip().lower()
 
     @property
     def auth_type(self) -> str:
@@ -51,7 +65,7 @@ class ApiKeyAuthenticator:
         return self._header_name
 
     def can_authenticate(self, headers: Mapping[str, Any]) -> bool:
-        return bool(headers.get(self._header_name))
+        return bool(self._presented(headers))
 
     def missing_credential_error(self) -> AuthenticationError:
         return AuthenticationError(
@@ -59,9 +73,28 @@ class ApiKeyAuthenticator:
             message=f"Missing {self._header_name} header",
         )
 
+    def _presented(self, headers: Mapping[str, Any]) -> str:
+        """Return the key the request carries, or the empty string.
+
+        The empty string means "not for me", which is what keeps a chain of
+        authenticators sharing one header from stealing each other's requests.
+        """
+        header = headers.get(self._header_name)
+        if not isinstance(header, str) or not header.strip():
+            return ""
+
+        value = header.strip()
+        if not self._scheme:
+            return value
+
+        name, separator, credential = value.partition(" ")
+        if not separator or name.lower() != self._scheme:
+            return ""
+        return credential.strip()
+
     def authenticate(self, headers: Mapping[str, Any]) -> AuthenticatedUserContext:
-        api_key = headers.get(self._header_name)
-        if not isinstance(api_key, str) or not api_key.strip():
+        api_key = self._presented(headers)
+        if not api_key:
             raise self.missing_credential_error()
 
         return self.authenticate_key(api_key)
