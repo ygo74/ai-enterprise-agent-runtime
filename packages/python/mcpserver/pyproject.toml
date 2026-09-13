@@ -31,6 +31,11 @@ http = [
   "mcp>=1.24,<2",
   "starlette>=0.37",
   "uvicorn[standard]>=0.30",
+  # `McpServerHost.verify_reachable` drives the application in-process, before the
+  # port is opened, to catch a server that would answer its own callers with 421.
+  # Starlette's test client is what runs the lifespan correctly while doing it, and
+  # it needs httpx - which `mcp` already brings in anyway.
+  "httpx>=0.27",
 ]
 
 [tool.setuptools.packages.find]
