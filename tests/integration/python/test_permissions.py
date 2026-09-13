@@ -9,7 +9,6 @@ invent one.
 from __future__ import annotations
 
 import pytest
-
 from ygo74.agent_runtime.domains.security.permissions import (
     Permission,
     PermissionRegistry,

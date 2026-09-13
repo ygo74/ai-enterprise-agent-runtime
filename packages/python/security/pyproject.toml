@@ -6,9 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "ygo74-agent-runtime-security"
 version = "0.1.0"
 description = "Security and authentication foundation of the ygo74 agent runtime"
-# 3.11 is the floor the shipped code actually needs: `StrEnum` and the modern
-# union syntax, nothing more.
-requires-python = ">=3.11"
+# 3.12 is the floor the shipped code needs.
+requires-python = ">=3.12"
 
 # The foundation of the runtime: the security model (permissions, user context,
 # operation classification, security floor, audit, untrusted content) and the

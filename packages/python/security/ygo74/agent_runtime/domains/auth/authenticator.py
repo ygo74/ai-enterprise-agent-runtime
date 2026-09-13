@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from ygo74.agent_runtime.domains.auth.auth_context import AuthenticatedUserContext
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError

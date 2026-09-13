@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "ygo74-agent-runtime"
 version = "0.1.0"
 description = "Cross-language AI enterprise agent runtime (meta-package)"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 
 # This distribution ships no code. It exists so that the name already published on
 # PyPI keeps meaning "the whole runtime", and a consumer that installed 0.0.4 has

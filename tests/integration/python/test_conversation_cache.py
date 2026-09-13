@@ -17,9 +17,10 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
-
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
-from ygo74.agent_runtime.domains.sessions.conversation_cache import ConversationRuntimeCache
+from ygo74.agent_runtime.domains.sessions.conversation_cache import (
+    ConversationRuntimeCache,
+)
 
 ADA = AgentPrincipal(subject="ada-3f9a", email="ada@example.com")
 BOB = AgentPrincipal(subject="bob-77c1", email="bob@example.com")

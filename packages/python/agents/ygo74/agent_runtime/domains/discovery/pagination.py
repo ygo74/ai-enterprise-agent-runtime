@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from typing import Generic, TypeVar
 
 from ygo74.agent_runtime.domains.discovery.discovery_errors import DiscoveryErrors
 
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
+
+TItem = TypeVar("TItem")
 
 
 @dataclass(slots=True, frozen=True)
@@ -21,7 +24,7 @@ class PaginationRequest:
 
 
 @dataclass(slots=True, frozen=True)
-class PaginationResult[TItem]:
+class PaginationResult(Generic[TItem]):
     """One page plus the continuation indicators clients need to iterate."""
 
     items: tuple[TItem, ...]
@@ -47,7 +50,7 @@ class DiscoveryPagination:
         if self.default_page_size > self.max_page_size:
             raise DiscoveryErrors.invalid_pagination("defaultPageSize must not exceed maxPageSize")
 
-    def paginate[TItem](
+    def paginate(
         self,
         items: Sequence[TItem],
         request: PaginationRequest,

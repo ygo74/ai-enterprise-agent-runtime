@@ -24,7 +24,10 @@ import re
 from collections.abc import Sequence
 
 from ygo74.agent_runtime.domains.humanapproval.confirmation import ConfirmationDetail
-from ygo74.agent_runtime.domains.humanapproval.tickets import TICKET_PREFIX, ConfirmationTicket
+from ygo74.agent_runtime.domains.humanapproval.tickets import (
+    TICKET_PREFIX,
+    ConfirmationTicket,
+)
 
 _HEADING = "Awaiting your confirmation - nothing has been changed yet:"
 

@@ -3,17 +3,21 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
-
 from ygo74.agent_runtime.domains.configuration.models import EndpointConfiguration
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
     AgentCapabilitySet,
     AgentDescriptor,
     AgentSkill,
 )
-from ygo74.agent_runtime.domains.discovery.capability_validator import CapabilityValidator
+from ygo74.agent_runtime.domains.discovery.capability_validator import (
+    CapabilityValidator,
+)
 from ygo74.agent_runtime.domains.discovery.descriptor_binding import DescriptorBinding
 from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
-from ygo74.agent_runtime.domains.discovery.discovery_errors import DiscoveryError, DiscoveryErrorCode
+from ygo74.agent_runtime.domains.discovery.discovery_errors import (
+    DiscoveryError,
+    DiscoveryErrorCode,
+)
 from ygo74.agent_runtime.routing.route_registry import RouteRegistry
 
 

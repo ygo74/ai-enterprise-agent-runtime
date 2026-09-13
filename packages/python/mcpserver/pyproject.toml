@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "ygo74-agent-runtime-mcp"
 version = "0.1.0"
 description = "MCP server hosting for the ygo74 agent runtime: transport, authentication and health"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 
 # Hosting a Model Context Protocol *server* - the other side of
 # `ygo74-agent-runtime-agents`' `domains.mcp`, which is the client.

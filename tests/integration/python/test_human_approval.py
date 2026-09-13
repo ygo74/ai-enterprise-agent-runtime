@@ -14,15 +14,20 @@ from typing import Any
 
 import pytest
 from pydantic import BaseModel
-
-from ygo74.agent_runtime.domains.contracts.capability_registry import SkillDescriptor, SkillRegistry
+from ygo74.agent_runtime.domains.contracts.capability_registry import (
+    SkillDescriptor,
+    SkillRegistry,
+)
 from ygo74.agent_runtime.domains.humanapproval.approval_errors import (
     ConfirmationMismatchError,
     ConfirmationRejectedError,
     ConfirmationRequiredError,
 )
 from ygo74.agent_runtime.domains.humanapproval.broker import ConfirmationBroker
-from ygo74.agent_runtime.domains.humanapproval.commands import ConfirmationCommandParser, ConfirmationVerb
+from ygo74.agent_runtime.domains.humanapproval.commands import (
+    ConfirmationCommandParser,
+    ConfirmationVerb,
+)
 from ygo74.agent_runtime.domains.humanapproval.confirmation import (
     ConfiguredConfirmationPolicy,
     ConfirmationDecision,
@@ -33,15 +38,21 @@ from ygo74.agent_runtime.domains.humanapproval.confirmation import (
     ConfirmationRequest,
     InMemoryConfirmationPreferenceStore,
 )
-from ygo74.agent_runtime.domains.humanapproval.confirmed_operations import ConfirmedOperationRunner
+from ygo74.agent_runtime.domains.humanapproval.confirmed_operations import (
+    ConfirmedOperationRunner,
+)
 from ygo74.agent_runtime.domains.humanapproval.ledger import InMemoryConfirmationLedger
-from ygo74.agent_runtime.domains.humanapproval.pending_renderer import PendingConfirmationRenderer
+from ygo74.agent_runtime.domains.humanapproval.pending_renderer import (
+    PendingConfirmationRenderer,
+)
 from ygo74.agent_runtime.domains.humanapproval.tickets import (
     ConfirmationTicket,
     InMemoryPendingConfirmationStore,
     UnknownTicketError,
 )
-from ygo74.agent_runtime.domains.humanapproval.unattended import UnattendedApprovalAuthority
+from ygo74.agent_runtime.domains.humanapproval.unattended import (
+    UnattendedApprovalAuthority,
+)
 from ygo74.agent_runtime.domains.security.floor import OperationFloor, SecurityFloor
 from ygo74.agent_runtime.domains.security.operations import (
     OperationType,

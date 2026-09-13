@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main, master, "feature/*" ]
+    branches: [ main, master, "feature/**" ]
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.12"]
 
     steps:
       - name: Checkout repository
@@ -57,13 +57,36 @@ jobs:
       - name: Install test dependencies and runtime packages
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest pytest-asyncio anyio
+          python -m pip install ruff pytest pytest-asyncio anyio
           python -m pip install -e packages/python/security
           python -m pip install -e "packages/python/agents[http,mcp]"
           python -m pip install -e "packages/python/mcpserver[http]"
           python -m pip install -e packages/python/meta
 
+      - name: Lint with Ruff
+        run: |
+          python -m ruff check packages/python tests
+
       - name: Execute pytest
         run: |
           python -m pytest tests/
+
+  test-dotnet:
+    name: Run .NET Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build .NET solution
+        run: dotnet build packages/dotnet/Ygo74.AgentRuntime.sln -c Release
+
+      - name: Test .NET solution
+        run: dotnet test tests/dotnet/AgentRuntime.Tests.csproj -c Release
+
 

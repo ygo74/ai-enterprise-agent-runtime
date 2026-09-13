@@ -34,20 +34,26 @@ from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
-
-from ygo74.agent_runtime.domains.auth.apikey_authenticator import StaticApiKeyUserResolver
+from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
+    StaticApiKeyUserResolver,
+)
 from ygo74.agent_runtime.domains.auth.auth_context import ResolvedUser
 from ygo74.agent_runtime.domains.auth.authentication_policy import AuthenticationPolicy
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtValidationConfig
 from ygo74.agent_runtime.domains.mcpserver.host import McpServerHost
-from ygo74.agent_runtime.domains.mcpserver.http_binding import HEALTH_PATH, McpHttpBinding
-from ygo74.agent_runtime.domains.mcpserver.protected_resource import PROTECTED_RESOURCE_PATH
+from ygo74.agent_runtime.domains.mcpserver.http_binding import (
+    HEALTH_PATH,
+    McpHttpBinding,
+)
+from ygo74.agent_runtime.domains.mcpserver.protected_resource import (
+    PROTECTED_RESOURCE_PATH,
+)
 from ygo74.agent_runtime.domains.mcpserver.server_errors import (
     McpServerConfigurationError,
     McpServerUnreachableError,
 )
 
-SECRET = "a-shared-deployment-secret"  # noqa: S105 - a fixture, not a credential
+SECRET = "a-shared-deployment-secret"
 SERVICE_HOST = "mail-mcp-gmail:9100"
 
 
@@ -82,7 +88,7 @@ def _tools_app() -> Starlette:
     tool is reached, and echoing the caller proves the request got through.
     """
 
-    async def tools(request):  # noqa: ANN001, ANN202 - a Starlette route
+    async def tools(request):
         return JSONResponse({"reached": True, "host": request.headers.get("host", "")})
 
     return Starlette(routes=[Route("/mcp", tools, methods=["GET", "POST"])])
@@ -96,7 +102,7 @@ def _client(
 ) -> TestClient:
     host = McpServerHost(
         policy=policy or _policy(),
-        binding=binding or McpHttpBinding(host="0.0.0.0", port=9100),  # noqa: S104 - what a container binds
+        binding=binding or McpHttpBinding(host="0.0.0.0", port=9100),
         resource_url=resource_url,
     )
     return TestClient(host.application(_tools_app()))
@@ -254,7 +260,7 @@ class TestTheHealthProbe:
         paths are published constants, not secrets.
         """
         with TestClient(
-            McpServerHost(policy=_policy(), binding=McpHttpBinding(host="0.0.0.0", port=9100)).application(  # noqa: S104
+            McpServerHost(policy=_policy(), binding=McpHttpBinding(host="0.0.0.0", port=9100)).application(
                 _catch_all_app()
             ),
             raise_server_exceptions=False,
@@ -279,7 +285,7 @@ class TestTheMisdirectedRequestTrap:
     def _host(self) -> McpServerHost:
         return McpServerHost(
             policy=_policy(),
-            binding=McpHttpBinding(host="0.0.0.0", port=9100, public_host=SERVICE_HOST),  # noqa: S104
+            binding=McpHttpBinding(host="0.0.0.0", port=9100, public_host=SERVICE_HOST),
         )
 
     def test_a_service_name_in_host_reaches_the_tools(self):
@@ -336,7 +342,7 @@ class TestTheMisdirectedRequestTrap:
         from mcp.server.fastmcp import FastMCP
 
         trapped = FastMCP("probe", host="127.0.0.1", port=9100)
-        correct = FastMCP("probe", host="0.0.0.0", port=9100)  # noqa: S104 - what a container binds
+        correct = FastMCP("probe", host="0.0.0.0", port=9100)
 
         with pytest.raises(McpServerUnreachableError):
             self._host().verify_reachable(trapped.settings.transport_security)
@@ -365,7 +371,7 @@ class TestTheMisdirectedRequestTrap:
         """Its grammar is exact-or-`:*`. Nothing wider, nothing narrower."""
         host = McpServerHost(
             policy=_policy(),
-            binding=McpHttpBinding(host="0.0.0.0", port=9100, public_host=public_host),  # noqa: S104
+            binding=McpHttpBinding(host="0.0.0.0", port=9100, public_host=public_host),
         )
         security = _TransportSecurity(True, allowed)
 
@@ -378,7 +384,10 @@ class TestTheMisdirectedRequestTrap:
 
     def test_the_matching_agrees_with_the_library(self):
         """Checked against FastMCP's own validator, not against a description."""
-        from mcp.server.transport_security import TransportSecurityMiddleware, TransportSecuritySettings
+        from mcp.server.transport_security import (
+            TransportSecurityMiddleware,
+            TransportSecuritySettings,
+        )
 
         middleware = TransportSecurityMiddleware(TransportSecuritySettings())
         cases = [
@@ -393,7 +402,7 @@ class TestTheMisdirectedRequestTrap:
             middleware.settings.allowed_hosts = allowed
             host = McpServerHost(
                 policy=_policy(),
-                binding=McpHttpBinding(host="0.0.0.0", port=9100, public_host=public_host),  # noqa: S104
+                binding=McpHttpBinding(host="0.0.0.0", port=9100, public_host=public_host),
             )
             mine = _accepts(host, _TransportSecurity(True, allowed))
 
@@ -466,7 +475,7 @@ class TestOAuthProtectedResourceDiscovery:
         with pytest.raises(McpServerConfigurationError, match="resource_url"):
             McpServerHost(
                 policy=AuthenticationPolicy.jwt(JwtValidationConfig(issuer="https://idp.example")),
-                binding=McpHttpBinding(host="0.0.0.0", port=9100),  # noqa: S104
+                binding=McpHttpBinding(host="0.0.0.0", port=9100),
             )
 
 
@@ -479,13 +488,13 @@ class TestTheBinding:
         assert binding.public_host == "127.0.0.1:9100"
 
     def test_an_explicit_public_host_wins(self):
-        binding = McpHttpBinding(host="0.0.0.0", port=9100, public_host=SERVICE_HOST)  # noqa: S104
+        binding = McpHttpBinding(host="0.0.0.0", port=9100, public_host=SERVICE_HOST)
 
         assert binding.public_host == SERVICE_HOST
 
     def test_a_wildcard_bind_has_no_usable_public_host_of_its_own(self):
         """0.0.0.0 is not a name anything can address, so it must not become one."""
-        binding = McpHttpBinding(host="0.0.0.0", port=9100)  # noqa: S104
+        binding = McpHttpBinding(host="0.0.0.0", port=9100)
 
         assert binding.public_host == "localhost:9100"
 
@@ -502,7 +511,7 @@ def _accepts(host: McpServerHost, security: _TransportSecurity) -> bool:
 def _catch_all_app() -> Starlette:
     """Answers every path, so a refusal can only come from the guard."""
 
-    async def anything(_request):  # noqa: ANN001, ANN202 - a Starlette route
+    async def anything(_request):
         return JSONResponse({"reached": True})
 
     return Starlette(routes=[Route("/{path:path}", anything, methods=["GET", "POST"])])
@@ -515,7 +524,7 @@ def _misdirecting_app() -> Starlette:
     by nothing that probes it: the check reads the allow-list instead.
     """
 
-    async def guard(request):  # noqa: ANN001, ANN202 - a Starlette route
+    async def guard(request):
         host = request.headers.get("host", "")
         if not host.startswith(("127.0.0.1", "localhost", "[::1]", "testserver")):
             return JSONResponse({"error": "Invalid Host header"}, status_code=421)

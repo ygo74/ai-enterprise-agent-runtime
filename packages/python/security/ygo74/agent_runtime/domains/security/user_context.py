@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
-
 from ygo74.agent_runtime.domains.security.permissions import Permission
 from ygo74.agent_runtime.domains.security.security_errors import PermissionDeniedError
 

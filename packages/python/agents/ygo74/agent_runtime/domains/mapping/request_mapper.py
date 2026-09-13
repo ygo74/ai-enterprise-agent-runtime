@@ -1,4 +1,6 @@
-from ygo74.agent_runtime.domains.contracts.exchange_models import StandardExchangeRequest
+from ygo74.agent_runtime.domains.contracts.exchange_models import (
+    StandardExchangeRequest,
+)
 
 
 def map_to_exchange(endpoint_type: str, payload: dict) -> StandardExchangeRequest:

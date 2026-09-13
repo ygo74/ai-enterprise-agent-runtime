@@ -5,13 +5,12 @@ import asyncio
 import httpx
 import pytest
 from fastapi import FastAPI
-
-from ygo74.agent_runtime.domains.auth.auth_context import ResolvedUser
-from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
 from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
     ApiKeyAuthenticator,
     StaticApiKeyUserResolver,
 )
+from ygo74.agent_runtime.domains.auth.auth_context import ResolvedUser
+from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 
 

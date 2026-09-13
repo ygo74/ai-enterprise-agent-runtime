@@ -26,7 +26,10 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Generic, TypeVar
 
-from ygo74.agent_runtime.domains.mcp.mcp_errors import McpBindingError, McpToolUnavailableError
+from ygo74.agent_runtime.domains.mcp.mcp_errors import (
+    McpBindingError,
+    McpToolUnavailableError,
+)
 
 try:  # pragma: no cover - depends on the optional `mcp` extra
     import httpx
@@ -37,7 +40,7 @@ try:  # pragma: no cover - depends on the optional `mcp` extra
 
     _MCP_AVAILABLE = True
     _MCP_IMPORT_ERROR: Exception | None = None
-except Exception as exc:  # pragma: no cover - the extra is optional by design
+except Exception as exc:  # noqa: BLE001  # pragma: no cover - the extra is optional by design
     httpx = None  # type: ignore[assignment]
     yaml = None  # type: ignore[assignment]
     ClientSession = Any  # type: ignore[assignment,misc]

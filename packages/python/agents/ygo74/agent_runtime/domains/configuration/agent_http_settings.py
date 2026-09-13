@@ -24,7 +24,6 @@ from datetime import timedelta
 
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import Self
-
 from ygo74.agent_runtime.domains.auth.oidc_discovery import OidcDiscovery
 
 DEFAULT_MAX_CONVERSATIONS = 200

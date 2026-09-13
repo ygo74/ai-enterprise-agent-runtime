@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Protocol
+from typing import Any, Protocol
 
 import jwt
 from jwt import (
@@ -16,7 +17,6 @@ from jwt import (
     PyJWKClient,
 )
 from jwt.exceptions import PyJWKClientError
-
 from ygo74.agent_runtime.domains.auth.auth_context import AuthenticatedUserContext
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
 from ygo74.agent_runtime.domains.auth.claims_projection import ClaimsProjector

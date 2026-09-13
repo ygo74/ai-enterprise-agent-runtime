@@ -36,7 +36,9 @@ import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Generic, Protocol, TypeVar
 
-from ygo74.agent_runtime.domains.humanapproval.approval_errors import ConfirmationRejectedError
+from ygo74.agent_runtime.domains.humanapproval.approval_errors import (
+    ConfirmationRejectedError,
+)
 from ygo74.agent_runtime.domains.humanapproval.confirmation import (
     ConfirmationDecision,
     ConfirmationDetail,
@@ -44,7 +46,11 @@ from ygo74.agent_runtime.domains.humanapproval.confirmation import (
     ConfirmationPolicy,
     ConfirmationRequest,
 )
-from ygo74.agent_runtime.domains.security.audit import AuditOutcome, AuditRecord, AuditTrail
+from ygo74.agent_runtime.domains.security.audit import (
+    AuditOutcome,
+    AuditRecord,
+    AuditTrail,
+)
 from ygo74.agent_runtime.domains.security.operations import ToolOperationDescriptor
 from ygo74.agent_runtime.domains.security.security_errors import SecurityError
 from ygo74.agent_runtime.domains.security.user_context import UserContext

@@ -12,7 +12,6 @@ import asyncio
 from enum import StrEnum
 
 import pytest
-
 from ygo74.agent_runtime.domains.humanapproval.approval_errors import (
     ConfirmationRejectedError,
     ConfirmationRequiredError,

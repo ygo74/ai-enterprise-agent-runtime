@@ -10,7 +10,6 @@ from __future__ import annotations
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
-
 from ygo74.agent_runtime.domains.security.permissions import Permission
 
 

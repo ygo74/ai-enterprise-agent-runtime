@@ -78,7 +78,7 @@ class OidcDiscovery:
     def _fetch(self, url: str) -> dict[str, Any]:
         """Read one discovery document."""
         try:
-            with urllib.request.urlopen(url, timeout=self.timeout_seconds) as response:  # noqa: S310 - https URL from configuration
+            with urllib.request.urlopen(url, timeout=self.timeout_seconds) as response:
                 payload = json.loads(response.read())
         except (urllib.error.URLError, TimeoutError, ValueError) as error:
             raise AuthenticationError(

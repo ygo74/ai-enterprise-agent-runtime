@@ -78,7 +78,7 @@ def test_the_namespace_is_contributed_by_more_than_one_distribution() -> None:
     under ``ygo74.agent_runtime`` and one distribution has silently swallowed the
     others' modules.
     """
-    import ygo74.agent_runtime.domains as domains
+    from ygo74.agent_runtime import domains
 
     assert len(list(domains.__path__)) >= 2, f"namespace collapsed to {list(domains.__path__)}"
 

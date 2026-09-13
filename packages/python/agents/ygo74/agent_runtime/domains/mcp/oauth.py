@@ -45,7 +45,7 @@ try:  # pragma: no cover - depends on the optional `mcp` extra
     from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 
     _MCP_AVAILABLE = True
-except Exception:  # pragma: no cover - the extra is optional by design
+except Exception:  # noqa: BLE001  # pragma: no cover - the extra is optional by design
     OAuthClientProvider = object  # type: ignore[assignment,misc]
     TokenStorage = object  # type: ignore[assignment,misc]
     OAuthClientInformationFull = Any  # type: ignore[assignment,misc]
@@ -85,7 +85,7 @@ class LoopbackConsent:
         captured: dict[str, str] = {}
 
         class Handler(BaseHTTPRequestHandler):
-            def do_GET(self) -> None:  # noqa: N802 - the name is the server's contract
+            def do_GET(self) -> None:
                 query = parse_qs(urlparse(self.path).query)
                 captured.update({key: values[0] for key, values in query.items() if values})
                 self.send_response(200)

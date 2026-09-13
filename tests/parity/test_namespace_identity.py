@@ -8,8 +8,10 @@ distributions rather than owned by one - but the answer must still be yes.
 
 from __future__ import annotations
 
-import ygo74.agent_runtime.domains as domains
-from ygo74.agent_runtime.domains.contracts.exchange_models import StandardExchangeRequest
+from ygo74.agent_runtime import domains
+from ygo74.agent_runtime.domains.contracts.exchange_models import (
+    StandardExchangeRequest,
+)
 from ygo74.agent_runtime.domains.security.permissions import Permission
 
 

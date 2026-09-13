@@ -12,7 +12,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
-
 from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
     ApiKeyAuthenticator,
     StaticApiKeyUserResolver,

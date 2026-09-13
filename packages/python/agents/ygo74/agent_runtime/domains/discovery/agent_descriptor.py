@@ -8,10 +8,11 @@ on a provider dialect or on transport concerns.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from ygo74.agent_runtime.domains.discovery.discovery_errors import DiscoveryErrors
 

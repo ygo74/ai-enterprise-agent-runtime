@@ -21,7 +21,7 @@ HEALTH_PATH = "/healthz"
 
 # Addresses that mean "every interface" rather than naming one. A caller cannot put
 # any of them in a `Host` header, so they cannot stand in for a public name.
-_WILDCARDS = frozenset({"0.0.0.0", "::", "[::]", ""})  # noqa: S104 - matched, not bound
+_WILDCARDS = frozenset({"0.0.0.0", "::", "[::]", ""})
 
 _LOOPBACK = "localhost"
 

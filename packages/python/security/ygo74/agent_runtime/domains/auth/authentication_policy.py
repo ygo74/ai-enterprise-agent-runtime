@@ -28,8 +28,14 @@ from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
     ApiKeyAuthenticator,
     ApiKeyUserResolver,
 )
-from ygo74.agent_runtime.domains.auth.authenticator import Authenticator, RequestAuthenticator
-from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtAuthenticator, JwtValidationConfig
+from ygo74.agent_runtime.domains.auth.authenticator import (
+    Authenticator,
+    RequestAuthenticator,
+)
+from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
+    JwtAuthenticator,
+    JwtValidationConfig,
+)
 
 
 class AuthenticationConfigurationError(RuntimeError):

@@ -1,4 +1,6 @@
-from ygo74.agent_runtime.domains.contracts.exchange_models import StandardExchangeRequest
+from ygo74.agent_runtime.domains.contracts.exchange_models import (
+    StandardExchangeRequest,
+)
 
 _SUPPORTED = {"openai.chat_completions", "openai.responses", "anthropic.messages"}
 

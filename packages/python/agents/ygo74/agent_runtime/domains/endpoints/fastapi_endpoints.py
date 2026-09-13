@@ -4,7 +4,8 @@ import inspect
 import json
 import logging
 import uuid
-from typing import Any, AsyncIterator, Awaitable, Callable, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+from typing import Any
 
 try:
     from fastapi import HTTPException, Request
@@ -12,19 +13,29 @@ try:
 
     _FASTAPI_AVAILABLE = True
     _FASTAPI_IMPORT_ERROR: Exception | None = None
-except Exception as exc:  # pragma: no cover - depends on web runtime
+except Exception as exc:  # noqa: BLE001  # pragma: no cover - depends on web runtime
     HTTPException = Exception  # type: ignore[assignment]
     Request = Any  # type: ignore[assignment]
     StreamingResponse = None  # type: ignore[assignment]
     _FASTAPI_AVAILABLE = False
     _FASTAPI_IMPORT_ERROR = exc
 
-from ygo74.agent_runtime.domains.mapping.request_mapper import map_to_exchange
-from ygo74.agent_runtime.domains.mapping.response_mapper import extract_output_text, map_response
-from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError, AuthorizationError
-from ygo74.agent_runtime.domains.auth.authenticator import Authenticator, RequestAuthenticator
-from ygo74.agent_runtime.domains.auth.apikey_authenticator import ApiKeyAuthenticator, ApiKeyUserResolver
-from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtAuthenticator, JwtValidationConfig
+from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
+    ApiKeyAuthenticator,
+    ApiKeyUserResolver,
+)
+from ygo74.agent_runtime.domains.auth.auth_errors import (
+    AuthenticationError,
+    AuthorizationError,
+)
+from ygo74.agent_runtime.domains.auth.authenticator import (
+    Authenticator,
+    RequestAuthenticator,
+)
+from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
+    JwtAuthenticator,
+    JwtValidationConfig,
+)
 from ygo74.agent_runtime.domains.discovery.agent_access_policy import AgentAccessPolicy
 from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
 from ygo74.agent_runtime.domains.discovery.dialect_selector import ProviderDialect
@@ -37,11 +48,18 @@ from ygo74.agent_runtime.domains.discovery.discovery_errors import (
     DiscoveryErrorCategory,
     DiscoveryErrorCode,
 )
-from ygo74.agent_runtime.domains.discovery.model_route_resolver import ModelRouteResolver
+from ygo74.agent_runtime.domains.discovery.model_route_resolver import (
+    ModelRouteResolver,
+)
 from ygo74.agent_runtime.domains.discovery.pagination import PaginationRequest
 from ygo74.agent_runtime.domains.endpoints.header_forwarding import (
     DEFAULT_CONVERSATION_HEADER,
     RequestHeaderForwarder,
+)
+from ygo74.agent_runtime.domains.mapping.request_mapper import map_to_exchange
+from ygo74.agent_runtime.domains.mapping.response_mapper import (
+    extract_output_text,
+    map_response,
 )
 
 AgentEntrypoint = Callable[[dict[str, Any]], Awaitable[Any] | Any]

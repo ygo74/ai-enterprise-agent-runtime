@@ -31,7 +31,9 @@ import os
 from dataclasses import dataclass
 from typing import Self
 
-from ygo74.agent_runtime.domains.auth.apikey_authenticator import StaticApiKeyUserResolver
+from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
+    StaticApiKeyUserResolver,
+)
 from ygo74.agent_runtime.domains.auth.auth_context import ResolvedUser
 from ygo74.agent_runtime.domains.auth.authentication_policy import (
     AuthenticationConfigurationError,
@@ -46,7 +48,7 @@ from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
 )
 
 MODE_SUFFIX = "AUTH_MODE"
-TOKEN_SUFFIX = "HTTP_TOKEN"  # noqa: S105 - the name of a variable, not its value
+TOKEN_SUFFIX = "HTTP_TOKEN"
 ISSUER_SUFFIX = "OIDC_ISSUER"
 AUDIENCE_SUFFIX = "OIDC_AUDIENCE"
 RESOURCE_SUFFIX = "RESOURCE_URL"

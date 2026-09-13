@@ -23,15 +23,17 @@ from datetime import UTC, datetime
 from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
-from ygo74.agent_runtime.domains.security.floor import SecurityFloor
-from ygo74.agent_runtime.domains.security.operations import RiskLevel, ToolOperationDescriptor
-from ygo74.agent_runtime.domains.security.user_context import UserContext
-
 from ygo74.agent_runtime.domains.humanapproval.approval_errors import (
     ConfirmationMismatchError,
     ConfirmationRejectedError,
     ConfirmationRequiredError,
 )
+from ygo74.agent_runtime.domains.security.floor import SecurityFloor
+from ygo74.agent_runtime.domains.security.operations import (
+    RiskLevel,
+    ToolOperationDescriptor,
+)
+from ygo74.agent_runtime.domains.security.user_context import UserContext
 
 _RISK_SEVERITY: Mapping[RiskLevel, int] = {
     RiskLevel.LOW: 0,

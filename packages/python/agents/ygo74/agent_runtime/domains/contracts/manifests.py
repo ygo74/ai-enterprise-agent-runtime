@@ -15,7 +15,6 @@ host decision and stays outside this library.
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-
 from ygo74.agent_runtime.domains.security.operations import ToolOperationDescriptor
 
 

@@ -14,7 +14,6 @@ from __future__ import annotations
 import time
 
 import pytest
-
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
 from ygo74.agent_runtime.domains.auth.authentication_policy import (
     AuthenticationConfigurationError,
@@ -23,7 +22,7 @@ from ygo74.agent_runtime.domains.auth.authentication_policy import (
 from ygo74.agent_runtime.domains.mcpserver.settings import McpServerAuthentication
 
 PREFIX = "MAIL_MCP_"
-SECRET = "a-shared-deployment-secret"  # noqa: S105 - a fixture, not a credential
+SECRET = "a-shared-deployment-secret"
 CALLER = "mail-agent"
 
 

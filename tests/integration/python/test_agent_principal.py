@@ -11,9 +11,14 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
-from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal, PrincipalError
-from ygo74.agent_runtime.domains.auth.auth_context import AuthenticatedUserContext, UserIdentity
+from ygo74.agent_runtime.domains.auth.agent_principal import (
+    AgentPrincipal,
+    PrincipalError,
+)
+from ygo74.agent_runtime.domains.auth.auth_context import (
+    AuthenticatedUserContext,
+    UserIdentity,
+)
 
 
 def auth_context(**overrides: Any) -> dict[str, Any]:

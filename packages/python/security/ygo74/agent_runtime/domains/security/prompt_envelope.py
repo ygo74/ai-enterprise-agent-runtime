@@ -16,7 +16,6 @@ provider.
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
-
 from ygo74.agent_runtime.domains.security.fencing import (
     DEFAULT_UNTRUSTED_SOURCE,
     UntrustedFence,

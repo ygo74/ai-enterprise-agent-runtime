@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any
 
+from ygo74.agent_runtime.domains.contracts.error_envelope import ErrorEnvelope
+
 
 @dataclass(slots=True)
 class StandardExchangeRequest:
@@ -18,5 +20,5 @@ class StandardExchangeResponse:
     request_id: str
     status: str
     output: Any | None = None
-    error: "ErrorEnvelope | None" = None
+    error: ErrorEnvelope | None = None
     metadata: dict[str, Any] = field(default_factory=dict)

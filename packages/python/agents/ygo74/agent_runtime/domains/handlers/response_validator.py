@@ -1,4 +1,6 @@
-from ygo74.agent_runtime.domains.contracts.exchange_models import StandardExchangeResponse
+from ygo74.agent_runtime.domains.contracts.exchange_models import (
+    StandardExchangeResponse,
+)
 
 
 def validate_response(response: StandardExchangeResponse) -> None:

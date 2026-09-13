@@ -7,10 +7,13 @@ additive extension section.
 
 from __future__ import annotations
 
-from typing import Any, Final, Sequence
+from collections.abc import Sequence
+from typing import Any, Final
 
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentDescriptor
-from ygo74.agent_runtime.domains.discovery.capability_extensions import CapabilityExtensions
+from ygo74.agent_runtime.domains.discovery.capability_extensions import (
+    CapabilityExtensions,
+)
 
 MODEL_OBJECT: Final[str] = "model"
 LIST_OBJECT: Final[str] = "list"

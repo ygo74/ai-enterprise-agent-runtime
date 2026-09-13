@@ -25,7 +25,6 @@ from collections.abc import Mapping
 from typing import Final
 
 from pydantic import BaseModel, ConfigDict, Field
-
 from ygo74.agent_runtime.domains.auth.auth_context import AuthenticatedUserContext
 from ygo74.agent_runtime.domains.security.security_errors import SecurityError
 

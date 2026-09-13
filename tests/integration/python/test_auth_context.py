@@ -1,5 +1,4 @@
 import jwt
-
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
     JwtAuthenticator,
     JwtValidationConfig,

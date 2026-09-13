@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from pydantic import BaseModel
-
 from ygo74.agent_runtime.domains.contracts.manifests import SkillManifest
 from ygo74.agent_runtime.domains.security.operations import ToolOperationDescriptor
 from ygo74.agent_runtime.domains.security.user_context import UserContext

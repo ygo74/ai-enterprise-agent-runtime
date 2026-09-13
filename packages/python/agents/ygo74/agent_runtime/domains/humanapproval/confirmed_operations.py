@@ -22,9 +22,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Protocol, runtime_checkable
 
-from ygo74.agent_runtime.domains.contracts.capability_registry import ResultRenderer, SkillRegistry
-from ygo74.agent_runtime.domains.security.user_context import UserContext
-
+from ygo74.agent_runtime.domains.contracts.capability_registry import (
+    ResultRenderer,
+    SkillRegistry,
+)
 from ygo74.agent_runtime.domains.humanapproval.commands import ConfirmationCommand
 from ygo74.agent_runtime.domains.humanapproval.confirmation import (
     ConfirmationDecision,
@@ -32,7 +33,11 @@ from ygo74.agent_runtime.domains.humanapproval.confirmation import (
     ConfirmationOutcome,
     ConfirmationRequest,
 )
-from ygo74.agent_runtime.domains.humanapproval.tickets import ConfirmationTicket, PendingConfirmationStore
+from ygo74.agent_runtime.domains.humanapproval.tickets import (
+    ConfirmationTicket,
+    PendingConfirmationStore,
+)
+from ygo74.agent_runtime.domains.security.user_context import UserContext
 
 
 @runtime_checkable

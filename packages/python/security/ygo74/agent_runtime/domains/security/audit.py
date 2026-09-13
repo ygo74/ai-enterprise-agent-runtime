@@ -19,7 +19,6 @@ from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
-
 from ygo74.agent_runtime.domains.security.operations import OperationType, RiskLevel
 
 _LOGGER = logging.getLogger("ygo74.agent_runtime.audit")

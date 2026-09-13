@@ -23,7 +23,10 @@ from typing import Any
 
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
 from ygo74.agent_runtime.domains.contracts.contract_errors import EmptyRequestError
-from ygo74.agent_runtime.domains.contracts.conversation import AgentReply, ConversationTurn
+from ygo74.agent_runtime.domains.contracts.conversation import (
+    AgentReply,
+    ConversationTurn,
+)
 from ygo74.agent_runtime.domains.endpoints.header_forwarding import (
     CONVERSATION_KEY,
     DEFAULT_CONVERSATION_HEADER,

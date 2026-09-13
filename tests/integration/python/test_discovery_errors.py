@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from discovery_fixtures import ANTHROPIC_HEADERS, DiscoveryHarness, make_descriptor
-
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import DiscoveryVisibility
 from ygo74.agent_runtime.domains.discovery.dialect_selector import DialectSelection
-from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
+    DiscoveryConfiguration,
+)
 
 
 def _error_code(payload: object) -> str:

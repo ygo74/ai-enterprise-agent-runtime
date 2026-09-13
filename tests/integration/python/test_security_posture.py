@@ -8,7 +8,6 @@ less protection than the code requires.
 from __future__ import annotations
 
 import pytest
-
 from ygo74.agent_runtime.domains.security.audit import (
     AuditOutcome,
     AuditRecord,

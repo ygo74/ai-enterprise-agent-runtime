@@ -10,10 +10,14 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
-from ygo74.agent_runtime.domains.auth.oidc_discovery import DISCOVERY_PATH, OidcDiscovery
-from ygo74.agent_runtime.domains.configuration.agent_http_settings import AgentHttpSettings
+from ygo74.agent_runtime.domains.auth.oidc_discovery import (
+    DISCOVERY_PATH,
+    OidcDiscovery,
+)
+from ygo74.agent_runtime.domains.configuration.agent_http_settings import (
+    AgentHttpSettings,
+)
 
 ISSUER = "https://realm.example/auth/realms/agents"
 KEYS = "https://realm.example/auth/realms/agents/protocol/openid-connect/certs"

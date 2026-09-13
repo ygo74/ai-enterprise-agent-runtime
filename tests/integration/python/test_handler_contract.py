@@ -1,4 +1,7 @@
-from ygo74.agent_runtime.domains.contracts.exchange_models import StandardExchangeRequest, StandardExchangeResponse
+from ygo74.agent_runtime.domains.contracts.exchange_models import (
+    StandardExchangeRequest,
+    StandardExchangeResponse,
+)
 from ygo74.agent_runtime.domains.handlers.response_validator import validate_response
 
 

@@ -1,7 +1,9 @@
 from collections.abc import Callable
 from typing import Protocol
 
-from ygo74.agent_runtime.domains.contracts.exchange_models import StandardExchangeResponse
+from ygo74.agent_runtime.domains.contracts.exchange_models import (
+    StandardExchangeResponse,
+)
 
 
 class MessagePipelineContext(Protocol):

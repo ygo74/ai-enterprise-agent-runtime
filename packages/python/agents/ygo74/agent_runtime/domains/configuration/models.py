@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any
 
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentDescriptor
 

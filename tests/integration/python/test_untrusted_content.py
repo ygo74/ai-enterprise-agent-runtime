@@ -9,7 +9,6 @@ instruction in the first place.
 from __future__ import annotations
 
 import pytest
-
 from ygo74.agent_runtime.domains.security.fencing import (
     DEFAULT_UNTRUSTED_SOURCE,
     UntrustedFence,
@@ -22,7 +21,6 @@ from ygo74.agent_runtime.domains.security.prompt_envelope import (
 )
 from ygo74.agent_runtime.domains.security.untrusted import (
     UntrustedOrigin,
-    UntrustedText,
     untrusted,
 )
 

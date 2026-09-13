@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 from ygo74.agent_runtime.domains.configuration.models import EndpointConfiguration
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentDescriptor

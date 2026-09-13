@@ -16,12 +16,14 @@ plumbing; that one is the security property.
 from __future__ import annotations
 
 import pytest
-
 from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
     ApiKeyAuthenticator,
     StaticApiKeyUserResolver,
 )
-from ygo74.agent_runtime.domains.auth.auth_context import AuthenticatedUserContext, ResolvedUser
+from ygo74.agent_runtime.domains.auth.auth_context import (
+    AuthenticatedUserContext,
+    ResolvedUser,
+)
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
 from ygo74.agent_runtime.domains.auth.authentication_policy import (
     AuthenticationConfigurationError,
@@ -30,7 +32,7 @@ from ygo74.agent_runtime.domains.auth.authentication_policy import (
 )
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtValidationConfig
 
-SECRET = "a-shared-deployment-secret"  # noqa: S105 - a fixture, not a credential
+SECRET = "a-shared-deployment-secret"
 
 
 def _resolver() -> StaticApiKeyUserResolver:

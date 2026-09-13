@@ -14,7 +14,10 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from ygo74.agent_runtime.domains.security.operations import RiskLevel, ToolOperationDescriptor
+from ygo74.agent_runtime.domains.security.operations import (
+    RiskLevel,
+    ToolOperationDescriptor,
+)
 from ygo74.agent_runtime.domains.security.security_errors import SecurityError
 
 _SEVERITY = {RiskLevel.LOW: 0, RiskLevel.MEDIUM: 1, RiskLevel.HIGH: 2}

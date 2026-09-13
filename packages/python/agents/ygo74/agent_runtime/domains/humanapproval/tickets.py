@@ -32,9 +32,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, runtime_checkable
 
-from ygo74.agent_runtime.domains.security.security_errors import SecurityError
-
 from ygo74.agent_runtime.domains.humanapproval.confirmation import ConfirmationRequest
+from ygo74.agent_runtime.domains.security.security_errors import SecurityError
 
 TICKET_PREFIX = "cfm-"
 DEFAULT_TICKET_LIFETIME = timedelta(minutes=15)

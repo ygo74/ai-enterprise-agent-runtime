@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, Final, Mapping
+from typing import Any, Final
 
 from ygo74.agent_runtime.domains.discovery.discovery_errors import DiscoveryErrors
 

@@ -21,10 +21,14 @@ framework would be one copy away from one of them quietly approving.
 
 from __future__ import annotations
 
+from ygo74.agent_runtime.domains.humanapproval.approval_errors import (
+    ConfirmationRequiredError,
+)
+from ygo74.agent_runtime.domains.humanapproval.confirmation import (
+    ConfirmationDecision,
+    ConfirmationRequest,
+)
 from ygo74.agent_runtime.domains.security.user_context import UserContext
-
-from ygo74.agent_runtime.domains.humanapproval.confirmation import ConfirmationDecision, ConfirmationRequest
-from ygo74.agent_runtime.domains.humanapproval.approval_errors import ConfirmationRequiredError
 
 
 class UnattendedApprovalAuthority:

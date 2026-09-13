@@ -34,7 +34,10 @@ from ygo74.agent_runtime.domains.auth.authentication_policy import (
     AuthenticationPolicy,
 )
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtAuthenticator
-from ygo74.agent_runtime.domains.mcpserver.http_binding import HEALTH_PATH, McpHttpBinding
+from ygo74.agent_runtime.domains.mcpserver.http_binding import (
+    HEALTH_PATH,
+    McpHttpBinding,
+)
 from ygo74.agent_runtime.domains.mcpserver.protected_resource import (
     PROTECTED_RESOURCE_PATH,
     ProtectedResource,
@@ -110,7 +113,7 @@ class McpServerHost:
             # Only reachable when a resource was configured, because the route is
             # only added then. A 404 elsewhere is the honest answer: this server
             # implements no OAuth flow.
-            assert self._resource is not None  # noqa: S101 - guarded by the route
+            assert self._resource is not None
             return JSONResponse(self._resource.metadata())
 
         async def guard(request: Request, call_next: Any) -> Any:

@@ -11,14 +11,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from ygo74.agent_runtime.domains.security.user_context import UserContext
-
 from ygo74.agent_runtime.domains.humanapproval.confirmation import (
     ConfirmationAuthority,
     ConfirmationDecision,
     ConfirmationLedger,
     ConfirmationRequest,
 )
+from ygo74.agent_runtime.domains.security.user_context import UserContext
 
 
 class ConfirmationBroker:

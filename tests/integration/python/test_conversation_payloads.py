@@ -9,10 +9,12 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from ygo74.agent_runtime.domains.auth.agent_principal import PrincipalError
 from ygo74.agent_runtime.domains.contracts.contract_errors import EmptyRequestError
-from ygo74.agent_runtime.domains.contracts.conversation import AgentReply, ConversationTurn
+from ygo74.agent_runtime.domains.contracts.conversation import (
+    AgentReply,
+    ConversationTurn,
+)
 from ygo74.agent_runtime.domains.endpoints.conversation_payloads import (
     DEFAULT_CONVERSATION,
     AgentReplyRenderer,

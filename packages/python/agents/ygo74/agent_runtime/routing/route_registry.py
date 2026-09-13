@@ -1,6 +1,9 @@
 from collections.abc import Callable
 
-from ygo74.agent_runtime.domains.contracts.exchange_models import StandardExchangeRequest, StandardExchangeResponse
+from ygo74.agent_runtime.domains.contracts.exchange_models import (
+    StandardExchangeRequest,
+    StandardExchangeResponse,
+)
 
 
 class RouteRegistry:

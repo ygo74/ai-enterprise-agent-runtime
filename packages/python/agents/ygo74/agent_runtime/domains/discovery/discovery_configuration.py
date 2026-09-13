@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from ygo74.agent_runtime.domains.auth.auth_context import AuthenticatedUserContext
 from ygo74.agent_runtime.domains.discovery.agent_access_policy import AgentAccessPolicy
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentDescriptor
-from ygo74.agent_runtime.domains.discovery.anthropic_model_projection import AnthropicModelProjection
+from ygo74.agent_runtime.domains.discovery.anthropic_model_projection import (
+    AnthropicModelProjection,
+)
 from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
 from ygo74.agent_runtime.domains.discovery.dialect_selector import (
     DialectSelection,
@@ -18,7 +21,9 @@ from ygo74.agent_runtime.domains.discovery.dialect_selector import (
     ProviderDialect,
 )
 from ygo74.agent_runtime.domains.discovery.discovery_errors import DiscoveryErrors
-from ygo74.agent_runtime.domains.discovery.openai_model_projection import OpenAiModelProjection
+from ygo74.agent_runtime.domains.discovery.openai_model_projection import (
+    OpenAiModelProjection,
+)
 from ygo74.agent_runtime.domains.discovery.pagination import (
     DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,
