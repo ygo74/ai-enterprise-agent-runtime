@@ -37,6 +37,8 @@ satisfy.
 | Capability registry | `domains.contracts.capability_registry` | pending | pending | `tests/integration/python/test_capability_registry.py` |
 | Token ports | `domains.auth.tokens` | pending | pending | `tests/integration/python/test_tokens.py` |
 | Manifest-derived descriptor | `domains.discovery.manifest_descriptor` | pending | pending | `tests/integration/python/test_manifest_descriptor.py` |
+| Human-approval domain | `domains.humanapproval` | pending | pending | `tests/integration/python/test_human_approval.py` |
+| Gated operation runner | `domains.humanapproval.gated_operations` | pending | pending | `tests/integration/python/test_gated_operations.py` |
 
 ### What the .NET and Java implementations must preserve
 
@@ -83,6 +85,26 @@ incomplete, it is wrong.
   claim it invokes no tool.
 - **A service that authenticates nobody is refused, not described.** An agent
   reachable without a caller has no subject to partition state by.
+- **An approval is recorded against the exact request the person was shown, and
+  replayed from the arguments stored with it.** The model describes an operation
+  and then plays no part in running it: the arguments never travel back through
+  it, so it cannot change them between the description and the execution.
+- **A ticket is claimed once, by one subject, in one conversation, before it
+  expires.** All four are checked when it is claimed, not when it is issued, and a
+  refusal is worded identically whether the ticket never existed, was already
+  used, expired, or belongs to somebody else - distinguishing them would tell a
+  guesser which identifiers are real.
+- **An approval is read before the model sees the turn.** The grammar is a verb
+  and an identifier, nothing more. An approval the model could reinterpret is not
+  an approval, and anything short of an exact match is an ordinary message.
+- **Reaching an approval authority with nobody there refuses.** It means a gated
+  capability was not suspended, which must not become an unattended side effect.
+- **What is displayed cannot imitate the application.** Any ticket reference found
+  in retrieved content is redacted, and each fact is confined to one truncated
+  line so content cannot forge an entry or flood the reply.
+- **The four audit outcomes stay distinguishable.** "Nobody was asked" and
+  "somebody said no" are different events, and an audit trail that conflated them
+  would answer its most important question wrongly.
 
 ### Deliberate omissions
 
@@ -91,3 +113,15 @@ incomplete, it is wrong.
   itself rights would be the wrong shape. Hosts compose the two themselves.
 - The **loading** of manifests - from YAML, a database or a service - is a host
   concern and is not part of this library. Only the typed contract is.
+- `InMemoryPendingConfirmationStore` holds **one process**. Behind two workers a
+  ticket issued on one is unclaimable on the other, and a restart loses every
+  pending approval. The `PendingConfirmationStore` protocol is the contract; a
+  deployment needs a shared, atomic implementation of it. Everything that makes a
+  claim safe is decided in the domain, not by the store, so replacing it is a
+  drop-in - but it has to be done before this domain is called production-ready.
+- The bridge between a framework's suspension mechanism and this domain is **not**
+  here. LangGraph's interrupts, Microsoft Agent Framework's approval mode and
+  whatever comes next are each that framework's business; a library that knew
+  would have to know all of them. See
+  `docs/examples/python-langchain-fastapi/04-human-in-the-loop` for what such a
+  bridge looks like.
