@@ -100,6 +100,7 @@ Important documents:
 - Implementation plan: [`specs/001-openai-endpoint-exposure/plan.md`](specs/001-openai-endpoint-exposure/plan.md)
 - Validation scenarios: [`specs/001-openai-endpoint-exposure/quickstart.md`](specs/001-openai-endpoint-exposure/quickstart.md)
 - Contracts: [`specs/001-openai-endpoint-exposure/contracts/`](specs/001-openai-endpoint-exposure/contracts/)
+- Hosting an MCP server: [`docs/mcp-server-hosting.md`](docs/mcp-server-hosting.md)
 - Cross-language parity status: [`docs/parity-status.md`](docs/parity-status.md)
 
 ## Quickstart for contributors

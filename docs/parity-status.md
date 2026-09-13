@@ -44,6 +44,64 @@ satisfy.
 | OIDC discovery and HTTP settings | `domains.auth.oidc_discovery`, `domains.configuration.agent_http_settings` | pending | pending | `tests/integration/python/test_agent_http_settings.py` |
 | MCP transport, binding, dialects, OAuth | `domains.mcp` | pending | pending | `tests/integration/python/test_mcp_plumbing.py` |
 
+## 2026-09-13 — MCP server hosting and the shared authentication policy
+
+Origin: an MCP server and an agent must answer exactly the same question about who
+is calling, but almost nothing else is shared. Expressing that required splitting
+the Python runtime into three distributions, and gave the servers of the AI Agent
+Lab one authentication model instead of one per server.
+
+Accepted constraint: **Python only, for now**, for the same reason as the entries
+above. The Python tests listed here are the contract.
+
+Note for .NET and Java: the *distribution* split is a Python packaging decision, not
+a contract. The equivalent there is namespace separation - the security types must
+not require the agent-hosting assembly, and MCP hosting must not require either.
+
+| Capability | Python module | .NET | Java | Behaviour contract |
+|---|---|---|---|---|
+| Authentication policy and modes | `domains.auth.authentication_policy` | pending | pending | `tests/integration/python/test_authentication_policy.py` |
+| Scheme-prefixed API keys | `domains.auth.apikey_authenticator` | pending | pending | `tests/integration/python/test_authentication_policy.py` |
+| MCP server hosting | `domains.mcpserver.host` | pending | pending | `tests/integration/python/test_mcp_server_hosting.py` |
+| MCP bind and public address | `domains.mcpserver.http_binding` | pending | pending | `tests/integration/python/test_mcp_server_hosting.py` |
+| OAuth protected-resource metadata | `domains.mcpserver.protected_resource` | pending | pending | `tests/integration/python/test_mcp_server_hosting.py` |
+| MCP authentication settings | `domains.mcpserver.settings` | pending | pending | `tests/integration/python/test_mcp_server_settings.py` |
+
+### What these implementations must preserve
+
+- **Anonymity is a decision, never a residue.** A host that was told nothing refuses
+  to start; only an explicitly named "none" mode serves everyone. The scheme may be
+  inferred from an unambiguous signal - a configured token means a token is checked -
+  but silence is never inferred as anonymity.
+- **One authentication model serves every host.** An agent and an MCP server run the
+  same chain. A server-specific authentication path is how a weaker one appears
+  without anybody deciding it should.
+- **Adding a scheme requires no change to the foundation.** Basic, Kerberos or mutual
+  TLS are implementations of the `Authenticator` contract. The Python suite proves
+  this by running one written entirely outside the library.
+- **An authenticator that raises is a refusal, not a 500.** The extension point is
+  arbitrary code on the request path, and an unauthenticated caller able to produce a
+  traceback in the log of a credential-holding process is a log-flood vector.
+- **A server that would refuse its own callers does not start.** The DNS-rebinding
+  allow-list is read at start-up and compared against the address callers use. It
+  cannot be probed: the only route that enforces it is the one the authentication
+  guard sits in front of.
+- **A bind address is not a public name.** A wildcard bind means "every interface",
+  which no caller can put in a `Host` header, so it must never become an OAuth
+  resource identifier.
+- **The health probe is open in every mode and discloses only liveness.** An
+  orchestrator must be able to ask whether a process is alive without being handed a
+  credential to do it.
+- **A server that implements no OAuth flow answers 404 on the metadata path, not
+  401.** A probing client must read "I am not a resource server", not "there is a
+  flow here, you just need a credential".
+- **Only asymmetric algorithms validate tokens.** A symmetric one would mean the
+  resource server holds the key that signs them, which turns it into an issuer by
+  accident.
+- **A refusal says nothing about what was wrong.** Which part failed is information a
+  guesser can use; the operator has the log.
+
+
 ### What the .NET and Java implementations must preserve
 
 These are the properties the Python tests assert. They are security properties
