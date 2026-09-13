@@ -38,13 +38,20 @@ from ygo74.agent_runtime.domains.auth.authentication_policy import (
     AuthenticationMode,
     AuthenticationPolicy,
 )
-from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtValidationConfig
+from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
+    DiscoveredJwksKeyResolver,
+    JwksKeyResolver,
+    JwtKeyResolver,
+    JwtValidationConfig,
+)
 
 MODE_SUFFIX = "AUTH_MODE"
 TOKEN_SUFFIX = "HTTP_TOKEN"  # noqa: S105 - the name of a variable, not its value
 ISSUER_SUFFIX = "OIDC_ISSUER"
 AUDIENCE_SUFFIX = "OIDC_AUDIENCE"
 RESOURCE_SUFFIX = "RESOURCE_URL"
+JWKS_SUFFIX = "JWKS_URL"
+ROLES_CLAIM_SUFFIX = "ROLES_CLAIM_PATH"
 
 # Symmetric algorithms are refused: HS256 would mean the server holds the same key
 # that signs tokens, which turns a resource server into an issuer by accident.
@@ -132,14 +139,35 @@ class McpServerAuthentication:
 
     @staticmethod
     def _jwt_policy(source: dict[str, str], names: _Names) -> AuthenticationPolicy:
-        """Validate tokens against the configured issuer."""
+        """Validate tokens against the configured issuer.
+
+        The signing keys are *discovered* rather than derived. Appending a path to
+        the issuer only works for one provider; asking the issuer works for all of
+        them. An explicit ``<prefix>JWKS_URL`` still wins, because an operator who
+        names a URL has a reason.
+
+        Without a key resolver the authenticator refuses every token before it ever
+        reaches a signature check - a server that publishes discovery metadata,
+        sends a client to the right realm, and then answers 401 to the valid token
+        it comes back with. It fails closed, which is why nothing catches it except
+        driving a real token through.
+        """
         issuer = _required(source, names.issuer, names.mode, "jwt")
         audience = source.get(names.audience, "").strip()
+        explicit_jwks = source.get(names.jwks, "").strip()
+        resolver: JwtKeyResolver = (
+            JwksKeyResolver(jwks_url=explicit_jwks)
+            if explicit_jwks
+            else DiscoveredJwksKeyResolver(issuer=issuer)
+        )
+
         return AuthenticationPolicy.jwt(
             JwtValidationConfig(
                 issuer=issuer,
                 audience=audience or None,
                 allowed_algorithms=ASYMMETRIC_ALGORITHMS,
+                key_resolver=resolver,
+                roles_claim_path=source.get(names.roles_claim, "").strip() or None,
             )
         )
 
@@ -169,6 +197,14 @@ class _Names:
     @property
     def resource(self) -> str:
         return f"{self.prefix}{RESOURCE_SUFFIX}"
+
+    @property
+    def jwks(self) -> str:
+        return f"{self.prefix}{JWKS_SUFFIX}"
+
+    @property
+    def roles_claim(self) -> str:
+        return f"{self.prefix}{ROLES_CLAIM_SUFFIX}"
 
 
 def _required(source: dict[str, str], variable: str, mode_variable: str, mode: str) -> str:

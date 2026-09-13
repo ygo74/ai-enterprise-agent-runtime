@@ -20,6 +20,7 @@ from jwt.exceptions import PyJWKClientError
 from ygo74.agent_runtime.domains.auth.auth_context import AuthenticatedUserContext
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
 from ygo74.agent_runtime.domains.auth.claims_projection import ClaimsProjector
+from ygo74.agent_runtime.domains.auth.oidc_discovery import OidcDiscovery
 
 
 class JwtKeyResolver(Protocol):
@@ -83,6 +84,36 @@ class JwksKeyResolver:
                 code="signing_key_unavailable",
                 message="Unable to resolve signing key from JWKS",
             ) from ex
+
+
+@dataclass(slots=True)
+class DiscoveredJwksKeyResolver:
+    """Finds the issuer's key set by asking it, on first use.
+
+    :class:`JwksKeyResolver` needs the key-set URL at construction, which forces a
+    host to discover it while reading configuration. That is the wrong moment twice
+    over: a server would fail to start because its identity provider was briefly
+    unreachable, and reading configuration would need a network - so a test could
+    not do it at all.
+
+    Discovery happens on the first token instead, which is also when the key set
+    itself is fetched. An operator who names the URL explicitly should use
+    :class:`JwksKeyResolver` directly; asking the issuer is for everyone else,
+    because appending a path to an issuer only works for one provider.
+    """
+
+    issuer: str
+    discovery: OidcDiscovery = field(default_factory=lambda: OidcDiscovery())
+    cache_ttl_seconds: int = 300
+    _delegate: JwksKeyResolver | None = field(default=None, init=False, repr=False)
+
+    def resolve_key(self, token: str, unverified_header: Mapping[str, Any]) -> Any:
+        if self._delegate is None:
+            self._delegate = JwksKeyResolver(
+                jwks_url=self.discovery.jwks_url(self.issuer),
+                cache_ttl_seconds=self.cache_ttl_seconds,
+            )
+        return self._delegate.resolve_key(token, unverified_header)
 
 
 @dataclass(slots=True)

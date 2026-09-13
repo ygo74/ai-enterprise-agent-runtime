@@ -25,9 +25,7 @@ work, and this host is shaped so that it does not have to be undone first.
 
 from __future__ import annotations
 
-import hmac
 import logging
-from fnmatch import fnmatch
 from typing import TYPE_CHECKING, Any
 
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
@@ -170,7 +168,7 @@ class McpServerHost:
             return
 
         public_host = self._binding.public_host
-        if any(fnmatch(public_host, pattern) for pattern in allowed):
+        if any(_host_matches(public_host, pattern) for pattern in allowed):
             return
 
         raise McpServerUnreachableError(
@@ -218,11 +216,19 @@ class McpServerHost:
     def _is_open(self, path: str) -> bool:
         """Whether a path is reachable without a credential.
 
-        Compared exactly rather than by prefix. A probe an orchestrator can call and
-        a metadata document a client needs before it has a token are the only two,
-        and `/healthzextra` is not either of them.
+        Compared exactly, not by prefix: a probe an orchestrator can call and a
+        metadata document a client needs before it has a token are the only two, and
+        `/healthzextra` is not either of them.
+
+        A plain comparison, deliberately. Constant time buys nothing here - both
+        paths are published constants, not secrets - and `hmac.compare_digest`
+        raises on non-ASCII `str`, which an ASGI server hands over verbatim after
+        percent-decoding. That would turn any unauthenticated request for `/%C3%A9`
+        into a 500 and a traceback in the log of a credential-holding process: the
+        exact log-flood vector this guard exists to close, arriving through the
+        guard itself.
         """
-        return any(hmac.compare_digest(path, open_path) for open_path in self._open_paths())
+        return path in self._open_paths()
 
     def _open_paths(self) -> tuple[str, ...]:
         """Paths reachable without a credential.
@@ -241,10 +247,14 @@ class McpServerHost:
 
         No detail about what was wrong: which part failed is information a guesser
         can use, and the operator has the server log.
+
+        The path is quoted before it is logged. It is attacker-controlled and
+        percent-decoded by the server, so a request for `/%0AINFO:%20all%20clear`
+        would otherwise write a second, forged line into the same log.
         """
         from starlette.responses import JSONResponse
 
-        _logger.warning("refused an unauthenticated request to %s", path)
+        _logger.warning("refused an unauthenticated request to %r", path)
         headers = {} if self._resource is None else {"WWW-Authenticate": self._resource.challenge()}
         return JSONResponse({"error": "unauthorized"}, status_code=401, headers=headers)
 
@@ -282,3 +292,25 @@ def _issuer_of(policy: AuthenticationPolicy) -> str:
         if config is not None and config.issuer:
             return str(config.issuer)
     return ""
+
+
+def _host_matches(host: str, pattern: str) -> bool:
+    """Whether a host satisfies an allow-list entry, as FastMCP decides it.
+
+    Its rule is an exact match, or a pattern ending in ``:*`` whose base the host
+    carries followed by a colon. Nothing else - no ``*`` on its own, no ``?``, no
+    character classes.
+
+    Reimplemented rather than approximated with :func:`fnmatch`, which reads a
+    strictly larger grammar and disagrees in both directions. ``["*"]`` is the
+    natural way to write "allow every host" and ``fnmatch`` accepts it, while
+    FastMCP refuses every request - green at boot, 421 for every caller, which is
+    precisely the incident this check exists to prevent. In the other direction
+    ``fnmatch`` reads ``[::1]`` as a character class and refuses a correctly
+    configured IPv6 deployment.
+    """
+    if host == pattern:
+        return True
+    if not pattern.endswith(":*"):
+        return False
+    return host.startswith(pattern[:-1])

@@ -53,6 +53,18 @@ class McpHttpBinding:
         A wildcard bind falls back to loopback rather than to itself: guessing wrong
         towards something unusable is better than minting an authority that resolves
         nowhere and silently ends up in an OAuth resource identifier.
+
+        An IPv6 literal is bracketed, because ``::1:9100`` is not an authority - the
+        colons of the address and the colon of the port are indistinguishable, and
+        both a ``Host`` header and a URL need ``[::1]:9100``.
         """
-        host = _LOOPBACK if self.host in _WILDCARDS else self.host
+        if self.host in _WILDCARDS:
+            return f"{_LOOPBACK}:{self.port}"
+
+        host = f"[{self.host}]" if _is_ipv6_literal(self.host) else self.host
         return f"{host}:{self.port}"
+
+
+def _is_ipv6_literal(host: str) -> bool:
+    """Whether a bind address is a bare IPv6 literal needing brackets."""
+    return ":" in host and not host.startswith("[")

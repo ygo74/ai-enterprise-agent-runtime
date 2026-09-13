@@ -242,6 +242,25 @@ class TestTheHealthProbe:
         with _client() as client:
             assert client.get(f"{HEALTH_PATH}extra").status_code == 401
 
+    @pytest.mark.parametrize("path", ["/%C3%A9", "/caf%C3%A9", "/mcp/%E2%98%83"])
+    def test_a_non_ascii_path_is_refused_rather_than_crashing(self, path):
+        """The same trap as a non-ASCII credential, arriving through the path.
+
+        ASGI servers percent-decode into `scope["path"]`, so any caller can put any
+        byte there. Comparing it with `hmac.compare_digest` raised `TypeError` on
+        non-ASCII text - outside the guard's own failure handling, so it surfaced as
+        a 500 and a traceback in the log of a credential-holding process, once per
+        unauthenticated request. Constant time buys nothing here anyway: the open
+        paths are published constants, not secrets.
+        """
+        with TestClient(
+            McpServerHost(policy=_policy(), binding=McpHttpBinding(host="0.0.0.0", port=9100)).application(  # noqa: S104
+                _catch_all_app()
+            ),
+            raise_server_exceptions=False,
+        ) as client:
+            assert client.get(path).status_code == 401
+
 
 class TestTheMisdirectedRequestTrap:
     """The defect this host exists to make impossible.
@@ -324,6 +343,79 @@ class TestTheMisdirectedRequestTrap:
 
         self._host().verify_reachable(correct.settings.transport_security)
 
+    @pytest.mark.parametrize(
+        ("allowed", "public_host", "reachable"),
+        [
+            # The dangerous direction. `["*"]` is how somebody writes "allow every
+            # host", `fnmatch` accepts it, and FastMCP refuses every request - the
+            # green-at-boot, 421-for-everyone incident this check exists to prevent.
+            (["*"], "mail-mcp-gmail:9100", False),
+            (["*.internal"], "mail.internal", False),
+            (["mail?mcp:9100"], "mail-mcp:9100", False),
+            # The other direction: `fnmatch` reads `[::1]` as a character class and
+            # refuses a correctly configured IPv6 deployment.
+            (["127.0.0.1:*", "localhost:*", "[::1]:*"], "[::1]:9100", True),
+            # What FastMCP really accepts.
+            (["mail-mcp-gmail:9100"], "mail-mcp-gmail:9100", True),
+            (["mail-mcp-gmail:*"], "mail-mcp-gmail:9100", True),
+            (["mail-mcp-gmail:*"], "mail-mcp-gmail-2:9100", False),
+        ],
+    )
+    def test_the_allow_list_is_matched_as_fastmcp_matches_it(self, allowed, public_host, reachable):
+        """Its grammar is exact-or-`:*`. Nothing wider, nothing narrower."""
+        host = McpServerHost(
+            policy=_policy(),
+            binding=McpHttpBinding(host="0.0.0.0", port=9100, public_host=public_host),  # noqa: S104
+        )
+        security = _TransportSecurity(True, allowed)
+
+        if reachable:
+            host.verify_reachable(security)
+            return
+
+        with pytest.raises(McpServerUnreachableError):
+            host.verify_reachable(security)
+
+    def test_the_matching_agrees_with_the_library(self):
+        """Checked against FastMCP's own validator, not against a description."""
+        from mcp.server.transport_security import TransportSecurityMiddleware, TransportSecuritySettings
+
+        middleware = TransportSecurityMiddleware(TransportSecuritySettings())
+        cases = [
+            (["*"], "mail-mcp-gmail:9100"),
+            (["*.internal"], "mail.internal"),
+            (["[::1]:*"], "[::1]:9100"),
+            (["mail-mcp-gmail:*"], "mail-mcp-gmail:9100"),
+            (["mail-mcp-gmail:9100"], "mail-mcp-gmail:9100"),
+        ]
+
+        for allowed, public_host in cases:
+            middleware.settings.allowed_hosts = allowed
+            host = McpServerHost(
+                policy=_policy(),
+                binding=McpHttpBinding(host="0.0.0.0", port=9100, public_host=public_host),  # noqa: S104
+            )
+            mine = _accepts(host, _TransportSecurity(True, allowed))
+
+            assert mine == middleware._validate_host(public_host), f"{allowed} vs {public_host}"
+
+
+class TestTheDerivedPublicHost:
+    """A bind address turned into something a caller can actually put in `Host`."""
+
+    def test_an_ipv6_bind_is_bracketed(self):
+        """`::1:9100` is not an authority - the colons are indistinguishable."""
+        assert McpHttpBinding(host="::1", port=9100).public_host == "[::1]:9100"
+
+    def test_an_already_bracketed_address_is_left_alone(self):
+        assert McpHttpBinding(host="[::1]", port=9100).public_host == "[::1]:9100"
+
+    def test_an_ipv4_bind_is_not_bracketed(self):
+        assert McpHttpBinding(host="127.0.0.1", port=9100).public_host == "127.0.0.1:9100"
+
+    def test_an_ipv6_wildcard_still_falls_back_to_loopback(self):
+        assert McpHttpBinding(host="::", port=9100).public_host == "localhost:9100"
+
 
 class TestOAuthProtectedResourceDiscovery:
     """What lets a generic MCP client find the issuer without being told."""
@@ -396,6 +488,24 @@ class TestTheBinding:
         binding = McpHttpBinding(host="0.0.0.0", port=9100)  # noqa: S104
 
         assert binding.public_host == "localhost:9100"
+
+
+def _accepts(host: McpServerHost, security: _TransportSecurity) -> bool:
+    """Whether the host would serve, as a boolean rather than an exception."""
+    try:
+        host.verify_reachable(security)
+    except McpServerUnreachableError:
+        return False
+    return True
+
+
+def _catch_all_app() -> Starlette:
+    """Answers every path, so a refusal can only come from the guard."""
+
+    async def anything(_request):  # noqa: ANN001, ANN202 - a Starlette route
+        return JSONResponse({"reached": True})
+
+    return Starlette(routes=[Route("/{path:path}", anything, methods=["GET", "POST"])])
 
 
 def _misdirecting_app() -> Starlette:

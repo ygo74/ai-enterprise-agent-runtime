@@ -168,10 +168,17 @@ authentication = McpServerAuthentication.from_env("MAIL_MCP_", caller_id="mail-a
 | `<prefix>OIDC_ISSUER` | The issuer to validate against, for `jwt` |
 | `<prefix>OIDC_AUDIENCE` | The audience a token must carry |
 | `<prefix>RESOURCE_URL` | What the server calls itself, required for `jwt` |
+| `<prefix>JWKS_URL` | The key set, named explicitly. Otherwise the issuer is asked |
+| `<prefix>ROLES_CLAIM_PATH` | Where roles sit in a token |
 
 The mode may be inferred from an unambiguous signal — a configured token means a
 token is checked — so a deployment that already set one does not have to say it
 twice. **Silence is never inferred as anonymity.**
+
+The signing keys are *discovered* rather than derived, and discovered **lazily**.
+Appending a path to an issuer only works for one provider; asking the issuer works
+for all of them. Doing it on the first token rather than at start-up means a server
+does not fail to boot because its identity provider was briefly unreachable.
 
 ---
 

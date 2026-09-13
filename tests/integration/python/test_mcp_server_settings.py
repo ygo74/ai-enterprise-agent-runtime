@@ -11,6 +11,8 @@ into an open port, so the first class below checks that it did not.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
@@ -154,6 +156,143 @@ class TestTheOidcDeployment:
         allowed = authentication.policy.authenticators[0].config.allowed_algorithms
 
         assert not [name for name in allowed if name.startswith("HS")]
+
+
+class TestJwtModeCanActuallyAuthenticate:
+    """The test that was missing, and the defect it would have caught.
+
+    Asserting the mode and the config shape says nothing about whether a token gets
+    in. Without a signing-key resolver the authenticator refuses every token before
+    it reaches a signature check - so the server publishes discovery metadata, sends
+    a client to the right realm, and answers 401 to the valid token it comes back
+    with. It fails closed, which is exactly why only driving a real token finds it.
+    """
+
+    ISSUER = "https://idp.example/realms/agents"
+    AUDIENCE = "mail-mcp"
+
+    @staticmethod
+    def _signing_key():
+        from cryptography.hazmat.primitives.asymmetric import rsa
+
+        return rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+    def _policy(self, key, **extra: str):
+        """A policy whose key resolver returns the local key, never a network one."""
+        authentication = _read(
+            MAIL_MCP_AUTH_MODE="jwt",
+            MAIL_MCP_OIDC_ISSUER=self.ISSUER,
+            MAIL_MCP_OIDC_AUDIENCE=self.AUDIENCE,
+            MAIL_MCP_RESOURCE_URL="https://mail-mcp.example",
+            **extra,
+        )
+        config = authentication.policy.authenticators[0].config
+        config.key_resolver = _LocalKeyResolver(key.public_key())
+        return authentication.policy
+
+    def _token(self, key, **claims: object) -> str:
+        import jwt
+
+        payload: dict[str, object] = {
+            "sub": "alice",
+            "iss": self.ISSUER,
+            "aud": self.AUDIENCE,
+            "exp": int(time.time()) + 600,
+        }
+        payload.update(claims)
+        return jwt.encode(payload, key, algorithm="RS256")
+
+    def test_a_resolver_is_configured_at_all(self):
+        """The direct shape of the defect: no resolver, no possible caller."""
+        authentication = _read(
+            MAIL_MCP_AUTH_MODE="jwt",
+            MAIL_MCP_OIDC_ISSUER=self.ISSUER,
+            MAIL_MCP_RESOURCE_URL="https://mail-mcp.example",
+        )
+
+        assert authentication.policy.authenticators[0].config.key_resolver is not None
+
+    def test_reading_the_configuration_reaches_no_network(self):
+        """A server must not fail to start because its issuer is briefly down.
+
+        The key set is discovered on the first token, which is when it is fetched
+        anyway. A resolver that discovered eagerly would also make this test need a
+        network.
+        """
+        authentication = _read(
+            MAIL_MCP_AUTH_MODE="jwt",
+            MAIL_MCP_OIDC_ISSUER="https://unreachable.invalid/realms/x",
+            MAIL_MCP_RESOURCE_URL="https://mail-mcp.example",
+        )
+
+        assert authentication.policy.mode is AuthenticationMode.JWT
+
+    def test_an_explicit_key_set_url_wins_over_discovery(self):
+        from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwksKeyResolver
+
+        authentication = _read(
+            MAIL_MCP_AUTH_MODE="jwt",
+            MAIL_MCP_OIDC_ISSUER=self.ISSUER,
+            MAIL_MCP_RESOURCE_URL="https://mail-mcp.example",
+            MAIL_MCP_JWKS_URL="https://idp.example/keys",
+        )
+        resolver = authentication.policy.authenticators[0].config.key_resolver
+
+        assert isinstance(resolver, JwksKeyResolver)
+        assert resolver.jwks_url == "https://idp.example/keys"
+
+    def test_a_valid_token_is_accepted(self):
+        key = self._signing_key()
+
+        context = self._policy(key).build().authenticate(
+            {"authorization": f"Bearer {self._token(key)}"}
+        )
+
+        assert context is not None
+        assert context.identity.user_id == "alice"
+
+    def test_a_token_from_another_issuer_is_refused(self):
+        key = self._signing_key()
+
+        with pytest.raises(AuthenticationError):
+            self._policy(key).build().authenticate(
+                {"authorization": f"Bearer {self._token(key, iss='https://attacker.example')}"}
+            )
+
+    def test_a_token_for_another_audience_is_refused(self):
+        key = self._signing_key()
+
+        with pytest.raises(AuthenticationError):
+            self._policy(key).build().authenticate(
+                {"authorization": f"Bearer {self._token(key, aud='some-other-service')}"}
+            )
+
+    def test_an_expired_token_is_refused(self):
+        key = self._signing_key()
+
+        with pytest.raises(AuthenticationError):
+            self._policy(key).build().authenticate(
+                {"authorization": f"Bearer {self._token(key, exp=int(time.time()) - 60)}"}
+            )
+
+    def test_a_token_signed_by_somebody_else_is_refused(self):
+        key = self._signing_key()
+        impostor = self._signing_key()
+
+        with pytest.raises(AuthenticationError):
+            self._policy(key).build().authenticate(
+                {"authorization": f"Bearer {self._token(impostor)}"}
+            )
+
+
+class _LocalKeyResolver:
+    """Returns one key, so a test needs no network and no key set server."""
+
+    def __init__(self, public_key: object) -> None:
+        self._public_key = public_key
+
+    def resolve_key(self, token: str, unverified_header: dict[str, object]) -> object:
+        return self._public_key
 
 
 class TestTwoServersInOneDeployment:

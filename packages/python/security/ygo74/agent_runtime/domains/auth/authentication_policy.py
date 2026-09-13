@@ -61,19 +61,30 @@ class AuthenticationMode(StrEnum):
         An unset value is the case this method exists for. Defaulting it to
         ``NONE`` would turn a forgotten environment variable into an open door, and
         the only sign of it would be the absence of a line in a log.
+
+        ``CUSTOM`` is refused too. It is what a policy *reports* when a host supplied
+        its own authenticator in code; naming it in a configuration file asks for a
+        scheme nothing can build.
         """
         text = (value or "").strip().lower()
+        known = ", ".join(mode.value for mode in cls if mode is not cls.CUSTOM)
+
         if not text:
-            known = ", ".join(mode.value for mode in cls if mode is not cls.CUSTOM)
             raise AuthenticationConfigurationError(
                 f"no authentication mode was configured: name one of {known}. "
                 "Serving without authentication is a decision, so it has to be written down as 'none'"
             )
 
+        if text == cls.CUSTOM.value:
+            raise AuthenticationConfigurationError(
+                f"authentication mode 'custom' cannot be configured: it is what a policy reports "
+                f"when a host passes its own authenticator to AuthenticationPolicy.of(). "
+                f"Expected one of {known}"
+            )
+
         try:
             return cls(text)
         except ValueError as error:
-            known = ", ".join(mode.value for mode in cls if mode is not cls.CUSTOM)
             raise AuthenticationConfigurationError(
                 f"unknown authentication mode {text!r}: expected one of {known}"
             ) from error
