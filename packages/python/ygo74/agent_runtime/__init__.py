@@ -110,13 +110,25 @@ _EXPORTS: dict[str, str] = {
     "AuditTrail":                "domains.security.audit",
     "InMemoryAuditTrail":        "domains.security.audit",
     "LoggingAuditTrail":         "domains.security.audit",
+    "AccessToken":               "domains.auth.tokens",
+    "TokenError":                "domains.auth.tokens",
+    "TokenVerificationError":    "domains.auth.tokens",
+    "TokenExchangeError":        "domains.auth.tokens",
+    "TokenVerifier":             "domains.auth.tokens",
+    "DelegatedTokenSource":      "domains.auth.tokens",
+    "AdvertisedSecurity":        "domains.discovery.manifest_descriptor",
+    "AgentDescriptorFactory":    "domains.discovery.manifest_descriptor",
+    "SecurityScheme":            "domains.discovery.manifest_descriptor",
 }
 
 __all__ = [
+    "AccessToken",
+    "AdvertisedSecurity",
     "AgentAccessPolicy",
     "AgentCapabilitySet",
     "AgentContractError",
     "AgentDescriptor",
+    "AgentDescriptorFactory",
     "AgentManifest",
     "AgentPrincipal",
     "AgentReply",
@@ -142,6 +154,7 @@ __all__ = [
     "DEFAULT_CONVERSATION",
     "DEFAULT_CONVERSATION_HEADER",
     "DEFAULT_FORWARDED_HEADERS",
+    "DelegatedTokenSource",
     "DescriptorBinding",
     "DescriptorDefaults",
     "DescriptorOrdering",
@@ -184,6 +197,7 @@ __all__ = [
     "SecurityError",
     "SecurityFloor",
     "SecurityFloorViolationError",
+    "SecurityScheme",
     "SkillDescriptor",
     "SkillInvocation",
     "SkillManifest",
@@ -191,6 +205,10 @@ __all__ = [
     "StandardExchangeRequest",
     "StandardExchangeResponse",
     "StaticApiKeyUserResolver",
+    "TokenError",
+    "TokenExchangeError",
+    "TokenVerificationError",
+    "TokenVerifier",
     "ToolOperationDescriptor",
     "UnknownPermissionError",
     "UserContext",
@@ -232,6 +250,19 @@ if TYPE_CHECKING:  # pragma: no cover - re-exported for type checkers only
     from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError, AuthorizationError
     from ygo74.agent_runtime.domains.auth.authenticator import Authenticator, RequestAuthenticator
     from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtAuthenticator, JwtValidationConfig
+    from ygo74.agent_runtime.domains.auth.tokens import (
+        AccessToken,
+        DelegatedTokenSource,
+        TokenError,
+        TokenExchangeError,
+        TokenVerificationError,
+        TokenVerifier,
+    )
+    from ygo74.agent_runtime.domains.discovery.manifest_descriptor import (
+        AdvertisedSecurity,
+        AgentDescriptorFactory,
+        SecurityScheme,
+    )
     from ygo74.agent_runtime.domains.contracts.capability_registry import (
         ResultRenderer,
         SkillDescriptor,

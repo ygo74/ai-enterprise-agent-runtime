@@ -35,6 +35,8 @@ satisfy.
 | Conversation payloads | `domains.endpoints.conversation_payloads` | pending | pending | `tests/integration/python/test_conversation_payloads.py` |
 | Manifest contract | `domains.contracts.manifests` | pending | pending | `tests/integration/python/test_capability_registry.py` |
 | Capability registry | `domains.contracts.capability_registry` | pending | pending | `tests/integration/python/test_capability_registry.py` |
+| Token ports | `domains.auth.tokens` | pending | pending | `tests/integration/python/test_tokens.py` |
+| Manifest-derived descriptor | `domains.discovery.manifest_descriptor` | pending | pending | `tests/integration/python/test_manifest_descriptor.py` |
 
 ### What the .NET and Java implementations must preserve
 
@@ -66,6 +68,21 @@ incomplete, it is wrong.
 - **An empty request is reported, not answered.** Replying to a request that
   carried no user message would look like a model failure rather than a malformed
   request.
+- **A credential is redacted by construction.** `AccessToken` never reveals its
+  value through `repr` or `str`; the raw value is reachable only through an
+  explicit `expose()`, which is what makes every dereference greppable in review.
+  An empty credential is refused rather than carried.
+- **A token is exchanged, never relayed.** `DelegatedTokenSource` exists because
+  the MCP specification forbids passthrough and requires a server to check that a
+  token was issued for it - which it cannot do if the agent forwards the one its
+  own caller presented.
+- **A descriptor reports the deployment, not an assumption.** The advertised
+  security schemes are derived from the authentication actually configured, and
+  `toolInvocation` from the skills actually declared. A service accepting only an
+  API key must not advertise a bearer scheme, and an agent listing skills must not
+  claim it invokes no tool.
+- **A service that authenticates nobody is refused, not described.** An agent
+  reachable without a caller has no subject to partition state by.
 
 ### Deliberate omissions
 
