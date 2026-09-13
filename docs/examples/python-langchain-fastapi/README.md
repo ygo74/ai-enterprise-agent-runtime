@@ -7,6 +7,7 @@ Each example lives in its own folder.
 - `01-get-started`: AI Solution Architect agent with LangChain, MCP Microsoft Learn tool, and OpenAI Responses exposure via `ygo74` runtime.
 - `02-jwt-authentication`: OpenAI-compatible FastAPI endpoints protected with JWT validation (`Bearer` + claims + signature).
 - `03-jwt-oidc-keycloak`: same protection, but signature validation against a real OIDC provider (Keycloak) via JWKS instead of a static secret.
+- `04-human-in-the-loop`: the same agent, but its tool call waits for an explicit human approval that spans two HTTP requests - a ticket is issued, the turn ends having changed nothing, and a later `CONFIRM` replays the stored arguments.
 
 ## Convention
 

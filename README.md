@@ -37,9 +37,25 @@ The runtime is organized around reusable domains:
 - **Endpoint adapters** to map endpoint payloads to standard contracts;
 - **Request/response mapping** to keep transport details separate from use-case logic;
 - **Routing and dispatch** to call registered handlers by route key;
-- **Authentication context** for JWT/API key flows;
+- **Authentication context** for JWT/API key flows, and a typed `AgentPrincipal` projection of the authenticated caller;
+- **Agent contracts** - the conversation port a serving surface needs from an agent, the manifest that describes a capability, and the registry an orchestrator builds its tools from;
+- **Security model** - permissions declared by the domain that owns them, user contexts, the read/write and risk classification of an operation, the posture floor a configuration may not go below, and an audit trail;
+- **Human approval** - a deterministic policy deciding what needs a person's answer, tickets that carry an operation and its exact arguments across two requests, a literal `CONFIRM`/`CANCEL` parser that runs before the model, and a gated runner that authorises, executes and audits;
+- **Untrusted content** - a redacted-by-construction wrapper for anything a third party wrote, and a fence that keeps it from escaping into the instruction space of a prompt;
+- **Session state** - one runtime per conversation per authenticated subject, leased so nothing closes what a request is using, bounded and expiring;
+- **Tool access** - Model Context Protocol transport lifecycle, binding schema, dialect registry and the generic OAuth pieces, behind the `mcp` extra;
 - **Middleware pipeline** for ordered pre/post processing;
 - **Observability** hooks for logging and OpenTelemetry.
+
+The security model and the agent contracts are currently **Python only**; see
+[`docs/parity-status.md`](docs/parity-status.md) for what .NET and Java must
+implement to reach parity, and for the behaviour those implementations have to
+preserve.
+
+The Python package resolves its public names lazily, so importing a domain does
+not load the others. `import ygo74.agent_runtime.domains.security.permissions`
+brings in no endpoint code and no web framework, while
+`from ygo74.agent_runtime import add_ai_endpoints` works unchanged.
 
 ## Getting Started
 
@@ -53,6 +69,7 @@ Important documents:
 - Implementation plan: [`specs/001-openai-endpoint-exposure/plan.md`](specs/001-openai-endpoint-exposure/plan.md)
 - Validation scenarios: [`specs/001-openai-endpoint-exposure/quickstart.md`](specs/001-openai-endpoint-exposure/quickstart.md)
 - Contracts: [`specs/001-openai-endpoint-exposure/contracts/`](specs/001-openai-endpoint-exposure/contracts/)
+- Cross-language parity status: [`docs/parity-status.md`](docs/parity-status.md)
 
 ## Quickstart for contributors
 
