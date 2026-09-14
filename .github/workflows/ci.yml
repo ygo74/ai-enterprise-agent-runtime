@@ -9,8 +9,6 @@ on:
 
 permissions:
   contents: read
-  checks: write
-  pull-requests: write
 
 jobs:
   validate-packages:
@@ -82,6 +80,8 @@ jobs:
         with:
           files: "python-test-results.xml"
           check_name: "Python Test Results"
+          check_run: "false"
+          comment_mode: "off"
 
   test-dotnet:
     name: Run .NET Tests
@@ -107,5 +107,7 @@ jobs:
         with:
           files: "**/dotnet-test-results.trx"
           check_name: ".NET Test Results"
+          check_run: "false"
+          comment_mode: "off"
 
 
