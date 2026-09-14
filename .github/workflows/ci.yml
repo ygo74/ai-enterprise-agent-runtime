@@ -7,6 +7,11 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 jobs:
   validate-packages:
     name: Validate Python Packages
@@ -69,7 +74,14 @@ jobs:
 
       - name: Execute pytest
         run: |
-          python -m pytest tests/
+          python -m pytest tests/ --junitxml=python-test-results.xml
+
+      - name: Publish Python Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: "python-test-results.xml"
+          check_name: "Python Test Results"
 
   test-dotnet:
     name: Run .NET Tests
@@ -87,6 +99,13 @@ jobs:
         run: dotnet build packages/dotnet/Ygo74.AgentRuntime.sln -c Release
 
       - name: Test .NET solution
-        run: dotnet test tests/dotnet/AgentRuntime.Tests.csproj -c Release
+        run: dotnet test tests/dotnet/AgentRuntime.Tests.csproj -c Release --logger "trx;LogFileName=dotnet-test-results.trx"
+
+      - name: Publish .NET Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: "**/dotnet-test-results.trx"
+          check_name: ".NET Test Results"
 
 
