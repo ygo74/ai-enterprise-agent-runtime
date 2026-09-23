@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ReferenceAgent</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Microsoft.Agents.AI.* hosting surfaces and OpenAI Responses/Hosting.A2A/AGUI are evaluation-stage APIs. -->
+    <NoWarn>$(NoWarn);MEAI001;OPENAI001;MAAI001</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Agents.AI" Version="1.*-*" />
+    <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.*-*" />
+    <PackageReference Include="Microsoft.Agents.AI.Hosting.OpenAI" Version="1.*-*" />
+    <PackageReference Include="Microsoft.Agents.AI.Hosting.A2A" Version="1.*-*" />
+    <PackageReference Include="Microsoft.Agents.AI.Hosting.A2A.AspNetCore" Version="1.*-*" />
+    <PackageReference Include="Microsoft.Agents.AI.Hosting.AGUI.AspNetCore" Version="1.*-*" />
+    <PackageReference Include="Microsoft.Agents.AI.DevUI" Version="1.*-*" />
+    <PackageReference Include="A2A" Version="0.*-*" />
+    <PackageReference Include="A2A.AspNetCore" Version="0.*-*" />
+    <PackageReference Include="ModelContextProtocol" Version="0.*-*" />
+    <PackageReference Include="OpenAI" Version="2.*" />
+    <PackageReference Include="OpenTelemetry" Version="1.*" />
+    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.*" />
+  </ItemGroup>
+
+</Project>
