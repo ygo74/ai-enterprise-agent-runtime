@@ -31,3 +31,4 @@ out/
 # Logs and env
 *.log
 .env*
+!.env.sample

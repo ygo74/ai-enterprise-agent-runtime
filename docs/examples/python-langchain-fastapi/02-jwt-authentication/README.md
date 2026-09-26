@@ -2,6 +2,8 @@
 
 This example shows how to protect `/v1/responses` and `/v1/chat/completions` with JWT validation in the Python runtime.
 
+Use Python 3.12 or newer.
+
 Implemented checks:
 - Bearer token extraction from `Authorization` header
 - Allowed algorithm validation (`HS256` in this example)
@@ -28,7 +30,7 @@ pip install -r requirements.txt
 Set `PYTHONPATH` to use the package from this repository:
 
 ```powershell
-$env:PYTHONPATH="../../../packages/python/security;../../../packages/python/agents"
+$env:PYTHONPATH="../../../../packages/python/security;../../../../packages/python/agents"
 ```
 
 ## Configure

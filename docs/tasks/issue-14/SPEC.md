@@ -1,0 +1,423 @@
+# Specification
+
+## Issue
+
+#14 — Library documentation for Python
+
+## Objectif
+
+Provide a discoverable, practical documentation set for the capabilities of the
+currently shipped Python runtime packages, connect it to runnable examples, and
+make documentation maintenance part of the repository's agent guidance.
+
+## Contexte
+
+The repository currently has a high-level root README, feature specifications,
+package metadata, and several Python examples. Those materials explain selected
+parts of the runtime, but they do not provide one complete path for Python users
+to choose and install a package, start a service, understand the available
+features, and find the matching example.
+
+The Python runtime is published as `ygo74-agent-runtime-security`,
+`ygo74-agent-runtime-agents`, and `ygo74-agent-runtime-mcp`, with
+`ygo74-agent-runtime` as a meta-package. The current packages cover security and
+authentication, agent endpoints and discovery, routing and middleware,
+conversation/session support, human approval, MCP client and server hosting,
+and observability. The repository's agent entry points are `AGENTS.md` and
+`.github/copilot-instructions.md`.
+
+## Problème
+
+Python developers must currently piece together installation steps, APIs,
+configuration, endpoint behavior, and examples from package metadata, the
+active feature specification, and separate example READMEs. There is no
+maintained Python documentation entry point that explains the library as a
+whole or maps its features to examples that can be run.
+
+## Périmètre
+
+- Add a central Python documentation guide under `docs/python/`, covering the
+  shipped distributions and their installation extras, a quickstart, the
+  currently supported endpoint and discovery surfaces, standard exchange and
+  handler flow, routing and middleware, authentication and authorization,
+  session and human-approval support, MCP client/server use, and observability.
+- Explain key configuration choices and direct readers to the authoritative
+  feature contracts and relevant reference examples rather than duplicating
+  contract definitions.
+- Add or revise runnable Python examples only where needed to demonstrate a
+  documented capability that is not already covered. Link each documented
+  workflow to its corresponding example and state its prerequisites.
+- Link the root README and the relevant Python examples index to the new
+  documentation.
+- Update `AGENTS.md` and `.github/copilot-instructions.md` with a concise rule to
+  update Python docs and their examples when public Python behavior, APIs,
+  configuration, dependencies, or supported workflows change.
+- Keep this documentation focused on the Python runtime as requested. Author it
+  in English to match the existing repository documentation.
+
+## Hors périmètre
+
+- Writing .NET or Java library documentation; their documentation can be added
+  after the Python runtime is ready for broader use cases.
+- Changing library behavior, public APIs, packaging, dependencies, or feature
+  contracts.
+- Replacing the existing feature specification, package documentation, or
+  example-specific walkthroughs with duplicate copies.
+- Documenting internal implementation details as supported public APIs.
+
+## Comportement attendu
+
+1. A Python user can start at a single linked documentation entry point and
+   identify the correct distribution and extras for the runtime they host.
+2. The guide takes a user from installation to a working endpoint or MCP server
+   and describes the current Python capabilities and important configuration
+   choices.
+3. Endpoint documentation covers OpenAI Chat Completions and Responses,
+   Anthropic Messages, streaming, and agent discovery, with links to their
+   authoritative contracts and runnable examples.
+4. Security, handlers/contracts, middleware/routing, sessions/human approval,
+   MCP, and observability are discoverable and each documented usage flow links
+   to an example or explicitly identifies the lack of one.
+5. Repository agent guidance requires relevant docs and examples to be updated
+   along with public Python changes.
+
+## Architecture concernée
+
+- `docs/python/` (new Python library guide and navigation).
+- `README.md` and `docs/examples/python-langchain-fastapi/README.md` (links into
+  the guide).
+- `docs/examples/python-langchain-fastapi/` and
+  `docs/examples/python-mcp-server/` (existing executable workflows, updated
+  only where needed).
+- `AGENTS.md` and `.github/copilot-instructions.md` (documentation maintenance
+  instructions).
+- `packages/python/*/pyproject.toml` and
+  `specs/001-openai-endpoint-exposure/` (reference sources, not design changes).
+
+## Contraintes
+
+- Treat package metadata and implemented Python behavior as authoritative for
+  install commands and support claims; the package metadata currently requires
+  Python 3.12 or newer.
+- Keep endpoint contracts and provider wire details linked to the existing
+  feature contracts; do not introduce different behavior through the docs.
+- Preserve clear separation between the MCP client in the agents distribution
+  and MCP server hosting in the MCP distribution.
+- Documentation must distinguish implemented behavior from framework-specific
+  example code and state external prerequisites such as credentials or services.
+- This is documentation-only, so there is no cross-language implementation
+  parity change. The developer-facing setup and behavior described for the
+  Python packages must remain consistent across all linked guides and examples.
+- No runtime performance target applies to this documentation change; there
+  must be no runtime performance impact.
+
+## Critères d'acceptation
+
+- A Python documentation landing page covers all currently shipped Python
+  distributions and the user-facing capabilities they provide.
+- Installation commands reflect the package names, extras, and Python version
+  declared by the package metadata.
+- A new user can follow a quickstart to start and call an endpoint-backed Python
+  example, with matching links for other documented workflows.
+- Each documented user-facing workflow links to a runnable example or clearly
+  identifies that no example currently exists; no claim is made that an
+  unverified example is runnable.
+- The root README and Python examples index link to the central guide.
+- Both repository agent guidance entry points require documentation and example
+  updates for relevant public Python changes.
+- Documentation links resolve, command snippets are checked against their
+  referenced files, and the docs diff has no whitespace errors.
+- No executable runtime, package metadata, or feature contract behavior changes.
+
+## Stratégie de test
+
+- Review package names, extras, and Python version against all four Python
+  `pyproject.toml` files.
+- Check internal documentation links and referenced example paths.
+- Follow the documented quickstart and smoke-check at least one endpoint example;
+  check additional example-specific setup and commands against their source and
+  requirements files.
+- Review both agent guidance files for a clear, consistent docs-maintenance
+  instruction.
+- Run `git diff --check`; no runtime test changes are expected unless review
+  finds a behavior change.
+
+## Risques
+
+- The runtime spans several distributions and feature domains; missing a
+  distribution or presenting an optional extra as required could mislead users.
+  Mitigate this with an inventory cross-check against package metadata and the
+  implemented Python package tree.
+- Existing example commands or dependency requirements may have drifted from
+  the source. Check links and run the selected quickstart before describing it
+  as working.
+- Documentation can drift as the public API changes. Requiring updates in both
+  repository agent entry points makes the maintenance expectation visible.
+
+## Questions ouvertes
+
+- None. The scope is the currently shipped Python packages and their existing
+  user-facing behavior; other language documentation remains out of scope.
+
+## Addendum — dedicated agent discovery topic
+
+### Contexte de la demande
+
+The initial Python guide gives discovery a short overview and points to a
+descriptor walkthrough stored under the LangChain example directory. The
+requester asked for documentation organized by topic, starting with how to
+describe an agent and expose it through OpenAI's `GET /v1/models` endpoint.
+
+### Périmètre complémentaire
+
+- Add a first-class topic page at `docs/python/agent-discovery.md`, indexed from
+  `docs/python/README.md` and linked from the discovery section of
+  `docs/python/agent-runtime.md`.
+- Consolidate the existing
+  `docs/examples/python-langchain-fastapi/agent-descriptor.md` walkthrough into
+  that canonical page; retain the old example path as a short link so existing
+  references continue to work.
+- Explain the provider-neutral `AgentDescriptor` and the purpose of its
+  required and optional fields, with particular emphasis on the public
+  `agent_id`, private `route_key`, capabilities, skills, visibility, and keeping
+  secrets out of public metadata.
+- Show how to instantiate a descriptor and capability/skill records, register
+  them with `DescriptorRegistry`, and enable OpenAI model discovery using
+  `DiscoveryConfiguration` through both supported registration paths:
+  `add_ai_endpoints` when adding discovery alongside invocation endpoints, and
+  `add_discovery_endpoints` when registering discovery routes directly.
+- Explain the arguments and effect of `add_discovery_endpoints`, including that
+  it registers the enabled model-listing and model-detail routes covered by
+  this topic, and can receive the authenticator and `AgentAccessPolicy` used to
+  protect/filter discovery. Explain that
+  `add_ai_endpoints` delegates to this method only when both a descriptor
+  registry and discovery configuration are supplied.
+- Show requests and representative responses for `GET /v1/models` and
+  `GET /v1/models/{agent_id}`, explain how a listed `id` is reused as the
+  invocation `model`, and describe stable ordering, exact identifier matching,
+  hidden entries, and access-policy filtering as implemented.
+- Explain which OpenAI-native model fields are returned and where the runtime's
+  additional description and capability data appear, while stating that
+  `route_key` is never published.
+- Link back to the descriptor schema, the endpoint contract, the runnable
+  example, and the authorization guide. Keep Anthropic model discovery and the
+  A2A card protocol details out of this first topic; note only that they share
+  the provider-neutral descriptor and can have dedicated topics later.
+
+### Hors périmètre complémentaire
+
+- No changes to runtime code, endpoint behavior, descriptor schema, or package
+  metadata.
+- No new runnable application or test suite; the page documents the existing
+  API and links to its existing example. Documentation claims and snippets must
+  be checked against current source and tests.
+
+### Critères d'acceptation complémentaires
+
+- A reader can understand the difference between the advertised `agent_id`
+  and internal `route_key`, construct a valid descriptor, and enable the
+  OpenAI model listing without inferring missing registration steps. The page
+  distinguishes registering discovery through `add_ai_endpoints` from calling
+  `add_discovery_endpoints` directly.
+- The page shows the shape and meaning of both list and single-model responses,
+  including the `x-agent-runtime` extension, and demonstrates how to pass the
+  listed ID to an invocation endpoint.
+- The page describes opt-in registration and the actual hidden-agent and
+  access-policy behavior without implying that discovery visibility is
+  invocation authorization.
+- The central Python docs link to the new topic, and existing links to the
+  example-level descriptor guide continue to resolve.
+- All code, field names, paths, and response details match the implementation
+  and contract; internal links resolve and `git diff --check` passes.
+
+### Décisions et questions ouvertes
+
+- Keep English as the documentation language, consistent with issue 14 and
+  existing Python guides.
+- Use `docs/python/agent-discovery.md` as the canonical location, rather than
+  expanding the current example-specific page in place, so the topic is
+  discoverable independently of a particular agent integration.
+- None.
+
+## Addendum — detailed Python security implementation guide
+
+### Contexte de la demande
+
+After the agent discovery topic, the requester asked for the same level of
+topic-oriented documentation for the Python security implementation. The
+existing `docs/python/security.md` is already linked from the documentation
+index, but currently gives only a short overview and relies on example pages
+and source links for implementation details.
+
+### Périmètre complémentaire
+
+- Expand `docs/python/security.md` as the canonical, practical Python security
+  guide instead of adding a second page that duplicates its current purpose.
+  Update the `docs/python/README.md` summary to reflect the guide's coverage.
+- Explain the responsibility boundary: authentication establishes a caller
+  context; application code owns business authorization; descriptors and
+  permissions do not by themselves enforce access to application data.
+- Document FastAPI authentication through `add_ai_endpoints`: anonymous
+  default behavior, requiring a configured credential, JWT validation and key
+  resolvers, API-key user resolution, custom authenticator protocols and chain
+  precedence, and the normalized `auth_context` passed to handlers.
+- Explain how JWT issuer/audience/algorithm/claim settings and configurable
+  role/group claim paths become identity, roles, groups, scopes, and projected
+  claims. Distinguish explicit JWKS URLs from lazy OpenID discovery where
+  applicable.
+- Document authorization choices: a shared `AgentAccessPolicy` for agent
+  invocation and discovery, handler-owned `AuthorizationError` checks for
+  request-specific rules, invocation 403 versus discovery filtering/404
+  behavior, structured authentication/authorization errors, and why streaming
+  authorization must happen before the response stream starts.
+- Document `forwarded_headers` as an allowlist, credential-header exclusion,
+  and the separate conversation-header promotion.
+- Explain the MCP server's explicit `AuthenticationPolicy` modes (`none`,
+  `api_key`, `jwt`, and custom authenticators), its refusal to silently choose
+  an authentication mode, and link to the MCP hosting guide for transport and
+  OAuth resource details.
+- Describe the application-level security building blocks and how they fit
+  together: namespaced `Permission` / explicit `PermissionRegistry`,
+  credential-free `UserContext`, `ToolOperationDescriptor` risk and operation
+  classification, `SecurityFloor`, audit records/trails, and untrusted text,
+  fencing, and prompt envelopes. State which decisions remain application-owned
+  and that content fencing is not a substitute for deterministic controls on
+  side effects.
+- Link to existing JWT, OIDC/Keycloak, authorization, MCP-hosting, and
+  human-in-the-loop examples. Clearly identify security primitives that have no
+  standalone runnable example.
+
+### Hors périmètre complémentaire
+
+- No runtime behavior, public API, configuration, package metadata, or feature
+  contract changes.
+- No new runnable example or test suite; use existing examples and show only
+  source-backed configuration and composition snippets.
+- No claim that the library supplies a universal RBAC policy, maps identity
+  provider roles to application permissions automatically, or by itself
+  prevents prompt injection.
+
+### Critères d'acceptation complémentaires
+
+- A developer can choose and configure an existing FastAPI authentication
+  method, know whether anonymous requests are accepted, and understand the
+  exact caller context available to the handler.
+- The guide makes the difference between authentication, agent-level access
+  policy, handler authorization, and application permission checks explicit.
+- A developer can identify when the shared `AgentAccessPolicy` covers both
+  discovery and invocation, and when a request-specific check belongs in the
+  handler.
+- The guide explains the intent, composition points, and limits of each
+  application security primitive without implying that it is automatically
+  enforced by the HTTP adapter.
+- MCP authentication is documented as its separate, explicit host policy and
+  links to the detailed transport/hosting guide.
+- Links, configuration names, API signatures, error behavior, and runnable
+  example prerequisites match the current source and examples; local links
+  resolve and `git diff --check` passes.
+
+### Décisions et questions ouvertes
+
+- Keep English as the documentation language, consistent with the existing
+  Python guide and issue 14.
+- Expand the already-indexed `docs/python/security.md`; keep
+  `docs/examples/python-langchain-fastapi/authorization.md` and the runnable
+  JWT/OIDC examples as focused implementation walkthroughs linked from it.
+- None.
+
+## Addendum — human-in-the-loop approval guide
+
+### Request context
+
+After the security topic page, the requester asked for the same topic-oriented
+documentation for human-in-the-loop behavior. The existing Python runtime guide
+briefly lists the `humanapproval` domain and links to a detailed LangGraph
+example, but it does not explain how the framework-independent approval pieces
+fit together or where the example supplies framework-specific orchestration.
+
+### Additional scope
+
+- Add `docs/python/human-in-the-loop.md` as the canonical topic guide, link it
+  from `docs/python/README.md`, and replace the short human-approval summary in
+  `docs/python/agent-runtime.md` with a link to the new page. Keep the existing
+  `04-human-in-the-loop/README.md` as the step-by-step runnable walkthrough.
+- Explain the end-to-end responsibility split: application code classifies
+  operations and permissions; `ConfirmationPolicy` decides whether to ask;
+  `ConfirmationAuthority` or a framework obtains a human decision; a gate
+  verifies permission, request identity, and decision ownership before the
+  operation executes; application orchestration carries pending state and
+  resumes the agent.
+- Document `ConfiguredConfirmationPolicy` precedence: when a `SecurityFloor`
+  makes confirmation mandatory, that requirement cannot be overridden;
+  otherwise per-user `always_confirm` wins
+  over `auto_approve`, which wins over the operation descriptor default. Explain
+  that the in-memory preference store is a local/example implementation.
+- Describe `ConfirmationRequest`, `ConfirmationDecision`, `ConfirmationGate`,
+  and `GatedOperationRunner`, including permission checks, matching request and
+  caller checks, refusal behavior, and the audit outcomes for blocked, declined,
+  failed, and executed operations. Cross-link the security topic for operation
+  descriptors, floors, permissions, and audit details rather than duplicating
+  their general treatment.
+- Distinguish the authority-and-ledger broker flow for frameworks that collect
+  approval before invoking a tool from the HTTP ticket flow used when the human
+  answers in a later request. Explain `PendingConfirmationStore` and
+  `ConfirmationTicket` guarantees: authenticated subject and conversation
+  binding, exact argument replay, single claim, expiry, and non-disclosing
+  rejection of unknown or out-of-scope tickets.
+- Explain the responsibilities of `ConfirmationPresenter`,
+  `ConfirmedOperationRunner`, `ConfirmationCommandParser`, and
+  `PendingConfirmationRenderer`. Human-readable details must describe the same
+  operation whose request and stored arguments are later enforced; parse exact
+  approval commands before sending ordinary text to the model; consume a ticket
+  on both approval and cancellation; keep the model out of final execution.
+- Describe the current LangChain/LangGraph example as example-owned framework
+  integration, not a bundled runtime adapter. Cover eager suspension,
+  cross-request resume, one decision per suspended tool call in framework order,
+  and the example's `approve` / `reject`-only decisions. State why edited
+  arguments and model-visible free-form rejection are excluded.
+- State operational limits and prerequisites: the example's agent checkpoint,
+  pending tickets, and turn bookkeeping use in-memory implementations; a
+  multi-worker or restart-safe deployment needs shared durable state and an
+  atomic ticket-claim implementation. Identify the Python, OpenAI key, and
+  Microsoft Learn MCP service requirements, and link to the example for the
+  actual setup and request sequence.
+- Clearly identify any reusable approval APIs not directly exercised by the
+  example; do not imply the runtime supplies a universal UI, durable store, or
+  framework bridge.
+
+### Additional non-goals
+
+- No runtime behavior, public API, package metadata, or endpoint contract
+  changes.
+- No new runnable example, UI, durable storage backend, or framework adapter.
+- No claim that model-facing prompt instructions establish approval, that a
+  ticket ID alone is authorization, or that in-memory example state is
+  suitable for multi-worker production use.
+
+### Additional acceptance criteria
+
+- A reader can distinguish a confirmation policy from the mechanism that
+  presents the request and from the final enforcement gate.
+- A reader can select between the broker/ledger authority path and the
+  cross-request ticket pattern and can identify which one the existing
+  LangGraph example implements.
+- The guide explains how application-defined permission, operation metadata,
+  policy preferences, and security floors interact without implying that risk
+  classification automatically forces confirmation.
+- The guide makes the ticket and decision binding, single-use, expiry, and
+  exact-argument replay behavior understandable, including the need to derive
+  the subject from authenticated request context.
+- The guide explains the role of the framework-specific bridge and the limits
+  of the current in-memory example state, and links to the complete existing
+  walkthrough rather than copying it.
+- Local links, API names, example prerequisites, and behavior match the source
+  and existing integration coverage; no runtime tests are added or run for this
+  docs-only expansion.
+
+### Decisions and open questions
+
+- Keep English as the documentation language, consistent with the Python guide
+  and issue 14.
+- Keep `docs/python/human-in-the-loop.md` as the topic reference and retain the
+  existing example README as its runnable walkthrough.
+- None.

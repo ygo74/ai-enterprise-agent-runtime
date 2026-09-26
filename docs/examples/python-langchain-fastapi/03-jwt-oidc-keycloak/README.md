@@ -4,6 +4,8 @@ This example shows how to protect `/v1/responses` and `/v1/chat/completions` wit
 validation backed by a real OIDC provider (Keycloak), using JWKS-based signature
 verification instead of a shared static secret.
 
+Use Python 3.12 or newer and Docker Compose for the local Keycloak service.
+
 Implemented checks:
 - Bearer token extraction from `Authorization` header
 - Allowed algorithm validation (`RS256` in this example)
@@ -31,7 +33,7 @@ pip install -r requirements.txt
 Set `PYTHONPATH` to use the package from this repository:
 
 ```powershell
-$env:PYTHONPATH="../../../packages/python/security;../../../packages/python/agents"
+$env:PYTHONPATH="../../../../packages/python/security;../../../../packages/python/agents"
 ```
 
 ## Configure

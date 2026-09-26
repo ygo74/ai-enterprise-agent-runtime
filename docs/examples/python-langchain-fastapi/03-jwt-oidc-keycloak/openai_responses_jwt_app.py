@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import FastAPI
+from dotenv import load_dotenv
 
 from ygo74.agent_runtime.domains.discovery.agent_access_policy import RoleRequiredAccessPolicy
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
@@ -18,6 +19,7 @@ from ygo74.agent_runtime.domains.discovery.discovery_configuration import Discov
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwksKeyResolver, JwtValidationConfig
 
+load_dotenv()
 
 app = FastAPI(title="OpenAI Responses + JWT (OIDC/Keycloak) Authentication Example")
 

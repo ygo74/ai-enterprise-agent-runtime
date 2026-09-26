@@ -1,0 +1,1 @@
+ygo74-agent-runtime-agents[http]==0.1.0

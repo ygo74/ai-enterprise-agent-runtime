@@ -1,5 +1,6 @@
 # Examples
 
 - dotnet-agentframework
-- python-langchain-fastapi
+- [python-fastapi-quickstart](python-fastapi-quickstart/README.md)
+- [python-langchain-fastapi](python-langchain-fastapi/README.md)
 - java-springai-springboot

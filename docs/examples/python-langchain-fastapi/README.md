@@ -2,6 +2,9 @@
 
 Each example lives in its own folder.
 
+For package selection, installation, and an overview of the Python runtime, see
+the [Python library documentation](../../python/README.md).
+
 ## Available examples
 
 - `01-get-started`: AI Solution Architect agent with LangChain, MCP Microsoft Learn tool, and OpenAI Responses exposure via `ygo74` runtime.
@@ -11,8 +14,6 @@ Each example lives in its own folder.
 
 ## Convention
 
-- Each example folder contains:
-  - source files
-  - `.env` for local execution
-  - `.env.sample` template with required keys
-  - its own `README.md` with run instructions
+- Each example folder contains source files, a `requirements.txt`, and a README
+  with run instructions. Environment files or `.env.sample` templates are
+  included when the particular example uses them.

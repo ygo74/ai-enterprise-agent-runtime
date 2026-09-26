@@ -90,6 +90,10 @@ keeps that true.
 
 ## Getting Started
 
+The [Python library documentation](docs/python/README.md) covers package
+selection, installation, a local quickstart, and the current Python runtime
+capabilities.
+
 1. Pick your target runtime in [`packages/python/`](packages/python/), [`packages/dotnet/`](packages/dotnet/), or [`packages/java/`](packages/java/).
 2. Review feature behavior and contracts in [`specs/001-openai-endpoint-exposure/`](specs/001-openai-endpoint-exposure/).
 3. Explore usage patterns in [`docs/examples/`](docs/examples/).
@@ -107,15 +111,15 @@ Important documents:
 
 The repository is multi-language. The commands below are the currently documented and verifiable starting points.
 
-### Configure / install (Python example)
+### Install the local Python quickstart
 
-From [`docs/examples/python-langchain-fastapi/01-get-started/README.md`](docs/examples/python-langchain-fastapi/01-get-started/README.md):
+From [`docs/examples/python-fastapi-quickstart/README.md`](docs/examples/python-fastapi-quickstart/README.md):
 
 ```powershell
-cd docs/examples/python-langchain-fastapi/01-get-started
+cd docs/examples/python-fastapi-quickstart
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ### Run principal tests
@@ -126,14 +130,17 @@ From the .NET test project in [`tests/dotnet/AgentRuntime.Tests.csproj`](tests/d
 DOTNET_CLI_HOME=/mnt/c/devel/ai-enterprise-agent-runtime dotnet test tests/dotnet/AgentRuntime.Tests.csproj --no-restore -v normal
 ```
 
-### Start a functional example
+### Start the local Python endpoint
 
-From [`docs/examples/python-langchain-fastapi/01-get-started/README.md`](docs/examples/python-langchain-fastapi/01-get-started/README.md):
+From [`docs/examples/python-fastapi-quickstart/README.md`](docs/examples/python-fastapi-quickstart/README.md):
 
 ```powershell
-cd docs/examples/python-langchain-fastapi/01-get-started
-python -m uvicorn openai_responses_app:app --reload --port 8001
+cd docs/examples/python-fastapi-quickstart
+uvicorn app:app --reload --port 8000
 ```
+
+Send a request to `/v1/responses` as shown in that guide. This echo example does
+not need an external LLM provider or API key.
 
 ## Project Status
 

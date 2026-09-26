@@ -2,6 +2,9 @@
 
 An OpenAI-compatible agent that will not call its tool until a person says so.
 
+The folder's `.env.sample` contains placeholders only; replace the OpenAI key
+with your own local development key before starting the app.
+
 This is the example the `humanapproval` domain of the runtime exists for, and the
 only one here that shows an approval **spanning two HTTP requests**.
 
@@ -76,12 +79,15 @@ them.
 
 ## Running it
 
+Use Python 3.12 or newer. The example calls OpenAI and Microsoft's public
+Microsoft Learn MCP service, so configure a working OpenAI API key.
+
 ```powershell
 cd docs/examples/python-langchain-fastapi/04-human-in-the-loop
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-copy .env.sample .env    # then fill OPENAI_API_KEY
+Copy-Item .env.sample .env
 uvicorn openai_responses_app:app --port 8080
 ```
 

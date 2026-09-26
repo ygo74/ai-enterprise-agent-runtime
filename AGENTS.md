@@ -47,6 +47,10 @@ to the change.
 - Apply any relevant language-specific repository instructions. In particular,
   read `.github/instructions/python.instructions.md` for changes to Python
   files.
+- When a Python change affects public behavior, APIs, configuration,
+  dependencies, or supported workflows, update the corresponding user docs and
+  runnable examples. Use [`docs/python/README.md`](docs/python/README.md) as the
+  Python documentation entry point.
 
 These instructions provide repository context only. Copilot-specific agents,
 prompts, and commands are not prerequisites for Codex work.
