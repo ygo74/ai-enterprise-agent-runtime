@@ -12,10 +12,11 @@ This example shows a real implementation of an **AI Solution Architect** agent t
 - `agent_solution_architect.py`: LangChain tool-calling agent setup.
 - `mcp_mslearn_tool.py`: MCP tool wrapper to query Microsoft Learn MCP.
 - `requirements.txt`: Example dependencies.
+- `.env.sample`: safe local configuration template.
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.12+
 - OpenAI API key
 - Optional MCP auth:
   - `MSLEARN_MCP_API_KEY` + optional `MSLEARN_MCP_API_KEY_HEADER`
@@ -33,7 +34,7 @@ pip install -r requirements.txt
 ## Environment
 
 This example loads variables from the local `.env` file automatically.
-Create it from `.env.sample` and set your values:
+Create it from `.env.sample` and replace the OpenAI key placeholder:
 
 ```powershell
 Copy-Item .env.sample .env
@@ -42,7 +43,8 @@ Copy-Item .env.sample .env
 Required key:
 - `OPENAI_API_KEY`
 
-Optional keys are prefilled in `.env.sample`.
+The model and Microsoft Learn MCP URL/tool have defaults. The sample includes
+only placeholder values; replace the OpenAI key before running the app.
 
 You can still override values from the shell if needed:
 
@@ -60,7 +62,7 @@ $env:MSLEARN_MCP_TOOL="microsoft_docs_search"
 `ygo74` package source is in this repo, so include it in `PYTHONPATH` while running the example:
 
 ```powershell
-$env:PYTHONPATH="../../../packages/python/security;../../../packages/python/agents"
+$env:PYTHONPATH="../../../../packages/python/security;../../../../packages/python/agents"
 ```
 
 ## Run
