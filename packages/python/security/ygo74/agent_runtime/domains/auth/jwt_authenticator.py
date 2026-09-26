@@ -19,6 +19,7 @@ from jwt import (
 from jwt.exceptions import PyJWKClientError
 from ygo74.agent_runtime.domains.auth.auth_context import AuthenticatedUserContext
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
+from ygo74.agent_runtime.domains.auth.authenticator import Authenticator
 from ygo74.agent_runtime.domains.auth.claims_projection import ClaimsProjector
 from ygo74.agent_runtime.domains.auth.oidc_discovery import OidcDiscovery
 
@@ -29,7 +30,7 @@ class JwtKeyResolver(Protocol):
 
 
 @dataclass(slots=True)
-class StaticSymmetricKeyResolver:
+class StaticSymmetricKeyResolver(JwtKeyResolver):
     secret: str
 
     def resolve_key(self, token: str, unverified_header: Mapping[str, Any]) -> Any:
@@ -38,7 +39,7 @@ class StaticSymmetricKeyResolver:
 
 
 @dataclass(slots=True)
-class StaticPublicKeyResolver:
+class StaticPublicKeyResolver(JwtKeyResolver):
     public_key: str
 
     def resolve_key(self, token: str, unverified_header: Mapping[str, Any]) -> Any:
@@ -47,7 +48,7 @@ class StaticPublicKeyResolver:
 
 
 @dataclass(slots=True)
-class RotatingKeyResolver:
+class RotatingKeyResolver(JwtKeyResolver):
     keys_by_kid: dict[str, Any]
     default_key: Any | None = None
 
@@ -66,7 +67,7 @@ class RotatingKeyResolver:
 
 
 @dataclass(slots=True)
-class JwksKeyResolver:
+class JwksKeyResolver(JwtKeyResolver):
     jwks_url: str
     cache_ttl_seconds: int = 300
     _client: PyJWKClient | None = field(default=None, init=False, repr=False)
@@ -87,7 +88,7 @@ class JwksKeyResolver:
 
 
 @dataclass(slots=True)
-class DiscoveredJwksKeyResolver:
+class DiscoveredJwksKeyResolver(JwtKeyResolver):
     """Finds the issuer's key set by asking it, on first use.
 
     :class:`JwksKeyResolver` needs the key-set URL at construction, which forces a
@@ -128,7 +129,7 @@ class JwtValidationConfig:
     groups_claim_path: str | None = None
 
 
-class JwtAuthenticator:
+class JwtAuthenticator(Authenticator):
     """Authenticates callers presenting a Bearer JWT in the Authorization header."""
 
     HEADER_NAME = "authorization"
@@ -276,4 +277,3 @@ class JwtAuthenticator:
             )
 
         return subject
-

@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 from ygo74.agent_runtime.domains.contracts.capability_registry import (
+    ResultRenderer,
     SkillDescriptor,
     SkillRegistry,
 )
@@ -529,7 +530,7 @@ class _Result(BaseModel):
     text: str = ""
 
 
-class _Renderer:
+class _Renderer(ResultRenderer):
     def render(self, result: Any) -> str:
         return str(getattr(result, "text", result))
 

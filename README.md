@@ -13,13 +13,14 @@ This repository provides runtime building blocks so developers can:
 
 ## Current Scope
 
-The first feature specification scope is documented in [specs/001-openai-endpoint-exposure/spec.md](specs/001-openai-endpoint-exposure/spec.md) and focuses on:
-
-- OpenAI Chat Completions surface;
-- OpenAI Responses surface;
-- Anthropic Messages surface;
-- shared request/response contracts;
-- cross-language parity (Python, .NET, Java).
+The consolidated [system specification](spec/README.md) describes the library
+as it is currently implemented. The shared core covers provider-neutral
+exchange contracts, request/response mapping, routing, middleware, and
+authentication building blocks across Python, .NET, and Java. Python also
+provides FastAPI hosting, agent discovery, application-security and approval
+primitives, conversation state, and MCP client/server packages. See the
+[language support matrix](spec/compatibility/language-status.md) for current
+parity limits.
 
 ## Repository Layout
 
@@ -28,7 +29,8 @@ The first feature specification scope is documented in [specs/001-openai-endpoin
 - [`packages/java/`](packages/java/): Java package (`ygo74-agent-runtime`)
 - [`tests/`](tests/): contract, integration, parity, and performance tests
 - [`docs/examples/`](docs/examples/): example integrations
-- [`specs/001-openai-endpoint-exposure/`](specs/001-openai-endpoint-exposure/): feature specification, plan, and contracts
+- [`spec/`](spec/): consolidated system specification
+- [`specs/001-openai-endpoint-exposure/`](specs/001-openai-endpoint-exposure/): legacy feature contracts and validation assets
 
 ## Python packaging
 
@@ -95,15 +97,16 @@ selection, installation, a local quickstart, and the current Python runtime
 capabilities.
 
 1. Pick your target runtime in [`packages/python/`](packages/python/), [`packages/dotnet/`](packages/dotnet/), or [`packages/java/`](packages/java/).
-2. Review feature behavior and contracts in [`specs/001-openai-endpoint-exposure/`](specs/001-openai-endpoint-exposure/).
+2. Review current behavior in [`spec/`](spec/) and shared machine-readable contracts in [`specs/001-openai-endpoint-exposure/contracts/`](specs/001-openai-endpoint-exposure/contracts/).
 3. Explore usage patterns in [`docs/examples/`](docs/examples/).
 
 Important documents:
 
-- Feature spec: [`specs/001-openai-endpoint-exposure/spec.md`](specs/001-openai-endpoint-exposure/spec.md)
-- Implementation plan: [`specs/001-openai-endpoint-exposure/plan.md`](specs/001-openai-endpoint-exposure/plan.md)
-- Validation scenarios: [`specs/001-openai-endpoint-exposure/quickstart.md`](specs/001-openai-endpoint-exposure/quickstart.md)
-- Contracts: [`specs/001-openai-endpoint-exposure/contracts/`](specs/001-openai-endpoint-exposure/contracts/)
+- [System overview](spec/architecture/system-overview.md)
+- [Exchange contract](spec/contracts/exchange-contract.md)
+- [Provider endpoint surfaces](spec/endpoints/provider-surfaces.md)
+- [Language support and parity](spec/compatibility/language-status.md)
+- [Shared machine-readable contracts and validation assets](specs/001-openai-endpoint-exposure/contracts/)
 - Hosting an MCP server: [`docs/mcp-server-hosting.md`](docs/mcp-server-hosting.md)
 - Cross-language parity status: [`docs/parity-status.md`](docs/parity-status.md)
 
@@ -144,6 +147,6 @@ not need an external LLM provider or API key.
 
 ## Project Status
 
-- Current feature scope is tracked in [`specs/001-openai-endpoint-exposure/`](specs/001-openai-endpoint-exposure/).
+- Current system behavior is described in [`spec/`](spec/).
 - Runtime code is organized across Python, .NET, and Java packages in [`packages/`](packages/).
-- Validation assets live under [`tests/`](tests/) and feature contracts under [`specs/001-openai-endpoint-exposure/contracts/`](specs/001-openai-endpoint-exposure/contracts/).
+- Validation assets live under [`tests/`](tests/) and shared machine-readable contracts under [`specs/001-openai-endpoint-exposure/contracts/`](specs/001-openai-endpoint-exposure/contracts/).

@@ -50,7 +50,7 @@ class _StaticResolver(ApiKeyUserResolver):
 
 
 @dataclass(slots=True)
-class _RaisingPolicy:
+class _RaisingPolicy(AgentAccessPolicy):
     """A policy that always raises, used to prove failures fail closed."""
 
     def is_authorized(self, descriptor: AgentDescriptor, auth_context: AuthenticatedUserContext | None) -> bool:
@@ -58,7 +58,7 @@ class _RaisingPolicy:
 
 
 @dataclass(slots=True)
-class _AdminOnlyTagPolicy:
+class _AdminOnlyTagPolicy(AgentAccessPolicy):
     """Denies access to any descriptor tagged ``admin-only`` unless the caller has the admin role."""
 
     def is_authorized(self, descriptor: AgentDescriptor, auth_context: AuthenticatedUserContext | None) -> bool:

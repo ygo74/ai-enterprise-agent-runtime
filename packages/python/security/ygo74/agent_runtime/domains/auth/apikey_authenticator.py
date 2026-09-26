@@ -9,6 +9,7 @@ from ygo74.agent_runtime.domains.auth.auth_context import (
     ResolvedUser,
 )
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
+from ygo74.agent_runtime.domains.auth.authenticator import Authenticator
 
 
 class ApiKeyUserResolver(Protocol):
@@ -24,7 +25,7 @@ class ApiKeyUserResolver(Protocol):
 
 
 @dataclass(slots=True)
-class StaticApiKeyUserResolver:
+class StaticApiKeyUserResolver(ApiKeyUserResolver):
     """In-memory resolver, mostly useful for local development and tests."""
 
     users_by_key: dict[str, ResolvedUser]
@@ -33,7 +34,7 @@ class StaticApiKeyUserResolver:
         return self.users_by_key.get(api_key)
 
 
-class ApiKeyAuthenticator:
+class ApiKeyAuthenticator(Authenticator):
     """Authenticates callers presenting an API key header.
 
     The raw key is never propagated into the resulting context: only the user

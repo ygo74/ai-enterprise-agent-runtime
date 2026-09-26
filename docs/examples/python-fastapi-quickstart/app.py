@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import FastAPI
-
-from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
+from ygo74.agent_runtime.domains.auth.authentication_policy import AuthenticationPolicy
+from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentCapabilitySet, AgentDescriptor
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
+from ygo74.agent_runtime.domains.endpoints.hosting_factory import EndpointSurface, HostingFactory
 
 app = FastAPI(title="Agent Runtime Python Quickstart")
 
@@ -18,11 +21,26 @@ async def echo_agent(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-add_ai_endpoints(
-    app,
-    echo_agent,
-    default_route_key="echo-agent",
-    enable_openai_responses=True,
-    enable_openai_chat_completions=True,
-    enable_anthropic_messages=True,
+echo_agent_descriptor = AgentDescriptor(
+    agent_id="echo-agent",
+    route_key="echo-agent",
+    display_name="Echo Agent",
+    description="Echoes the latest input text.",
+    version="1.0.0",
+    owner="quickstart",
+    created_at_utc=datetime.now(UTC),
+    capabilities=AgentCapabilitySet(streaming=False),
+)
+
+(
+    HostingFactory(app)
+    .add_agent(echo_agent, echo_agent_descriptor)
+    .add_ai_endpoints(
+        EndpointSurface.OPENAI_RESPONSES,
+        EndpointSurface.OPENAI_CHAT_COMPLETIONS,
+        EndpointSurface.ANTHROPIC_MESSAGES,
+    )
+    .add_security(AuthenticationPolicy.anonymous())
+    .add_discovery(DiscoveryConfiguration(enable_openai_models=True))
+    .register()
 )

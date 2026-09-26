@@ -379,8 +379,10 @@ and enables model discovery. It requires the prerequisites listed in that
 example, including an OpenAI API key. The model-listing request itself does not
 call the model provider.
 
+- [Consolidated system specification](../../spec/README.md)
+- [Agent catalog specification](../../spec/discovery/agent-catalog.md)
 - [Agent descriptor schema](../../specs/001-openai-endpoint-exposure/contracts/agent-descriptor-v1.schema.json)
-- [Endpoint surface contract](../../specs/001-openai-endpoint-exposure/contracts/endpoint-surface-contract.md)
+- [Endpoint surface specification](../../spec/endpoints/provider-surfaces.md)
 - [Configuration walkthrough](../examples/python-langchain-fastapi/configuration.md)
 - [Authorization walkthrough](../examples/python-langchain-fastapi/authorization.md)
 - [Python implementation: descriptor](../../packages/python/agents/ygo74/agent_runtime/domains/discovery/agent_descriptor.py)

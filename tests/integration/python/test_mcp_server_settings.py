@@ -12,6 +12,8 @@ into an open port, so the first class below checks that it did not.
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping
+from typing import Any
 
 import pytest
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
@@ -19,6 +21,7 @@ from ygo74.agent_runtime.domains.auth.authentication_policy import (
     AuthenticationConfigurationError,
     AuthenticationMode,
 )
+from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtKeyResolver
 from ygo74.agent_runtime.domains.mcpserver.settings import McpServerAuthentication
 
 PREFIX = "MAIL_MCP_"
@@ -284,13 +287,13 @@ class TestJwtModeCanActuallyAuthenticate:
             )
 
 
-class _LocalKeyResolver:
+class _LocalKeyResolver(JwtKeyResolver):
     """Returns one key, so a test needs no network and no key set server."""
 
     def __init__(self, public_key: object) -> None:
         self._public_key = public_key
 
-    def resolve_key(self, token: str, unverified_header: dict[str, object]) -> object:
+    def resolve_key(self, token: str, unverified_header: Mapping[str, Any]) -> object:
         return self._public_key
 
 

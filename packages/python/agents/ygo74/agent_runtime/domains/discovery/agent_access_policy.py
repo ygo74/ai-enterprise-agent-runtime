@@ -38,7 +38,7 @@ class AgentAccessPolicy(Protocol):
 
 
 @dataclass(slots=True)
-class RoleRequiredAccessPolicy:
+class RoleRequiredAccessPolicy(AgentAccessPolicy):
     """Ready-made policy denying callers who lack a single required role.
 
     Applies uniformly to every descriptor. Leave ``required_role`` empty to

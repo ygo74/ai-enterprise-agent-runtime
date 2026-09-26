@@ -71,7 +71,7 @@ class ConfirmationPreferenceStore(Protocol):
         ...
 
 
-class InMemoryConfirmationPreferenceStore:
+class InMemoryConfirmationPreferenceStore(ConfirmationPreferenceStore):
     """Preference store backed by a mapping, used for configuration and tests."""
 
     def __init__(
@@ -109,7 +109,7 @@ class ConfirmationPolicy(Protocol):
         ...
 
 
-class ConfiguredConfirmationPolicy:
+class ConfiguredConfirmationPolicy(ConfirmationPolicy):
     """Confirmation policy combining tool defaults and user preferences."""
 
     def __init__(self, preference_store: ConfirmationPreferenceStore, floor: SecurityFloor) -> None:
