@@ -59,7 +59,7 @@ class AuditTrail(Protocol):
         ...
 
 
-class InMemoryAuditTrail:
+class InMemoryAuditTrail(AuditTrail):
     """Keeps audit records in memory, for demonstrations and assertions."""
 
     def __init__(self) -> None:
@@ -83,7 +83,7 @@ class InMemoryAuditTrail:
         self._records.clear()
 
 
-class LoggingAuditTrail:
+class LoggingAuditTrail(AuditTrail):
     """Writes audit records through the standard logging facility.
 
     Records carry identifiers and outcomes only, so this is safe to enable in

@@ -7,34 +7,60 @@ blocks; your application still owns the agent logic and domain authorization.
 
 ## Register endpoints
 
-`add_ai_endpoints` in
-[`fastapi_endpoints.py`](../../packages/python/agents/ygo74/agent_runtime/domains/endpoints/fastapi_endpoints.py)
-registers the routes on an existing FastAPI app:
+`HostingFactory` provides a typed setup flow for one agent and registers its
+routes on an existing FastAPI app:
 
 ```python
+from datetime import UTC, datetime
+
 from fastapi import FastAPI
-from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
+from ygo74.agent_runtime.domains.auth.authentication_policy import AuthenticationPolicy
+from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentCapabilitySet, AgentDescriptor
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
+from ygo74.agent_runtime.domains.endpoints.hosting_factory import EndpointSurface, HostingFactory
 
 app = FastAPI()
-add_ai_endpoints(
-    app,
-    agent_entrypoint,
-    default_route_key="support",
-    enable_openai_responses=True,
-    enable_openai_chat_completions=True,
-    enable_anthropic_messages=False,
+descriptor = AgentDescriptor(
+    agent_id="support",
+    route_key="support",
+    display_name="Support",
+    description="Answers customer support questions.",
+    version="1.0.0",
+    owner="customer-platform",
+    created_at_utc=datetime.now(UTC),
+    capabilities=AgentCapabilitySet(),
+)
+
+(
+    HostingFactory(app)
+    .add_agent(agent_entrypoint, descriptor)
+    .add_ai_endpoints(EndpointSurface.OPENAI_RESPONSES, EndpointSurface.OPENAI_CHAT_COMPLETIONS)
+    .add_security(AuthenticationPolicy.api_key(api_key_resolver))
+    .add_discovery(DiscoveryConfiguration(enable_openai_models=True, require_authentication=True))
+    .register()
 )
 ```
 
-OpenAI Responses and Chat Completions are enabled by default; Anthropic Messages
-is opt-in. The handler may be synchronous or asynchronous. The [minimal
-quickstart](quickstart.md) shows a complete working handler.
+`add_agent` takes the synchronous or asynchronous entrypoint and its
+`AgentDescriptor`. `add_ai_endpoints` selects only the routes to expose. Call
+`register()` after configuration; the factory validates the complete setup
+before delegating route registration to `add_ai_endpoints`. Authentication is
+explicit: use `AuthenticationPolicy.anonymous()` only when open access is
+intentional. Discovery is optional, and its authentication requirement is
+configured separately from invocation. The [minimal quickstart](quickstart.md)
+shows a complete runnable setup.
 
 | Surface | Route | Enable option |
 |---|---|---|
-| OpenAI Responses | `POST /v1/responses` | `enable_openai_responses` |
-| OpenAI Chat Completions | `POST /v1/chat/completions` | `enable_openai_chat_completions` |
-| Anthropic Messages | `POST /v1/messages` | `enable_anthropic_messages` |
+| OpenAI Responses | `POST /v1/responses` | `EndpointSurface.OPENAI_RESPONSES` |
+| OpenAI Chat Completions | `POST /v1/chat/completions` | `EndpointSurface.OPENAI_CHAT_COMPLETIONS` |
+| Anthropic Messages | `POST /v1/messages` | `EndpointSurface.ANTHROPIC_MESSAGES` |
+
+The factory currently supports one descriptor/entrypoint pair. Applications
+with a dispatcher and multiple agents can continue to use
+[`add_ai_endpoints`](../../packages/python/agents/ygo74/agent_runtime/domains/endpoints/fastapi_endpoints.py)
+directly with a `DescriptorRegistry`. The Python runtime does not currently
+provide A2A or AG-UI route adapters.
 
 Streaming requests use Server-Sent Events. Set `stream` on the request and have
 the handler return an async iterator of text or supported delta chunks. Each

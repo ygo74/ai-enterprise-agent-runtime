@@ -42,6 +42,9 @@ to `/v1/chat/completions`.
 For Anthropic Messages, post `{"model":"echo-agent","max_tokens":64,"messages":[{"role":"user","content":"hello"}]}`
 to `/v1/messages`.
 
-The example enables no authentication or discovery. See the [agent runtime guide](../../python/agent-runtime.md)
-for those options and the [installation guide](../../python/installation.md) for
-package choices.
+The example deliberately enables anonymous access with
+`AuthenticationPolicy.anonymous()` and publishes the agent through
+`GET /v1/models`. Call that route to see the descriptor. See the [agent runtime
+guide](../../python/agent-runtime.md) for protected authentication and discovery
+options, and the [installation guide](../../python/installation.md) for package
+choices.

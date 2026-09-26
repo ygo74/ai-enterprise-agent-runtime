@@ -25,13 +25,14 @@ from ygo74.agent_runtime.domains.humanapproval.approval_errors import (
     ConfirmationRequiredError,
 )
 from ygo74.agent_runtime.domains.humanapproval.confirmation import (
+    ConfirmationAuthority,
     ConfirmationDecision,
     ConfirmationRequest,
 )
 from ygo74.agent_runtime.domains.security.user_context import UserContext
 
 
-class UnattendedApprovalAuthority:
+class UnattendedApprovalAuthority(ConfirmationAuthority):
     """Refuses to answer on behalf of an absent user."""
 
     async def obtain(self, request: ConfirmationRequest, user: UserContext) -> ConfirmationDecision:

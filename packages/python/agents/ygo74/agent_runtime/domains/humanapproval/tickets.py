@@ -155,7 +155,7 @@ class PendingConfirmationStore(Protocol):
 
 
 @dataclass(slots=True)
-class InMemoryPendingConfirmationStore:
+class InMemoryPendingConfirmationStore(PendingConfirmationStore):
     """Ticket store for one process, which is the whole lifetime of the PoC.
 
     A durable store is a drop-in replacement: everything that makes a claim safe
