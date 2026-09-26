@@ -30,11 +30,15 @@ to serve a local endpoint.
 
 ## References
 
-- [OpenAI and Anthropic endpoint contract](../../specs/001-openai-endpoint-exposure/contracts/endpoint-surface-contract.md)
+- [Consolidated system specification](../../spec/README.md)
+- [OpenAI and Anthropic endpoint surfaces](../../spec/endpoints/provider-surfaces.md)
+- [Standard exchange contract](../../spec/contracts/exchange-contract.md)
+- [OpenAI and Anthropic machine-readable endpoint contract](../../specs/001-openai-endpoint-exposure/contracts/endpoint-surface-contract.md)
 - [Standard exchange schema](../../specs/001-openai-endpoint-exposure/contracts/standard-exchange-v1.schema.json)
 - [Agent descriptor schema](../../specs/001-openai-endpoint-exposure/contracts/agent-descriptor-v1.schema.json)
 - [Feature quickstart and validation scenarios](../../specs/001-openai-endpoint-exposure/quickstart.md)
 
-These guides describe the currently implemented Python behavior. Public APIs and
-configuration can evolve; follow the linked feature contracts and examples for
-the details relevant to a specific integration.
+These guides and the [system specification](../../spec/README.md) describe the
+currently implemented Python behavior. Public APIs and configuration can evolve;
+use the linked machine-readable schemas and examples for the details relevant to
+a specific integration.

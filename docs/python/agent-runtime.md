@@ -65,7 +65,7 @@ provide A2A or AG-UI route adapters.
 Streaming requests use Server-Sent Events. Set `stream` on the request and have
 the handler return an async iterator of text or supported delta chunks. Each
 endpoint family has its own event envelope; the
-[endpoint surface contract](../../specs/001-openai-endpoint-exposure/contracts/endpoint-surface-contract.md)
+[endpoint surface specification](../../spec/endpoints/provider-surfaces.md)
 and [quickstart scenarios](../../specs/001-openai-endpoint-exposure/quickstart.md)
 describe the supported requests and events.
 
@@ -87,7 +87,8 @@ Return `{"status": "success", "output": ...}` or an error envelope. The
 standard typed models are `StandardExchangeRequest` and
 `StandardExchangeResponse`; their current fields are defined in
 [`exchange_models.py`](../../packages/python/agents/ygo74/agent_runtime/domains/contracts/exchange_models.py)
-and the [versioned schema](../../specs/001-openai-endpoint-exposure/contracts/standard-exchange-v1.schema.json).
+and the [exchange specification](../../spec/contracts/exchange-contract.md) and
+[versioned schema](../../specs/001-openai-endpoint-exposure/contracts/standard-exchange-v1.schema.json).
 For ordinary endpoint integration, the FastAPI adapter currently passes a
 normalized mapping to the configured entrypoint. Framework or agent adapters
 can convert that mapping to the typed contract used by their own code.
