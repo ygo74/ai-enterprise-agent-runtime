@@ -158,3 +158,83 @@ whole or maps its features to examples that can be run.
 
 - None. The scope is the currently shipped Python packages and their existing
   user-facing behavior; other language documentation remains out of scope.
+
+## Addendum — dedicated agent discovery topic
+
+### Contexte de la demande
+
+The initial Python guide gives discovery a short overview and points to a
+descriptor walkthrough stored under the LangChain example directory. The
+requester asked for documentation organized by topic, starting with how to
+describe an agent and expose it through OpenAI's `GET /v1/models` endpoint.
+
+### Périmètre complémentaire
+
+- Add a first-class topic page at `docs/python/agent-discovery.md`, indexed from
+  `docs/python/README.md` and linked from the discovery section of
+  `docs/python/agent-runtime.md`.
+- Consolidate the existing
+  `docs/examples/python-langchain-fastapi/agent-descriptor.md` walkthrough into
+  that canonical page; retain the old example path as a short link so existing
+  references continue to work.
+- Explain the provider-neutral `AgentDescriptor` and the purpose of its
+  required and optional fields, with particular emphasis on the public
+  `agent_id`, private `route_key`, capabilities, skills, visibility, and keeping
+  secrets out of public metadata.
+- Show how to instantiate a descriptor and capability/skill records, register
+  them with `DescriptorRegistry`, and enable OpenAI model discovery using
+  `DiscoveryConfiguration` through both supported registration paths:
+  `add_ai_endpoints` when adding discovery alongside invocation endpoints, and
+  `add_discovery_endpoints` when registering discovery routes directly.
+- Explain the arguments and effect of `add_discovery_endpoints`, including that
+  it registers the enabled model-listing and model-detail routes covered by
+  this topic, and can receive the authenticator and `AgentAccessPolicy` used to
+  protect/filter discovery. Explain that
+  `add_ai_endpoints` delegates to this method only when both a descriptor
+  registry and discovery configuration are supplied.
+- Show requests and representative responses for `GET /v1/models` and
+  `GET /v1/models/{agent_id}`, explain how a listed `id` is reused as the
+  invocation `model`, and describe stable ordering, exact identifier matching,
+  hidden entries, and access-policy filtering as implemented.
+- Explain which OpenAI-native model fields are returned and where the runtime's
+  additional description and capability data appear, while stating that
+  `route_key` is never published.
+- Link back to the descriptor schema, the endpoint contract, the runnable
+  example, and the authorization guide. Keep Anthropic model discovery and the
+  A2A card protocol details out of this first topic; note only that they share
+  the provider-neutral descriptor and can have dedicated topics later.
+
+### Hors périmètre complémentaire
+
+- No changes to runtime code, endpoint behavior, descriptor schema, or package
+  metadata.
+- No new runnable application or test suite; the page documents the existing
+  API and links to its existing example. Documentation claims and snippets must
+  be checked against current source and tests.
+
+### Critères d'acceptation complémentaires
+
+- A reader can understand the difference between the advertised `agent_id`
+  and internal `route_key`, construct a valid descriptor, and enable the
+  OpenAI model listing without inferring missing registration steps. The page
+  distinguishes registering discovery through `add_ai_endpoints` from calling
+  `add_discovery_endpoints` directly.
+- The page shows the shape and meaning of both list and single-model responses,
+  including the `x-agent-runtime` extension, and demonstrates how to pass the
+  listed ID to an invocation endpoint.
+- The page describes opt-in registration and the actual hidden-agent and
+  access-policy behavior without implying that discovery visibility is
+  invocation authorization.
+- The central Python docs link to the new topic, and existing links to the
+  example-level descriptor guide continue to resolve.
+- All code, field names, paths, and response details match the implementation
+  and contract; internal links resolve and `git diff --check` passes.
+
+### Décisions et questions ouvertes
+
+- Keep English as the documentation language, consistent with issue 14 and
+  existing Python guides.
+- Use `docs/python/agent-discovery.md` as the canonical location, rather than
+  expanding the current example-specific page in place, so the topic is
+  discoverable independently of a particular agent integration.
+- None.

@@ -209,6 +209,77 @@ quickstart and MCP server were not executed: system Python 3.14.3 has no `pip`,
 and installing into an isolated venv failed because the package index could not
 be resolved. Therefore no runnable example is claimed as smoke-tested here.
 
+### Étape 6 — Publish a detailed agent descriptor and model discovery topic
+
+**Objectif :** Give Python developers a topic-level guide for describing an
+agent and making it discoverable through OpenAI's model-listing endpoints.
+
+**Fichiers/composants :**
+
+- `docs/python/agent-discovery.md` (new canonical topic page)
+- `docs/python/README.md` (add the topic to the guide index)
+- `docs/python/agent-runtime.md` (replace the brief discovery summary with a
+  link to the detailed topic)
+- `docs/examples/python-langchain-fastapi/agent-descriptor.md` (retain this
+  existing path as a short pointer to the canonical topic)
+- Reference only: `AgentDescriptor`, `AgentCapabilitySet`, `AgentSkill`,
+  `DescriptorRegistry`, `DiscoveryConfiguration`, `add_ai_endpoints`,
+  `add_discovery_endpoints`, OpenAI model projection, and discovery endpoint
+  integration tests/contracts.
+
+**Modifications :**
+
+- Explain each descriptor field by purpose, distinguish the advertised
+  `agent_id` from the internal `route_key`, and cover ID validation, UTC
+  creation time, capabilities, skills, visibility, metadata, and the rule never
+  to place secrets in public metadata.
+- Give a cohesive Python example that declares the descriptor and capabilities
+  (and a skill where useful), puts it in `DescriptorRegistry`, and shows both
+  registration choices:
+  `add_ai_endpoints(..., descriptor_registry=..., discovery=...)` when adding
+  model discovery with invocation routes, and `add_discovery_endpoints(...)`
+  when registering model discovery routes directly.
+- Describe `DiscoveryConfiguration(enable_openai_models=True)`, the conditions
+  under which each registration path adds model routes, and the optional
+  authenticator and `AgentAccessPolicy` parameters on direct discovery
+  registration.
+- Show `GET /v1/models` and `GET /v1/models/{agent_id}` requests with
+  representative OpenAI-compatible responses. Explain the native model
+  fields, the `x-agent-runtime` extension, list ordering, empty listings, exact
+  matching, and the absence of `route_key` from public output.
+- Show how to pass the returned `id` as `model` in an invocation request, and
+  explain listed versus hidden descriptors and how access-policy filtering
+  differs from visibility.
+- Link to the existing runnable LangChain example, authorization guide,
+  descriptor schema, and endpoint contract. Keep Anthropic wire details and A2A
+  card hosting outside this topic.
+
+**Validation :**
+
+- Check every documented field, option, route, response attribute, default,
+  and access behavior against the Python source, versioned descriptor/endpoint
+  contracts, and existing model-discovery integration tests.
+- Check every code fragment against the existing example and ensure both
+  registration snippets use the actual Python signatures.
+- Verify the topic navigation and cross-links, retain the old example guide
+  path, and run `git diff --check`.
+- Do not run runtime tests or claim a smoke check: this step changes docs only
+  and relies on an existing example that may require external dependencies.
+
+**Critères de réussite :**
+
+- A reader can declare an agent, choose either supported registration path,
+  retrieve its public model ID, and use that ID in an invocation request.
+- The central docs expose a canonical topic page and all current links to the
+  previous example guide still work.
+- No runtime source, package metadata, schema, or endpoint contract changes.
+
+**État :** The canonical topic page and navigation links are in place. Relative
+Markdown links in the affected topic/navigation pages resolve; fenced Python
+snippets parse and the JSON response example parses. `git diff --check` passes.
+No runtime tests or application smoke checks were run; this step changes
+documentation only.
+
 ## Tests
 
 No runtime or contract tests are planned because the change adds documentation
@@ -233,6 +304,9 @@ scope before including any runtime changes.
 - Markdown links, referenced paths, command snippets, and `git diff --check`
   have been reviewed; any executed smoke checks have recorded results, and
   unexecuted examples are clearly identified.
+- The agent discovery topic documents both combined registration through
+  `add_ai_endpoints` and direct model-route registration through
+  `add_discovery_endpoints`, with behavior verified against the current API.
 - No runtime behavior or cross-language parity surface changed.
 
 ## Risques
@@ -249,12 +323,22 @@ scope before including any runtime changes.
 - The implementation may reveal capability gaps or inaccurate examples. Keep
   resulting code or API changes out of this documentation plan and update the
   SPEC for approval if they are necessary.
+- The existing descriptor walkthrough is stored under an example folder and
+  already has inbound links. Make the new topic canonical while retaining the
+  old path as a pointer, so existing example links do not break and the content
+  is not maintained in two places.
 
 ## Décisions techniques
 
 - Place user-facing Python documentation under `docs/python/`, with one landing
   page and focused installation, quickstart, agent runtime, security, and MCP
   guides.
+- Place the detailed agent descriptor/model discovery guidance at
+  `docs/python/agent-discovery.md`; keep the current example-level path as a
+  compatibility pointer and link to it from the central docs.
+- Document both `add_ai_endpoints` (combined endpoint registration) and
+  `add_discovery_endpoints` (direct model discovery registration) because both
+  are existing supported FastAPI integration paths.
 - Reuse and link to current examples and contracts; only revise example files
   when necessary to correct or complete a documented path.
 - Update both `AGENTS.md` and `.github/copilot-instructions.md` because both are

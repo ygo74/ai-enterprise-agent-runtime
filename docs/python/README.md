@@ -8,8 +8,10 @@ to serve a local endpoint.
 
 - [Installation and package selection](installation.md)
 - [Quickstart: serve an agent with FastAPI](quickstart.md)
-- [Agent runtime](agent-runtime.md): endpoints, handler payloads, routing,
-  middleware, discovery, sessions, approvals, and observability
+- [Agent runtime](agent-runtime.md): endpoint setup, handler payloads, routing,
+  middleware, sessions, approvals, and observability
+- [Agent description and OpenAI model discovery](agent-discovery.md):
+  descriptors, registration options, and the `v1/models` endpoints
 - [Security](security.md): authentication, authorization, permissions, and
   security primitives
 - [MCP](mcp.md): MCP client bindings and MCP server hosting

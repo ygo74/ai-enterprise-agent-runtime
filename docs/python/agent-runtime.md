@@ -96,15 +96,11 @@ handler. There is no standalone middleware example yet.
 ## Discovery
 
 `AgentDescriptor` is the provider-neutral identity and capability record for a
-discoverable agent. Configure a `DescriptorRegistry` and a
-`DiscoveryConfiguration` alongside endpoint registration to expose model
-listings, single-model retrieval, and the A2A agent card. Discovery is opt-in;
-visibility and an optional `AgentAccessPolicy` control what a caller may see
-and invoke. For provider-specific paths, pagination, and field details, follow
-the [descriptor guide](../examples/python-langchain-fastapi/agent-descriptor.md)
-and [agent descriptor schema](../../specs/001-openai-endpoint-exposure/contracts/agent-descriptor-v1.schema.json).
-The descriptor guide demonstrates provider model discovery; a standalone
-runnable A2A agent-card example is not available yet.
+discoverable agent. For a detailed walkthrough of descriptor fields, discovery
+registration, and the OpenAI `GET /v1/models` endpoints, see [Agent description
+and model discovery](agent-discovery.md). The [agent descriptor schema](../../specs/001-openai-endpoint-exposure/contracts/agent-descriptor-v1.schema.json)
+defines the canonical serialized shape. Anthropic model discovery and A2A agent
+card details are outside that topic.
 
 ## Conversations and human approval
 
