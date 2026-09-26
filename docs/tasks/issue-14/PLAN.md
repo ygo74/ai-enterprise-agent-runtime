@@ -280,6 +280,87 @@ snippets parse and the JSON response example parses. `git diff --check` passes.
 No runtime tests or application smoke checks were run; this step changes
 documentation only.
 
+### Étape 7 — Expand the Python security implementation guide
+
+**Objectif :** Turn the existing central security summary into a practical guide
+to the authentication, authorization, and application-level security APIs
+already shipped by the Python runtime.
+
+**Fichiers/composants :**
+
+- `docs/python/security.md` (expand the canonical security topic page)
+- `docs/python/README.md` (describe the expanded security guide)
+- Reference only: FastAPI authentication and header forwarding, auth context,
+  JWT/API-key/custom authenticators, `AuthenticationPolicy`, agent access
+  policy, permission and security domain primitives, and their integration
+  tests.
+- Existing walkthroughs: `docs/examples/python-langchain-fastapi/authorization.md`,
+  `02-jwt-authentication/`, `03-jwt-oidc-keycloak/`,
+  `04-human-in-the-loop/README.md`, and `docs/mcp-server-hosting.md`.
+
+**Modifications :**
+
+- Establish the boundary between authentication, agent access policy,
+  handler-level authorization, and application-owned permission decisions.
+- Document the FastAPI authentication defaults and options for required
+  credentials, JWT validation/key resolvers, API-key user resolution, custom
+  authenticator chains, and credential precedence.
+- Explain the handler's normalized `auth_context`, projected identity/roles/
+  groups/scopes/claims, the fact that raw API keys are not passed through, and
+  how JWT claim paths configure role/group projection.
+- Explain shared `AgentAccessPolicy` behavior for invocation and discovery,
+  request-body authorization with `AuthorizationError`, relevant 401/403 and
+  discovery filtering/404 behavior, and eager authorization before streaming.
+- Document allowlisted header forwarding, refusal to forward credential
+  headers, and separate conversation ID promotion.
+- Describe the MCP server's explicit `AuthenticationPolicy` modes and link to
+  the hosting guide for OAuth protected-resource and transport details.
+- Describe the security primitives with small, source-backed composition
+  examples: `Permission`, `PermissionRegistry`, `UserContext`,
+  `ToolOperationDescriptor`, `SecurityFloor`, `AuditTrail` implementations,
+  `UntrustedText`, `UntrustedFence`, and `PromptEnvelopeBuilder`.
+- State that identity-provider roles are not automatically mapped to domain
+  permissions, that these building blocks need application composition, and
+  that content fencing alone does not prevent side effects or prompt injection.
+- Link each flow to the existing runnable or detailed walkthrough and identify
+  primitives without a standalone runnable example.
+
+**Validation :**
+
+- Verify option names, defaults, class/method signatures, caller-context fields,
+  status codes, and policy behavior against Python source and focused
+  integration tests.
+- Check the JWT and Keycloak walkthrough prerequisites, configuration names,
+  and commands against their app/source files and README instructions; check
+  the MCP reference against `docs/mcp-server-hosting.md`.
+- Check local Markdown links and code-block syntax, and run `git diff --check`.
+- Do not modify or run runtime tests and do not claim the external JWT/OIDC or
+  MCP example was smoke-tested; this step expands docs and links existing
+  workflows only.
+
+**Critères de réussite :**
+
+- A reader can configure one of the supported FastAPI authentication methods
+  and knows whether anonymous requests are accepted and what identity reaches
+  the handler.
+- A reader can choose where an authorization rule belongs and understands
+  which behavior is automatic versus application-owned.
+- A reader can identify how the MCP authentication policy differs from the
+  FastAPI endpoint options and where to follow the complete hosting setup.
+- The domain security primitives are described with their enforcement limits,
+  and the page does not claim that they implement a complete RBAC system or
+  automatically enforce application permissions.
+- `docs/python/security.md` remains the single central security topic page;
+  examples remain linked as focused walkthroughs rather than duplicated.
+
+**État :** The canonical security guide and its landing-page summary are
+expanded. API options and behavior were checked against the Python source,
+existing authentication/authorization integration tests, and the linked JWT,
+Keycloak, MCP-hosting, and human-approval instructions. Local links and fenced
+Python/JSON snippets in the affected documentation resolve and parse;
+`git diff --check` passes. Runtime tests and external-service smoke checks were
+not run, as this step changes documentation only.
+
 ## Tests
 
 No runtime or contract tests are planned because the change adds documentation
@@ -307,6 +388,9 @@ scope before including any runtime changes.
 - The agent discovery topic documents both combined registration through
   `add_ai_endpoints` and direct model-route registration through
   `add_discovery_endpoints`, with behavior verified against the current API.
+- The central security guide accurately documents FastAPI and MCP
+  authentication, authorization boundaries, and the security domain building
+  blocks without overstating automatic enforcement.
 - No runtime behavior or cross-language parity surface changed.
 
 ## Risques
@@ -327,6 +411,9 @@ scope before including any runtime changes.
   already has inbound links. Make the new topic canonical while retaining the
   old path as a pointer, so existing example links do not break and the content
   is not maintained in two places.
+- The security overview already has focused authorization and authentication
+  examples. Expand the canonical overview and link to those walkthroughs instead
+  of copying their full setup instructions into another page.
 
 ## Décisions techniques
 
@@ -339,6 +426,9 @@ scope before including any runtime changes.
 - Document both `add_ai_endpoints` (combined endpoint registration) and
   `add_discovery_endpoints` (direct model discovery registration) because both
   are existing supported FastAPI integration paths.
+- Keep `docs/python/security.md` as the canonical security guide and preserve
+  the example-specific JWT, OIDC, authorization, MCP, and human-approval pages
+  as linked walkthroughs.
 - Reuse and link to current examples and contracts; only revise example files
   when necessary to correct or complete a documented path.
 - Update both `AGENTS.md` and `.github/copilot-instructions.md` because both are

@@ -12,8 +12,9 @@ to serve a local endpoint.
   middleware, sessions, approvals, and observability
 - [Agent description and OpenAI model discovery](agent-discovery.md):
   descriptors, registration options, and the `v1/models` endpoints
-- [Security](security.md): authentication, authorization, permissions, and
-  security primitives
+- [Security](security.md): FastAPI and MCP authentication, caller context,
+  agent and handler authorization, safe header forwarding, and application
+  permission, audit, operation-classification, and untrusted-content primitives
 - [MCP](mcp.md): MCP client bindings and MCP server hosting
 
 ## Runnable examples

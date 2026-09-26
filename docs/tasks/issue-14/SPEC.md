@@ -238,3 +238,89 @@ describe an agent and expose it through OpenAI's `GET /v1/models` endpoint.
   expanding the current example-specific page in place, so the topic is
   discoverable independently of a particular agent integration.
 - None.
+
+## Addendum — detailed Python security implementation guide
+
+### Contexte de la demande
+
+After the agent discovery topic, the requester asked for the same level of
+topic-oriented documentation for the Python security implementation. The
+existing `docs/python/security.md` is already linked from the documentation
+index, but currently gives only a short overview and relies on example pages
+and source links for implementation details.
+
+### Périmètre complémentaire
+
+- Expand `docs/python/security.md` as the canonical, practical Python security
+  guide instead of adding a second page that duplicates its current purpose.
+  Update the `docs/python/README.md` summary to reflect the guide's coverage.
+- Explain the responsibility boundary: authentication establishes a caller
+  context; application code owns business authorization; descriptors and
+  permissions do not by themselves enforce access to application data.
+- Document FastAPI authentication through `add_ai_endpoints`: anonymous
+  default behavior, requiring a configured credential, JWT validation and key
+  resolvers, API-key user resolution, custom authenticator protocols and chain
+  precedence, and the normalized `auth_context` passed to handlers.
+- Explain how JWT issuer/audience/algorithm/claim settings and configurable
+  role/group claim paths become identity, roles, groups, scopes, and projected
+  claims. Distinguish explicit JWKS URLs from lazy OpenID discovery where
+  applicable.
+- Document authorization choices: a shared `AgentAccessPolicy` for agent
+  invocation and discovery, handler-owned `AuthorizationError` checks for
+  request-specific rules, invocation 403 versus discovery filtering/404
+  behavior, structured authentication/authorization errors, and why streaming
+  authorization must happen before the response stream starts.
+- Document `forwarded_headers` as an allowlist, credential-header exclusion,
+  and the separate conversation-header promotion.
+- Explain the MCP server's explicit `AuthenticationPolicy` modes (`none`,
+  `api_key`, `jwt`, and custom authenticators), its refusal to silently choose
+  an authentication mode, and link to the MCP hosting guide for transport and
+  OAuth resource details.
+- Describe the application-level security building blocks and how they fit
+  together: namespaced `Permission` / explicit `PermissionRegistry`,
+  credential-free `UserContext`, `ToolOperationDescriptor` risk and operation
+  classification, `SecurityFloor`, audit records/trails, and untrusted text,
+  fencing, and prompt envelopes. State which decisions remain application-owned
+  and that content fencing is not a substitute for deterministic controls on
+  side effects.
+- Link to existing JWT, OIDC/Keycloak, authorization, MCP-hosting, and
+  human-in-the-loop examples. Clearly identify security primitives that have no
+  standalone runnable example.
+
+### Hors périmètre complémentaire
+
+- No runtime behavior, public API, configuration, package metadata, or feature
+  contract changes.
+- No new runnable example or test suite; use existing examples and show only
+  source-backed configuration and composition snippets.
+- No claim that the library supplies a universal RBAC policy, maps identity
+  provider roles to application permissions automatically, or by itself
+  prevents prompt injection.
+
+### Critères d'acceptation complémentaires
+
+- A developer can choose and configure an existing FastAPI authentication
+  method, know whether anonymous requests are accepted, and understand the
+  exact caller context available to the handler.
+- The guide makes the difference between authentication, agent-level access
+  policy, handler authorization, and application permission checks explicit.
+- A developer can identify when the shared `AgentAccessPolicy` covers both
+  discovery and invocation, and when a request-specific check belongs in the
+  handler.
+- The guide explains the intent, composition points, and limits of each
+  application security primitive without implying that it is automatically
+  enforced by the HTTP adapter.
+- MCP authentication is documented as its separate, explicit host policy and
+  links to the detailed transport/hosting guide.
+- Links, configuration names, API signatures, error behavior, and runnable
+  example prerequisites match the current source and examples; local links
+  resolve and `git diff --check` passes.
+
+### Décisions et questions ouvertes
+
+- Keep English as the documentation language, consistent with the existing
+  Python guide and issue 14.
+- Expand the already-indexed `docs/python/security.md`; keep
+  `docs/examples/python-langchain-fastapi/authorization.md` and the runnable
+  JWT/OIDC examples as focused implementation walkthroughs linked from it.
+- None.
