@@ -102,17 +102,15 @@ and model discovery](agent-discovery.md). The [agent descriptor schema](../../sp
 defines the canonical serialized shape. Anthropic model discovery and A2A agent
 card details are outside that topic.
 
-## Conversations and human approval
+## Conversations and approval
 
 `ConversationRuntimeCache` can hold a runtime per authenticated principal and
 conversation ID with an idle expiry and maximum size. The cache is a building
-block; applications define how requests acquire and release leases. The
-`humanapproval` domain provides operation descriptors, confirmation policies,
-tickets, a pending confirmation store protocol, command parsing, and rendering.
-See the [human-in-the-loop example](../examples/python-langchain-fastapi/04-human-in-the-loop/README.md)
-for the cross-request flow. Its in-memory ticket store is for a single process;
-multi-worker deployments need a shared store implementation. There is no
-standalone `ConversationRuntimeCache` example yet.
+block; applications define how requests acquire and release leases. For the
+approval policy, execution gates, and cross-request ticket flow, see the
+[human-in-the-loop approval guide](human-in-the-loop.md) and its
+[runnable LangGraph walkthrough](../examples/python-langchain-fastapi/04-human-in-the-loop/README.md).
+There is no standalone `ConversationRuntimeCache` example yet.
 
 ## Observability
 

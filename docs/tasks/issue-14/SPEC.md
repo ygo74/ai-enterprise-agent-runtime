@@ -324,3 +324,100 @@ and source links for implementation details.
   `docs/examples/python-langchain-fastapi/authorization.md` and the runnable
   JWT/OIDC examples as focused implementation walkthroughs linked from it.
 - None.
+
+## Addendum — human-in-the-loop approval guide
+
+### Request context
+
+After the security topic page, the requester asked for the same topic-oriented
+documentation for human-in-the-loop behavior. The existing Python runtime guide
+briefly lists the `humanapproval` domain and links to a detailed LangGraph
+example, but it does not explain how the framework-independent approval pieces
+fit together or where the example supplies framework-specific orchestration.
+
+### Additional scope
+
+- Add `docs/python/human-in-the-loop.md` as the canonical topic guide, link it
+  from `docs/python/README.md`, and replace the short human-approval summary in
+  `docs/python/agent-runtime.md` with a link to the new page. Keep the existing
+  `04-human-in-the-loop/README.md` as the step-by-step runnable walkthrough.
+- Explain the end-to-end responsibility split: application code classifies
+  operations and permissions; `ConfirmationPolicy` decides whether to ask;
+  `ConfirmationAuthority` or a framework obtains a human decision; a gate
+  verifies permission, request identity, and decision ownership before the
+  operation executes; application orchestration carries pending state and
+  resumes the agent.
+- Document `ConfiguredConfirmationPolicy` precedence: when a `SecurityFloor`
+  makes confirmation mandatory, that requirement cannot be overridden;
+  otherwise per-user `always_confirm` wins
+  over `auto_approve`, which wins over the operation descriptor default. Explain
+  that the in-memory preference store is a local/example implementation.
+- Describe `ConfirmationRequest`, `ConfirmationDecision`, `ConfirmationGate`,
+  and `GatedOperationRunner`, including permission checks, matching request and
+  caller checks, refusal behavior, and the audit outcomes for blocked, declined,
+  failed, and executed operations. Cross-link the security topic for operation
+  descriptors, floors, permissions, and audit details rather than duplicating
+  their general treatment.
+- Distinguish the authority-and-ledger broker flow for frameworks that collect
+  approval before invoking a tool from the HTTP ticket flow used when the human
+  answers in a later request. Explain `PendingConfirmationStore` and
+  `ConfirmationTicket` guarantees: authenticated subject and conversation
+  binding, exact argument replay, single claim, expiry, and non-disclosing
+  rejection of unknown or out-of-scope tickets.
+- Explain the responsibilities of `ConfirmationPresenter`,
+  `ConfirmedOperationRunner`, `ConfirmationCommandParser`, and
+  `PendingConfirmationRenderer`. Human-readable details must describe the same
+  operation whose request and stored arguments are later enforced; parse exact
+  approval commands before sending ordinary text to the model; consume a ticket
+  on both approval and cancellation; keep the model out of final execution.
+- Describe the current LangChain/LangGraph example as example-owned framework
+  integration, not a bundled runtime adapter. Cover eager suspension,
+  cross-request resume, one decision per suspended tool call in framework order,
+  and the example's `approve` / `reject`-only decisions. State why edited
+  arguments and model-visible free-form rejection are excluded.
+- State operational limits and prerequisites: the example's agent checkpoint,
+  pending tickets, and turn bookkeeping use in-memory implementations; a
+  multi-worker or restart-safe deployment needs shared durable state and an
+  atomic ticket-claim implementation. Identify the Python, OpenAI key, and
+  Microsoft Learn MCP service requirements, and link to the example for the
+  actual setup and request sequence.
+- Clearly identify any reusable approval APIs not directly exercised by the
+  example; do not imply the runtime supplies a universal UI, durable store, or
+  framework bridge.
+
+### Additional non-goals
+
+- No runtime behavior, public API, package metadata, or endpoint contract
+  changes.
+- No new runnable example, UI, durable storage backend, or framework adapter.
+- No claim that model-facing prompt instructions establish approval, that a
+  ticket ID alone is authorization, or that in-memory example state is
+  suitable for multi-worker production use.
+
+### Additional acceptance criteria
+
+- A reader can distinguish a confirmation policy from the mechanism that
+  presents the request and from the final enforcement gate.
+- A reader can select between the broker/ledger authority path and the
+  cross-request ticket pattern and can identify which one the existing
+  LangGraph example implements.
+- The guide explains how application-defined permission, operation metadata,
+  policy preferences, and security floors interact without implying that risk
+  classification automatically forces confirmation.
+- The guide makes the ticket and decision binding, single-use, expiry, and
+  exact-argument replay behavior understandable, including the need to derive
+  the subject from authenticated request context.
+- The guide explains the role of the framework-specific bridge and the limits
+  of the current in-memory example state, and links to the complete existing
+  walkthrough rather than copying it.
+- Local links, API names, example prerequisites, and behavior match the source
+  and existing integration coverage; no runtime tests are added or run for this
+  docs-only expansion.
+
+### Decisions and open questions
+
+- Keep English as the documentation language, consistent with the Python guide
+  and issue 14.
+- Keep `docs/python/human-in-the-loop.md` as the topic reference and retain the
+  existing example README as its runnable walkthrough.
+- None.

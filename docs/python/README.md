@@ -12,6 +12,8 @@ to serve a local endpoint.
   middleware, sessions, approvals, and observability
 - [Agent description and OpenAI model discovery](agent-discovery.md):
   descriptors, registration options, and the `v1/models` endpoints
+- [Human-in-the-loop approval](human-in-the-loop.md): confirmation policy,
+  execution gates, and approvals across HTTP requests
 - [Security](security.md): FastAPI and MCP authentication, caller context,
   agent and handler authorization, safe header forwarding, and application
   permission, audit, operation-classification, and untrusted-content primitives

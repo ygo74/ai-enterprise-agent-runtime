@@ -361,6 +361,103 @@ Python/JSON snippets in the affected documentation resolve and parse;
 `git diff --check` passes. Runtime tests and external-service smoke checks were
 not run, as this step changes documentation only.
 
+### Étape 8 — Add a Python human-in-the-loop topic guide
+
+**Objectif :** Explain how developers compose deterministic human approval for
+Python agent operations, including both approval obtained before a tool call
+and an approval resumed through a later HTTP request.
+
+**Fichiers/composants :**
+
+- `docs/python/human-in-the-loop.md` (new canonical topic page)
+- `docs/python/README.md` (index the topic)
+- `docs/python/agent-runtime.md` (replace the brief approval overview with a
+  link to the topic page)
+- Reference only: `humanapproval` policy, authority, broker, gate, ledger,
+  operation runner, tickets, command parser, renderer, and the security
+  operation/permission/audit types used by them.
+- Existing workflow: `docs/examples/python-langchain-fastapi/04-human-in-the-loop/`
+  and `tests/integration/python/test_human_approval.py`.
+
+**Modifications :**
+
+- Establish the flow boundary: operation metadata and permissions are declared
+  by the application; policy decides whether confirmation is required; an
+  authority or framework obtains the human decision; an execution gate checks
+  the permission and matching user/request before protected work; orchestration
+  stores pending state and resumes the agent.
+- Document `ConfiguredConfirmationPolicy` precedence accurately: a floor that
+  makes confirmation mandatory takes priority, followed by per-user
+  `always_confirm`, per-user `auto_approve`, and the operation default. Explain
+  that risk classification describes an operation but does not alone force an
+  approval.
+- Explain `ConfirmationRequest` / `ConfirmationDecision`, `ConfirmationGate`,
+  and `GatedOperationRunner`: permission enforcement, same-user and
+  same-request checks, expected refusal errors, and the four audit outcomes.
+  Link back to `docs/python/security.md` for general treatment of permissions,
+  security floors, operation descriptors, and audit records.
+- Distinguish the broker/ledger authority path from the HTTP ticket pattern.
+  Explain the `ConfirmationAuthority`, `ConfirmationBroker`,
+  `ConfirmationLedger`, and fail-closed `UnattendedApprovalAuthority` roles.
+- Explain `ConfirmationTicket` and `PendingConfirmationStore` guarantees and
+  the implementation boundary: subject and conversation binding, exact stored
+  argument replay, single claim, expiry, and generic rejection for unknown or
+  out-of-scope tickets. Explain that a production store must make claims atomic.
+- Describe `ConfirmationPresenter` and `ConfirmedOperationRunner` without
+  implying that the runner itself supplies the skill's policy/gate; a skill
+  implementation must still enforce its permission and confirmation contract.
+- Document the command parser's exact `CONFIRM` / `CANCEL` grammar and its
+  placement before ordinary text reaches the model. Explain ticket consumption
+  on denial as well as approval, bounded rendering of retrieved detail, and
+  suppression of embedded ticket references.
+- Trace the existing LangChain/LangGraph example as a framework-specific
+  bridge: policy-driven eager interrupts, one decision for each suspended call
+  in framework order, `approve` / `reject` only, tickets between HTTP requests,
+  and replay of stored tool arguments without a second model decision.
+- State the example's in-memory boundaries (graph checkpoint, ticket store, and
+  per-conversation turn bookkeeping), explain the needs of multi-worker or
+  restart-safe hosting, and link to the existing README for prerequisites and
+  the complete run/call/answer sequence.
+- Identify reusable approval APIs not directly used by the example and avoid
+  presenting the example bridge as a runtime integration or the package as a
+  provider of a universal approval UI or durable backend.
+
+**Validation :**
+
+- Verify policy precedence, gate checks, ticket ownership/expiry/claim behavior,
+  parser grammar, renderer containment, audit outcomes, and public class/method
+  names against the Python sources and focused approval integration tests.
+- Check the example's dependency versions, required environment variables,
+  external OpenAI/Microsoft Learn prerequisites, and storage limitations against
+  its source, requirements, and README. Do not run the external example.
+- Verify local Markdown links and fenced Python/JSON snippets, and run
+  `git diff --check`.
+- Do not change or run runtime tests; record that the topic guide is documentation
+  only and make no smoke-test claim.
+
+**Critères de réussite :**
+
+- A Python developer can distinguish policy, human decision collection,
+  enforcement, audit, and framework orchestration, and choose the appropriate
+  existing flow for their application.
+- The guide explains the exact behavior and safety boundaries of both broker/
+  ledger and cross-request ticket flows without implying the model grants the
+  final approval or can alter approved arguments.
+- The existing LangGraph example is accurately linked and its prerequisites,
+  in-memory limitations, and framework-specific components are clear.
+- The new topic is reachable from the Python landing page and agent runtime
+  guide; example setup remains in the existing walkthrough.
+- No runtime source, package metadata, or endpoint contract changes.
+
+**État :** The canonical human-in-the-loop guide, Python documentation links,
+and issue 14 addenda are complete. Policy, gate, broker, ticket, parser, and
+renderer behavior and public API names were checked against the Python source
+and the focused approval integration tests; example prerequisites and its
+in-memory boundaries were checked against the example source and README. Local
+links and fenced Python/JSON snippets in the affected Python documentation
+resolve and parse, and `git diff --check` passes. Runtime tests and the external
+example were not run because this step changes documentation only.
+
 ## Tests
 
 No runtime or contract tests are planned because the change adds documentation
@@ -391,6 +488,9 @@ scope before including any runtime changes.
 - The central security guide accurately documents FastAPI and MCP
   authentication, authorization boundaries, and the security domain building
   blocks without overstating automatic enforcement.
+- The Python human-in-the-loop topic distinguishes the reusable approval APIs
+  from the example-specific LangGraph bridge and accurately describes the
+  broker/ledger and cross-request ticket patterns.
 - No runtime behavior or cross-language parity surface changed.
 
 ## Risques
@@ -414,6 +514,10 @@ scope before including any runtime changes.
 - The security overview already has focused authorization and authentication
   examples. Expand the canonical overview and link to those walkthroughs instead
   of copying their full setup instructions into another page.
+- The human-in-the-loop example already contains a detailed runnable sequence.
+  Keep it as the setup walkthrough and explain the reusable approval contracts
+  on the Python topic page without implying that the example exercises every
+  generic API.
 
 ## Décisions techniques
 
@@ -429,6 +533,8 @@ scope before including any runtime changes.
 - Keep `docs/python/security.md` as the canonical security guide and preserve
   the example-specific JWT, OIDC, authorization, MCP, and human-approval pages
   as linked walkthroughs.
+- Add `docs/python/human-in-the-loop.md` as the canonical approval topic and
+  preserve `04-human-in-the-loop/README.md` as the detailed LangGraph walkthrough.
 - Reuse and link to current examples and contracts; only revise example files
   when necessary to correct or complete a documented path.
 - Update both `AGENTS.md` and `.github/copilot-instructions.md` because both are
