@@ -7,8 +7,8 @@ into three runtime distributions and one dependency-only meta-package:
 
 | Distribution | Responsibility | Optional features |
 |---|---|---|
-| `ygo74-agent-runtime-security` | Authentication and application security primitives | None in this repository |
-| `ygo74-agent-runtime-agents` | Agent contracts, endpoints, discovery, routing, sessions, approval | `http` for FastAPI; `mcp` for the MCP client |
+| `ygo74-agent-runtime-security` | Authentication, application-security primitives, common Python domain errors, and user-context construction | None in this repository |
+| `ygo74-agent-runtime-agents` | Agent contracts, configuration loading and schemas, reasoning port, endpoints, discovery, routing, sessions, approval | `configuration` for YAML and `.env`; `http` for FastAPI; `mcp` for the MCP client |
 | `ygo74-agent-runtime-mcp` | MCP server hosting | `http` for streamable HTTP server transport |
 | `ygo74-agent-runtime` | Installs all Python distributions | `http`, `mcp`, and `mcp-server` extras forwarded to the relevant package |
 
@@ -21,11 +21,17 @@ newer. The .NET library targets .NET 8; the Java library targets Java 21.
 
 Configuration is typed at the domain boundary. Python defines endpoint and
 discovery configuration, authentication policies, agent HTTP settings, MCP
-bindings, and MCP server settings. .NET binds endpoint options and validates
-them; Java provides endpoint properties and validation. The host application
-owns environment selection, secrets, identity-provider registration, public
-URLs, persistence, and framework startup. The runtime does not load arbitrary
-deployment configuration globally.
+bindings and MCP server settings. The agents distribution also provides optional
+loading for delivered `agent.yaml` and `skill.yaml` files, their Draft 2020-12
+schemas, and `.env` files. The manifest schemas are fixed versioned contracts;
+permission resolution and security-floor enforcement remain dynamic runtime
+checks. .NET binds endpoint options and validates them; Java provides endpoint
+properties and validation. The host application owns deployment selection,
+secrets, identity-provider registration, public URLs, persistence, and framework
+startup. The runtime does not load arbitrary deployment configuration globally.
+Python applications select the delivered agent-configuration directory with
+`YGO74_AGENT_RUNTIME_CONFIG_DIR`; process environment values take precedence
+over values loaded from `.env`.
 
 In particular, an authentication mode must be selected explicitly where the
 host API requires it. Choosing anonymous service is a named configuration

@@ -10,6 +10,9 @@ features. This table records the repository's current implementation boundaries.
 | Provider request/response mapping | Yes | Yes | Yes |
 | HTTP route hosting | FastAPI adapter | No built-in ASP.NET Core adapter | No built-in Spring adapter |
 | Invocation surfaces | OpenAI Responses, OpenAI Chat Completions, Anthropic Messages | Shared endpoint identifiers and mapping/dispatch building blocks | Shared endpoint identifiers and mapping/dispatch building blocks |
+| Endpoint settings and validation | Yes | Yes | Yes |
+| Agent/skill YAML loaders and fixed Draft 2020-12 schemas | Yes; `configuration` extra | No | No |
+| `.env` loading | Yes; `configuration` extra | No | No |
 | JWT/API-key authentication primitives | Yes | Yes | Yes |
 | Explicit authentication policy composition | Yes | No equivalent integrated HTTP composition | No equivalent integrated HTTP composition |
 | Agent descriptors and model discovery | OpenAI and Anthropic projections | No | No |
@@ -17,6 +20,8 @@ features. This table records the repository's current implementation boundaries.
 | Routing and middleware building blocks | Yes | Yes | Yes |
 | Conversation runtime cache | Yes | No | No |
 | Human approval and application-security primitives | Yes | No | No |
+| Framework-neutral `TextReasoner` port and typed reasoning errors | Yes | No | No |
+| Python `DomainError` hierarchy and `UserContextFactory` | Yes | No | No |
 | MCP client | Optional extra | No | No |
 | MCP server hosting | Separate Python distribution | No | No |
 | Logging and OpenTelemetry integration hooks | Yes; OpenTelemetry hook incomplete | Yes; OpenTelemetry hook incomplete | Yes; OpenTelemetry hook incomplete |
@@ -27,7 +32,11 @@ Python provides the most complete hosting composition in this repository. Its
 agents distribution includes a FastAPI adapter for the three invocation
 surfaces, optional OpenAI and Anthropic model discovery, descriptors, routing,
 middleware, conversation contracts and cache, approval primitives, and an
-optional MCP client. A separate package hosts MCP servers. `HostingFactory`
+optional MCP client. It also offers agent-configuration discovery, `.env`
+loading, fixed agent/skill manifest schemas and loaders, and a framework-neutral
+reasoning port. These APIs are Python-only; their presence does not imply that
+the .NET or Java packages load agent manifests or host agent frameworks. A
+separate package hosts MCP servers. `HostingFactory`
 composes one descriptor/entrypoint pair; applications with multiple agents can
 use the lower-level registration helper and dispatcher.
 

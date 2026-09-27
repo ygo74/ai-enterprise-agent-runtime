@@ -10,7 +10,8 @@ requires-python = ">=3.12"
 
 # Everything needed to host an agent: the contracts, the capability registry, the
 # OpenAI/Anthropic endpoints, discovery, the conversation cache, the human-approval
-# domain, and the MCP *client* an agent uses to reach tools.
+# domain, the stable agent-configuration APIs, and the MCP *client* an agent uses
+# to reach tools.
 dependencies = [
   "ygo74-agent-runtime-security==0.1.0",
   "pydantic>=2.7",
@@ -36,7 +37,15 @@ http = [
 mcp = [
   "mcp>=1.24,<2",
   "httpx>=0.27",
-  "PyYAML>=6",
+  "PyYAML>=6,<7",
+]
+
+# Loading the files an agent developer delivers alongside their code. Keeping
+# this separate from the MCP and HTTP stacks lets a local agent use the stable
+# manifest and .env APIs without installing a transport.
+configuration = [
+  "python-dotenv>=1,<2",
+  "PyYAML>=6,<7",
 ]
 
 [tool.setuptools.packages.find]
@@ -46,7 +55,7 @@ namespaces = true
 # One marker per package this distribution alone owns. See the security
 # distribution's pyproject for why it cannot sit higher up.
 [tool.setuptools.package-data]
-"ygo74.agent_runtime.domains.configuration" = ["py.typed"]
+"ygo74.agent_runtime.domains.configuration" = ["py.typed", "schemas/*.json"]
 "ygo74.agent_runtime.domains.contracts" = ["py.typed"]
 "ygo74.agent_runtime.domains.discovery" = ["py.typed"]
 "ygo74.agent_runtime.domains.endpoints" = ["py.typed"]
@@ -54,6 +63,7 @@ namespaces = true
 "ygo74.agent_runtime.domains.humanapproval" = ["py.typed"]
 "ygo74.agent_runtime.domains.mapping" = ["py.typed"]
 "ygo74.agent_runtime.domains.mcp" = ["py.typed"]
+"ygo74.agent_runtime.domains.reasoning" = ["py.typed"]
 "ygo74.agent_runtime.domains.sessions" = ["py.typed"]
 "ygo74.agent_runtime.domains.streaming" = ["py.typed"]
 "ygo74.agent_runtime.middleware" = ["py.typed"]

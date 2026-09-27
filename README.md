@@ -17,8 +17,10 @@ The consolidated [system specification](spec/README.md) describes the library
 as it is currently implemented. The shared core covers provider-neutral
 exchange contracts, request/response mapping, routing, middleware, and
 authentication building blocks across Python, .NET, and Java. Python also
-provides FastAPI hosting, agent discovery, application-security and approval
-primitives, conversation state, and MCP client/server packages. See the
+provides optional FastAPI hosting, agent discovery, application-security and
+approval primitives, conversation state, MCP client/server packages, and
+Python-only agent-development APIs for configuration, manifest schemas,
+framework-neutral reasoning, and user-context construction. See the
 [language support matrix](spec/compatibility/language-status.md) for current
 parity limits.
 
@@ -42,7 +44,7 @@ answer about who is calling.
 | Distribution | Install it to | Depends on |
 |---|---|---|
 | `ygo74-agent-runtime-security` | Authenticate a caller and classify what they may do | — |
-| `ygo74-agent-runtime-agents` | Host an agent behind OpenAI/Anthropic endpoints | security |
+| `ygo74-agent-runtime-agents` | Host an agent and load its delivered configuration | security; `configuration`, `http`, and `mcp` extras |
 | `ygo74-agent-runtime-mcp` | Host a Model Context Protocol server | security |
 | `ygo74-agent-runtime` | Everything, as before | the three |
 
@@ -70,6 +72,8 @@ The runtime is organized around reusable domains:
 - **Routing and dispatch** to call registered handlers by route key;
 - **Authentication context** for JWT/API key flows, and a typed `AgentPrincipal` projection of the authenticated caller;
 - **Agent contracts** - the conversation port a serving surface needs from an agent, the manifest that describes a capability, and the registry an orchestrator builds its tools from;
+- **Agent configuration** - typed loaders for delivered YAML manifests, local `.env` loading, and packaged JSON Schemas for `agent.yaml` and `skill.yaml` (`configuration` extra);
+- **Reasoning port** - a framework-neutral protocol and error hierarchy for typed model-backed results;
 - **Security model** - permissions declared by the domain that owns them, user contexts, the read/write and risk classification of an operation, the posture floor a configuration may not go below, and an audit trail;
 - **Human approval** - a deterministic policy deciding what needs a person's answer, tickets that carry an operation and its exact arguments across two requests, a literal `CONFIRM`/`CANCEL` parser that runs before the model, and a gated runner that authorises, executes and audits;
 - **Untrusted content** - a redacted-by-construction wrapper for anything a third party wrote, and a fence that keeps it from escaping into the instruction space of a prompt;

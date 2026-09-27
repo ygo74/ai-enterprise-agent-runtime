@@ -9,7 +9,7 @@ to serve a local endpoint.
 - [Installation and package selection](installation.md)
 - [Quickstart: serve an agent with FastAPI](quickstart.md)
 - [Agent runtime](agent-runtime.md): endpoint setup, handler payloads, routing,
-  middleware, sessions, approvals, and observability
+  middleware, sessions, approvals, manifest loading, and observability
 - [Agent description and OpenAI model discovery](agent-discovery.md):
   descriptors, registration options, and the `v1/models` endpoints
 - [Human-in-the-loop approval](human-in-the-loop.md): confirmation policy,
