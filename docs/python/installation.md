@@ -7,7 +7,7 @@ Install the smallest distribution that serves your process.
 | Distribution | Use it for | Base dependencies |
 |---|---|---|
 | [`ygo74-agent-runtime-security`](../../packages/python/security/pyproject.toml) | Shared authentication and security types | Pydantic, PyJWT |
-| [`ygo74-agent-runtime-agents`](../../packages/python/agents/pyproject.toml) | Hosting agents, endpoint mapping, discovery, sessions, approval, and MCP clients | Security distribution, Pydantic, typing-extensions |
+| [`ygo74-agent-runtime-agents`](../../packages/python/agents/pyproject.toml) | Agent hosting, endpoint mapping, discovery, configuration schemas/loaders, reasoning port, sessions, approval, and MCP clients | Security distribution, Pydantic, typing-extensions |
 | [`ygo74-agent-runtime-mcp`](../../packages/python/mcpserver/pyproject.toml) | Hosting MCP servers over stdio or HTTP | Security distribution, Pydantic |
 | [`ygo74-agent-runtime`](../../packages/python/meta/pyproject.toml) | Meta-package that installs all three distributions | All three distributions |
 
@@ -23,6 +23,13 @@ Host an agent over HTTP (FastAPI and Uvicorn):
 
 ```bash
 python -m pip install 'ygo74-agent-runtime-agents[http]'
+```
+
+Load delivered `agent.yaml` and `skill.yaml` files or `.env` settings (PyYAML
+and python-dotenv):
+
+```bash
+python -m pip install 'ygo74-agent-runtime-agents[configuration]'
 ```
 
 Use the agents package's MCP client (the Python MCP SDK, HTTPX, and PyYAML):
@@ -53,10 +60,10 @@ python -m pip install ygo74-agent-runtime
 The meta-package's extras forward optional features:
 
 ```bash
-python -m pip install 'ygo74-agent-runtime[http,mcp,mcp-server]'
+python -m pip install 'ygo74-agent-runtime[configuration,http,mcp,mcp-server]'
 ```
 
-`http` and `mcp` enable the corresponding extras on the agents distribution;
+`configuration`, `http` and `mcp` enable the corresponding extras on the agents distribution;
 `mcp-server` enables HTTP hosting on the MCP server distribution. Quote extras
 when using shells that treat square brackets as patterns.
 

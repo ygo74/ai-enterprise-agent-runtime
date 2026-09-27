@@ -33,5 +33,7 @@ namespaces = true
 # checker silently treats every type here as `Any`, which is exactly the wrong
 # place to lose type safety.
 [tool.setuptools.package-data]
+# Cross-domain error bases are owned by this foundation distribution as well.
+"ygo74.agent_runtime.domains.errors" = ["py.typed"]
 "ygo74.agent_runtime.domains.security" = ["py.typed"]
 "ygo74.agent_runtime.domains.auth" = ["py.typed"]

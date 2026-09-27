@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ygo74:agent-runtime:skill-manifest:1",
+  "$defs": {
+    "OperationManifestInput": {
+      "additionalProperties": false,
+      "description": "The fixed YAML shape of a skill's operation declaration.",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/OperationType"
+        },
+        "risk": {
+          "$ref": "#/$defs/RiskLevel"
+        },
+        "permission": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Permission",
+          "type": "string"
+        },
+        "confirmation_required": {
+          "title": "Confirmation Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "type",
+        "risk",
+        "permission",
+        "confirmation_required"
+      ],
+      "title": "OperationManifestInput",
+      "type": "object"
+    },
+    "OperationType": {
+      "description": "Whether an operation observes or modifies external state.",
+      "enum": [
+        "READ",
+        "WRITE"
+      ],
+      "title": "OperationType",
+      "type": "string"
+    },
+    "RiskLevel": {
+      "description": "How damaging an unintended execution would be.",
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH"
+      ],
+      "title": "RiskLevel",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The fixed YAML fields accepted for one skill package.",
+  "properties": {
+    "tool_name": {
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Tool Name",
+      "type": "string"
+    },
+    "implementation": {
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Implementation",
+      "type": "string"
+    },
+    "description": {
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Description",
+      "type": "string"
+    },
+    "operation": {
+      "$ref": "#/$defs/OperationManifestInput"
+    },
+    "mcp_tools": {
+      "default": [],
+      "items": {
+        "minLength": 1,
+        "pattern": "\\S",
+        "type": "string"
+      },
+      "title": "Mcp Tools",
+      "type": "array"
+    }
+  },
+  "required": [
+    "tool_name",
+    "implementation",
+    "description",
+    "operation"
+  ],
+  "title": "SkillManifestInput",
+  "type": "object"
+}

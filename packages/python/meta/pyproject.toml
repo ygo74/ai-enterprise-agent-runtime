@@ -28,6 +28,7 @@ dependencies = [
 # Passed through, so `ygo74-agent-runtime[http]` keeps working as it did.
 http = ["ygo74-agent-runtime-agents[http]==0.1.0"]
 mcp = ["ygo74-agent-runtime-agents[mcp]==0.1.0"]
+configuration = ["ygo74-agent-runtime-agents[configuration]==0.1.0"]
 mcp-server = ["ygo74-agent-runtime-mcp[http]==0.1.0"]
 
 [tool.setuptools]

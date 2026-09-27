@@ -109,6 +109,35 @@ configured default is used. See the [routing package](../../packages/python/agen
 There is no standalone runnable routing example yet; the quickstart demonstrates
 the default single-handler route.
 
+## Delivered agent configuration
+
+Install `ygo74-agent-runtime-agents[configuration]` to load an agent's delivered
+configuration without installing an HTTP or MCP transport. The
+`domains.configuration` APIs resolve the configuration directory using
+`YGO74_AGENT_RUNTIME_CONFIG_DIR`, load `.env` values without overriding the
+process environment, and validate `agent.yaml` and `skill.yaml` against typed
+input models before resolving permissions and enforcing security floors.
+
+Draft 2020-12 schemas ship in the same distribution as package resources:
+
+- `urn:ygo74:agent-runtime:agent-manifest:1`
+- `urn:ygo74:agent-runtime:skill-manifest:1`
+
+Use `ManifestSchemas.agent()` and `ManifestSchemas.skill()` from
+`ygo74.agent_runtime.domains.configuration.manifest_schemas` to read those
+resources. `AGENT.md` and `SKILL.md` remain separate Markdown inputs. See the
+[manifest schema guide](../../spec/operations/packaging-configuration-observability.md)
+and the [agent configuration example](../examples/python-langchain-fastapi/configuration.md).
+
+## Reasoning port
+
+Framework-specific chat clients live in adapters such as Microsoft Agent
+Framework and LangGraph. Agent skills depend on the runtime's
+`ygo74.agent_runtime.domains.reasoning.ports.TextReasoner` protocol and return
+typed Pydantic models; `domains.reasoning.errors` provides the shared error
+hierarchy. This keeps functional agent code independent of the selected client
+library.
+
 ## Middleware
 
 The middleware interfaces and pipeline support ordered request processing,

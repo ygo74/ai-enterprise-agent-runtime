@@ -44,6 +44,25 @@ satisfy.
 | OIDC discovery and HTTP settings | `domains.auth.oidc_discovery`, `domains.configuration.agent_http_settings` | pending | pending | `tests/integration/python/test_agent_http_settings.py` |
 | MCP transport, binding, dialects, OAuth | `domains.mcp` | pending | pending | `tests/integration/python/test_mcp_plumbing.py` |
 
+## 2026-09-27 — core migration completed by issue #5
+
+Accepted constraint: **Python only, for now.** This is a deliberate parity
+exception for the migration from the `ai_agents` repository. The APIs below are
+implemented in the Python runtime distributions; equivalent .NET and Java APIs
+remain pending and must preserve the documented fixed manifest contract when
+implemented.
+
+| Capability | Python module | .NET | Java | Behaviour contract |
+|---|---|---|---|---|
+| Common domain errors and user-context factory | `domains.errors`, `domains.security.user_context_factory` | pending | pending | Existing Python error semantics and immutable permission attribution |
+| Delivered configuration directory, `.env` and YAML manifest loaders | `domains.configuration` | pending | pending | Draft 2020-12 schemas shipped as `agent.schema.json` and `skill.schema.json` |
+| Framework-neutral typed reasoning port and errors | `domains.reasoning` | pending | pending | Async `TextReasoner` contract and typed Pydantic output |
+
+The manifest schema identifiers are `urn:ygo74:agent-runtime:agent-manifest:1`
+and `urn:ygo74:agent-runtime:skill-manifest:1`. They reject unknown fields and
+fix enum values. Permission declarations and security floors are checked by the
+runtime after structural validation.
+
 ## 2026-09-13 — MCP server hosting and the shared authentication policy
 
 Origin: an MCP server and an agent must answer exactly the same question about who
