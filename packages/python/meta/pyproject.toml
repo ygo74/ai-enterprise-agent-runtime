@@ -19,9 +19,9 @@ requires-python = ">=3.12"
 #   ygo74-agent-runtime-agents     hosting an agent
 #   ygo74-agent-runtime-mcp        hosting an MCP server
 dependencies = [
-  "ygo74-agent-runtime-security==0.1.0",
-  "ygo74-agent-runtime-agents==0.1.0",
-  "ygo74-agent-runtime-mcp==0.1.0",
+  "ygo74-agent-runtime-security>=0.6.0",
+  "ygo74-agent-runtime-agents>=0.6.0",
+  "ygo74-agent-runtime-mcp>=0.6.0",
 ]
 
 [project.optional-dependencies]

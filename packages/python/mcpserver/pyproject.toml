@@ -16,7 +16,7 @@ requires-python = ">=3.12"
 # has exactly the same question to answer about who is calling. Sharing the
 # authentication model is the point; sharing the agent machinery would be baggage.
 dependencies = [
-  "ygo74-agent-runtime-security==0.1.0",
+  "ygo74-agent-runtime-security>=0.6.0",
   "pydantic>=2.7",
 ]
 
