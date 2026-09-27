@@ -13,7 +13,7 @@ requires-python = ">=3.12"
 # domain, the stable agent-configuration APIs, and the MCP *client* an agent uses
 # to reach tools.
 dependencies = [
-  "ygo74-agent-runtime-security==0.1.0",
+  "ygo74-agent-runtime-security>=0.6.0",
   "pydantic>=2.7",
   "typing-extensions>=4.12",
 ]
