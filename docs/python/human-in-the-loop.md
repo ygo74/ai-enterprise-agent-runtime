@@ -224,8 +224,13 @@ prompt.
 The existing example uses LangChain's `HumanInTheLoopMiddleware` to suspend
 calls, LangGraph's checkpointer to retain state, and a small
 [`LangGraphApprovalBridge`](../examples/python-langchain-fastapi/04-human-in-the-loop/langgraph_approval.py)
-to translate interrupts and resume commands. That bridge lives in the example,
-not the runtime package.
+to translate interrupts and resume commands. Framework-specific inspection,
+resume and response parsing remain in that adapter. The runtime's
+[`ApprovalLoop`](../../packages/python/agents/ygo74/agent_runtime/domains/humanapproval/approval_loop.py)
+owns the shared bounded orchestration: it applies approval and total-turn
+limits, clears recorded grants before cleanup, and refuses pending calls within
+a separate cleanup limit. The runtime does not import LangGraph or Microsoft
+Agent Framework.
 
 The host uses the same operation list and confirmation policy to configure the
 middleware and describe each pending call. It issues one ticket per suspended
@@ -253,7 +258,8 @@ and the first request / later `CONFIRM` or `CANCEL` sequence.
 
 The example demonstrates the configured confirmation policy, operation
 classification, tickets, in-memory ticket storage, literal command parsing,
-bounded rendering, and the example-owned LangGraph bridge. It uses
+bounded rendering, and its LangGraph adapter around the runtime's shared
+approval loop. It uses
 `UserContext` to scope caller and conversation state, but does not wire the
 generic `ConfirmationGate` or `GatedOperationRunner` into the tool itself. Use
 those pieces when your capability also needs the runtime's domain permission
