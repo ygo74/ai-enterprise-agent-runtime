@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ygo74-agent-runtime-mcp"
-version = "0.1.0"
+version = "0.6.0"
 description = "MCP server hosting for the ygo74 agent runtime: transport, authentication and health"
 requires-python = ">=3.12"
 
