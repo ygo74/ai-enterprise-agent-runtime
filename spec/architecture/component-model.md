@@ -10,12 +10,14 @@ container.
 |---|---|---|
 | Contracts | Normalized request, response, error, and stream values | Python, .NET, Java |
 | Endpoint adapters and mapping | Identify provider dialects and convert inputs/results | Python HTTP adapter; mapping building blocks in .NET and Java |
-| Configuration | Bind or validate route and endpoint settings | Python models and HTTP settings; .NET options; Java properties |
+| Configuration | Bind route/endpoint settings and load delivered agent configuration | Python models plus optional `.env` and YAML loaders/schemas; .NET options; Java properties |
 | Authentication | Validate credentials and project caller identity | Python security distribution; authentication classes in .NET and Java |
+| Reasoning | Framework-neutral async text-reasoning port and typed result/errors | Python |
 | Routing | Resolve a route key and invoke a registered handler | Python, .NET, Java |
 | Middleware | Ordered pre-handler and post-handler extension points | Python, .NET, Java |
 | Agent discovery | Describe agents and project provider model listings | Python |
-| Application security | Permissions, operation posture, audit, user context, untrusted input | Python |
+| Application security | Permissions, operation posture, audit, user context, and untrusted input | Python |
+| Agent context and common errors | Build user context from caller-supplied identity/permissions; shared Python domain error base | Python |
 | Sessions and human approval | Conversation runtime cache and confirmation/gating primitives | Python |
 | MCP | Client connections and server hosting | Python |
 | Observability | Standard logging and telemetry integration hooks | Python, .NET, Java; telemetry hooks are incomplete placeholders |
@@ -47,8 +49,10 @@ flowchart BT
 The security package does not depend on the agent package. Both agent hosting
 and MCP server hosting reuse its authentication contracts without forcing an
 MCP server to install agent discovery, session, or conversation code. The
-agents distribution includes an MCP **client** as an optional extra; the
-separate MCP distribution provides an MCP **server**.
+agents distribution includes an MCP **client** as an optional extra and the
+configuration loader as a separate `configuration` extra. The separate MCP
+distribution provides an MCP **server**. Configuration loading does not require
+the HTTP or MCP extras.
 
 ## Language package boundaries
 

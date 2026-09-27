@@ -17,8 +17,10 @@ The consolidated [system specification](spec/README.md) describes the library
 as it is currently implemented. The shared core covers provider-neutral
 exchange contracts, request/response mapping, routing, middleware, and
 authentication building blocks across Python, .NET, and Java. Python also
-provides FastAPI hosting, agent discovery, application-security and approval
-primitives, conversation state, and MCP client/server packages. See the
+provides optional FastAPI hosting, agent discovery, application-security and
+approval primitives, conversation state, MCP client/server packages, and
+Python-only agent-development APIs for configuration, manifest schemas,
+framework-neutral reasoning, and user-context construction. See the
 [language support matrix](spec/compatibility/language-status.md) for current
 parity limits.
 

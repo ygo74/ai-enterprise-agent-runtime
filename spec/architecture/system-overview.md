@@ -59,6 +59,30 @@ host adapter.
   separately packaged Python MCP host can expose an MCP server. These are
   distinct roles.
 
+## Python agent-development APIs
+
+The Python agents distribution provides reusable technical building blocks for
+repositories that implement their own agents. With its optional
+`configuration` extra, an application can discover a delivered configuration
+directory, load `.env` values, and validate `agent.yaml` and `skill.yaml` with
+the published Draft 2020-12 schemas and runtime loaders. The configuration
+directory can be selected with `YGO74_AGENT_RUNTIME_CONFIG_DIR`.
+
+The Python API also includes the framework-neutral async `TextReasoner` port,
+its typed output and errors, common domain errors, and `UserContextFactory`.
+That factory receives the authenticated principal and permissions selected by
+the application; it does not choose authorization policy. The runtime does not
+provide an agent framework, agent prompts, business tools, or application-owned
+permissions. These APIs are Python-specific today, as recorded in [language
+support and parity](../compatibility/language-status.md).
+
+The schemas define the fixed YAML structure, reject unknown fields, and are
+packaged as stable resources. Runtime checks still resolve permission names and
+enforce the configured security floor. `AGENT.md` and `SKILL.md` remain
+separate Markdown inputs. Changes to accepted YAML structure are versioned
+public-contract changes and update the typed models, resources, identifiers,
+and documentation together.
+
 ## Supported endpoint names
 
 The canonical endpoint type identifiers are:
@@ -72,9 +96,12 @@ packages. The runtime currently has no A2A agent-card or AG-UI endpoint adapter.
 
 ## Deliberate ownership
 
-The runtime owns stable contracts and common infrastructure. Applications own
-agent prompts and execution, domain-specific tools, permissions, policy
-decisions, identity-provider provisioning, persistence, and framework-specific
-approval interactions. See the [component model](component-model.md) and
-[language support](../compatibility/language-status.md) for package-level
+The runtime owns stable contracts and common infrastructure. Its Python agent
+packages provide technical APIs for loading delivered manifests, validating
+their fixed structure, constructing caller context from application-supplied
+identity and permissions, and calling framework-neutral reasoning ports. The
+host application still owns prompts, agent execution, domain-specific tools,
+permission policy, identity-provider provisioning, persistence, and
+framework-specific approval interactions. See the [component model](component-model.md)
+and [language support](../compatibility/language-status.md) for package-level
 boundaries and current implementation differences.

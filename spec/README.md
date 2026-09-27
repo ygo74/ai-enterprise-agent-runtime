@@ -5,11 +5,20 @@ public responsibilities, runtime flow, contracts, language boundaries, and
 security behavior. It is the durable system-level specification. It describes
 the current system rather than a proposed change or the history of a feature.
 
-The repository contains three language implementations. Their shared core is
-provider-neutral request/response exchange, routing, authentication-related
-types, and middleware building blocks. The Python implementation currently has
-additional agent, discovery, security, approval, session, and MCP domains; those
-capabilities are not yet at .NET/Java parity.
+The repository contains Python, .NET, and Java implementations. Their shared
+core is provider-neutral request/response exchange, routing, authentication
+building blocks, and middleware. Python also supplies a larger agent-oriented
+surface: optional configuration-directory and `.env` loading, fixed YAML
+manifest schemas and loaders, the framework-neutral reasoning contract, agent
+discovery, application-security primitives, user-context construction,
+approval, sessions, and MCP client/server packages. These Python capabilities
+are not implied to have .NET or Java equivalents; the parity document records
+their current language boundary.
+
+The accepted `agent.yaml` and `skill.yaml` structures are versioned Python API
+contracts. Their typed input models, packaged Draft 2020-12 schemas, identifiers,
+and documentation evolve together; semantic permission and security-floor
+checks remain runtime behavior.
 
 ## Documents
 
