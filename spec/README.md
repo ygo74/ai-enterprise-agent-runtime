@@ -10,10 +10,16 @@ core is provider-neutral request/response exchange, routing, authentication
 building blocks, and middleware. Python also supplies a larger agent-oriented
 surface: optional configuration-directory and `.env` loading, fixed YAML
 manifest schemas and loaders, the framework-neutral reasoning contract, agent
-discovery, application-security primitives, user-context construction,
-approval, sessions, and MCP client/server packages. These Python capabilities
-are not implied to have .NET or Java equivalents; the parity document records
-their current language boundary.
+discovery, application-security primitives, user-context construction, and
+conversation and approval APIs. The session APIs include a generic
+`AgentConversation` container, an `HttpConversationEngine`, and the
+`ConversationRuntimeCache`; the approval APIs include a bounded, framework
+neutral `ApprovalLoop` alongside confirmation and gated-operation primitives.
+The optional MCP client provides generic binding loading and validation,
+stdio/streamable-HTTP connection lifecycle, and a typed dialect registry; a
+separate Python package hosts MCP servers. These Python capabilities are not
+implied to have .NET or Java equivalents; the parity document records their
+current language boundary.
 
 The accepted `agent.yaml` and `skill.yaml` structures are versioned Python API
 contracts. Their typed input models, packaged Draft 2020-12 schemas, identifiers,
