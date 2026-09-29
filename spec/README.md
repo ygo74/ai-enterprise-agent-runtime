@@ -21,6 +21,15 @@ separate Python package hosts MCP servers. These Python capabilities are not
 implied to have .NET or Java equivalents; the parity document records their
 current language boundary.
 
+The generic conversation, approval-loop, and MCP client APIs address repeated
+integration code in applications that combine HTTP conversations with agent
+frameworks and MCP tools. They let an application reuse conversation state and
+turn handling, bounded approval questions and turns with safe abandonment,
+binding validation, connection lifecycle, and dialect dispatch. The application
+still owns framework state, business and authorization policy, credentials,
+and concrete dialects. The affected domain specifications below describe these
+boundaries and behaviors.
+
 The accepted `agent.yaml` and `skill.yaml` structures are versioned Python API
 contracts. Their typed input models, packaged Draft 2020-12 schemas, identifiers,
 and documentation evolve together; semantic permission and security-floor
@@ -37,9 +46,9 @@ checks remain runtime behavior.
 | Agent descriptors and model listings | [Agent catalog](discovery/agent-catalog.md) |
 | Authentication, agent access, and authorization | [Authentication and authorization](security/authentication-and-authorization.md) |
 | Permission, audit, operation, and untrusted-content primitives | [Application security](security/application-security-primitives.md) |
-| Routing, middleware, and conversation state | [Pipelines and state](runtime/pipelines-and-state.md) |
-| Confirmation and gated operations | [Human approval](runtime/human-approval.md) |
-| MCP client and server responsibilities | [MCP integration](mcp/client-and-server.md) |
+| Routing, middleware, conversation containers, HTTP turn handling, and cache | [Pipelines and state](runtime/pipelines-and-state.md) |
+| Confirmation, gated operations, and bounded approval-loop orchestration | [Human approval](runtime/human-approval.md) |
+| MCP bindings, client connections, dialect registry, and server responsibilities | [MCP integration](mcp/client-and-server.md) |
 | Distributions, configuration, logging, and validation | [Packaging and operations](operations/packaging-configuration-observability.md) |
 | Implemented behavior by language | [Language support and parity](compatibility/language-status.md) |
 
