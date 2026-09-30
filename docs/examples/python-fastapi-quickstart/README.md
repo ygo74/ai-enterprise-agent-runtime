@@ -42,6 +42,28 @@ to `/v1/chat/completions`.
 For Anthropic Messages, post `{"model":"echo-agent","max_tokens":64,"messages":[{"role":"user","content":"hello"}]}`
 to `/v1/messages`.
 
+## Structured Responses output and streaming
+
+The companion `responses_structured_app.py` shows a handler that returns both
+message and function-call output items, and a handler that streams typed
+Responses events. From this directory, run:
+
+```bash
+uvicorn responses_structured_app:app --reload --port 8001
+```
+
+Send a non-streaming request to inspect the structured output items:
+
+```bash
+curl -sS http://127.0.0.1:8001/v1/responses \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"structured-agent","input":"record this request"}'
+```
+
+Add `"stream":true` to the JSON body to receive the Responses SSE event
+lifecycle. The example emits complete typed event payloads; handlers that only
+return strings or text deltas can use the runtime's automatic text lifecycle.
+
 The example deliberately enables anonymous access with
 `AuthenticationPolicy.anonymous()` and publishes the agent through
 `GET /v1/models`. Call that route to see the descriptor. See the [agent runtime

@@ -92,11 +92,10 @@ def test_raising_authorization_error_returns_403_and_skips_business_logic() -> N
     )
 
     assert response.status_code == 403
-    detail = response.json()["detail"]
-    assert detail["status"] == "error"
-    assert detail["error"]["category"] == "authorization"
-    assert detail["error"]["code"] == "role_required"
-    assert detail["error"]["details"] == {"required_role": "admin"}
+    error = response.json()["error"]
+    assert error["type"] == "permission_error"
+    assert error["code"] == "role_required"
+    assert error["message"] == "admin role is required"
     assert executed == []
 
 
@@ -118,7 +117,8 @@ def test_returning_authorization_error_envelope_returns_403() -> None:
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"]["error"]["code"] == "forbidden"
+    assert response.json()["error"]["code"] == "forbidden"
+    assert response.json()["error"]["type"] == "permission_error"
 
 
 def test_developer_http_exception_is_not_swallowed_into_500() -> None:
@@ -173,7 +173,8 @@ def test_handler_exception_still_maps_to_500() -> None:
     )
 
     assert response.status_code == 500
-    assert response.json()["detail"]["error"]["category"] == "handler_execution"
+    assert response.json()["error"]["type"] == "server_error"
+    assert response.json()["error"]["code"] == "agent_execution_error"
 
 
 @pytest.mark.parametrize(

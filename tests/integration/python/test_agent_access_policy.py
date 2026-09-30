@@ -181,7 +181,8 @@ def test_invocation_of_a_denied_agent_is_forbidden_and_never_reaches_the_entrypo
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"]["error"]["code"] == "agent_access_denied"
+    assert response.json()["error"]["code"] == "agent_access_denied"
+    assert response.json()["error"]["type"] == "permission_error"
     assert seen == []
 
 
@@ -272,4 +273,5 @@ def test_a_raising_policy_denies_invocation_with_403_not_500() -> None:
     response = _call(app, "POST", "/v1/responses", json={"model": "support", "input": "hello"})
 
     assert response.status_code == 403
-    assert response.json()["detail"]["error"]["code"] == "agent_access_denied"
+    assert response.json()["error"]["code"] == "agent_access_denied"
+    assert response.json()["error"]["type"] == "permission_error"

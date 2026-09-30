@@ -136,7 +136,8 @@ def test_endpoint_rejects_unknown_api_key() -> None:
     )
 
     assert response.status_code == 401
-    assert response.json()["detail"]["error"]["code"] == "api_key_invalid"
+    assert response.json()["error"]["code"] == "api_key_invalid"
+    assert response.json()["error"]["type"] == "authentication_error"
 
 
 def test_api_key_header_ignored_when_no_resolver_configured() -> None:
