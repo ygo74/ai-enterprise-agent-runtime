@@ -19,28 +19,30 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Mapping
-from typing import Any, Generic, TypeVar
+from typing import Any, Concatenate, Generic, ParamSpec, TypeVar
 
 from ygo74.agent_runtime.domains.mcp.binding import McpServerBinding
 from ygo74.agent_runtime.domains.mcp.mcp_errors import McpToolUnavailableError
 
 ToolsT = TypeVar("ToolsT")
+P = ParamSpec("P")
+ErrorFactory = Callable[[str], Exception]
 
 _logger = logging.getLogger(__name__)
 
-DialectFactory = Callable[..., Any]
+DialectFactory = Callable[Concatenate[McpServerBinding[Any], P], ToolsT]
 
 
-class DialectRegistry(Generic[ToolsT]):
+class DialectRegistry(Generic[ToolsT, P]):
     """The dialects this build knows how to speak."""
 
     def __init__(
         self,
-        dialects: Mapping[str, DialectFactory] | None = None,
+        dialects: Mapping[str, DialectFactory[P, ToolsT]] | None = None,
         *,
-        unavailable: type[McpToolUnavailableError] = McpToolUnavailableError,
+        unavailable: ErrorFactory = McpToolUnavailableError,
     ) -> None:
-        self._dialects: dict[str, DialectFactory] = dict(dialects or {})
+        self._dialects: dict[str, DialectFactory[P, ToolsT]] = dict(dialects or {})
         self._unavailable = unavailable
 
     @property
@@ -48,7 +50,7 @@ class DialectRegistry(Generic[ToolsT]):
         """The names this registry answers to, in a stable order."""
         return tuple(sorted(self._dialects))
 
-    def register(self, name: str, factory: DialectFactory) -> None:
+    def register(self, name: str, factory: DialectFactory[P, ToolsT]) -> None:
         """Add a dialect, refusing to silently replace one.
 
         Replacing quietly is how a deployment ends up talking to a server it did
@@ -58,7 +60,7 @@ class DialectRegistry(Generic[ToolsT]):
             raise self._unavailable(f"dialect {name!r} is already registered")
         self._dialects[name] = factory
 
-    def build(self, binding: McpServerBinding[Any], *args: Any, **kwargs: Any) -> ToolsT:
+    def build(self, binding: McpServerBinding[Any], *args: P.args, **kwargs: P.kwargs) -> ToolsT:
         """Build the client a binding asks for.
 
         The extra arguments are handed to the factory untouched: what a dialect
@@ -72,5 +74,4 @@ class DialectRegistry(Generic[ToolsT]):
                 f"Known dialects: {', '.join(self.known)}."
             )
         _logger.debug("building dialect %r for server %r", binding.dialect, binding.server)
-        built: ToolsT = factory(binding, *args, **kwargs)
-        return built
+        return factory(binding, *args, **kwargs)

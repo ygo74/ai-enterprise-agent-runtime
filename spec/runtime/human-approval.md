@@ -56,9 +56,35 @@ In-memory ticket, ledger, and preference implementations are local to one
 process. A multi-worker deployment needs shared implementations if an approval
 may be answered by a different worker from the one that issued it.
 
+## Bounded framework approval loop
+
+An agent framework can suspend execution for approval and return new pending
+calls each time the application resumes it. Frameworks represent those calls
+and their resume operations differently, but applications still need the same
+limits on consecutive approval questions and total tool turns. Repeating this
+control flow in each framework adapter makes limits and abandonment behavior
+easy to diverge.
+
+Python's `ApprovalLoop` centralizes those mechanics through the typed
+`ApprovalTurnAdapter[StateT, PendingT]` protocol. An adapter exposes pending
+calls, identifies whether a batch will ask the user another question, resumes
+or declines that batch, clears recorded authorizations, and extracts the final
+text. The loop applies configurable limits (defaults: 25 approval rounds and
+200 total rounds). If a limit is reached, it clears authorizations and makes a
+separate bounded attempt (25 rounds by default) to decline remaining suspended
+calls, clearing authorizations during cleanup as well. Cleanup failure never
+turns a pending call into an approval.
+
+This lets framework adapters share bounded, fail-closed turn control while
+retaining ownership of framework state and its concrete operations. The loop
+does not decide whether a tool requires confirmation, ask a person, interpret a
+framework's state, persist checkpoints, or replace the execution gate. It is a
+Python-only orchestration API; Mail and Wiki are consumers, while other
+applications can provide their own adapters.
+
 ## Limits
 
 Human approval is implemented in Python only. The library supplies reusable
 contracts and enforcement points, while applications remain responsible for
 using the gate at every protected execution path. Framework-level interrupts
-alone do not replace the gate.
+and the bounded approval loop alone do not replace the gate.

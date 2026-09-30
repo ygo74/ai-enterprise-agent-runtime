@@ -18,11 +18,11 @@ features. This table records the repository's current implementation boundaries.
 | Agent descriptors and model discovery | OpenAI and Anthropic projections | No | No |
 | Agent access policy | Yes | No | No |
 | Routing and middleware building blocks | Yes | Yes | Yes |
-| Conversation runtime cache | Yes | No | No |
-| Human approval and application-security primitives | Yes | No | No |
+| Conversation container, HTTP turn engine, and runtime cache | Yes | No | No |
+| Human approval, bounded approval loop, and application-security primitives | Yes | No | No |
 | Framework-neutral `TextReasoner` port and typed reasoning errors | Yes | No | No |
 | Python `DomainError` hierarchy and `UserContextFactory` | Yes | No | No |
-| MCP client | Optional extra | No | No |
+| Generic MCP bindings, client connections, and dialect registry | Optional extra | No | No |
 | MCP server hosting | Separate Python distribution | No | No |
 | Logging and OpenTelemetry integration hooks | Yes; OpenTelemetry hook incomplete | Yes; OpenTelemetry hook incomplete | Yes; OpenTelemetry hook incomplete |
 
@@ -32,11 +32,15 @@ Python provides the most complete hosting composition in this repository. Its
 agents distribution includes a FastAPI adapter for the three invocation
 surfaces, optional OpenAI and Anthropic model discovery, descriptors, routing,
 middleware, conversation contracts and cache, approval primitives, and an
-optional MCP client. It also offers agent-configuration discovery, `.env`
-loading, fixed agent/skill manifest schemas and loaders, and a framework-neutral
-reasoning port. These APIs are Python-only; their presence does not imply that
-the .NET or Java packages load agent manifests or host agent frameworks. A
-separate package hosts MCP servers. `HostingFactory`
+optional MCP client. The generic conversation container and HTTP turn engine,
+bounded framework approval loop, and reusable MCP binding, connection, and
+dialect mechanics let applications avoid reimplementing shared integration
+control flow. Framework session state, domain policy, credentials, and concrete
+MCP dialects remain application-owned. Python also offers agent-configuration
+discovery, `.env` loading, fixed agent/skill manifest schemas and loaders, and a
+framework-neutral reasoning port. These APIs are Python-only; their presence
+does not imply that the .NET or Java packages load agent manifests or host agent
+frameworks. A separate package hosts MCP servers. `HostingFactory`
 composes one descriptor/entrypoint pair; applications with multiple agents can
 use the lower-level registration helper and dispatcher.
 

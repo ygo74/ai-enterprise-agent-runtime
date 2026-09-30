@@ -18,8 +18,10 @@ container.
 | Agent discovery | Describe agents and project provider model listings | Python |
 | Application security | Permissions, operation posture, audit, user context, and untrusted input | Python |
 | Agent context and common errors | Build user context from caller-supplied identity/permissions; shared Python domain error base | Python |
-| Sessions and human approval | Conversation runtime cache and confirmation/gating primitives | Python |
-| MCP | Client connections and server hosting | Python |
+| Sessions | Typed conversation container, HTTP turn engine, and runtime cache | Python |
+| Human approval | Confirmation/gating primitives and bounded approval-loop orchestration | Python |
+| MCP client | Generic bindings, connection lifecycle, and dialect registry | Python |
+| MCP server | Authenticated server hosting | Separate Python distribution |
 | Observability | Standard logging and telemetry integration hooks | Python, .NET, Java; telemetry hooks are incomplete placeholders |
 
 ## Dependency direction

@@ -162,11 +162,24 @@ card details are outside that topic.
 
 `ConversationRuntimeCache` can hold a runtime per authenticated principal and
 conversation ID with an idle expiry and maximum size. The cache is a building
-block; applications define how requests acquire and release leases. For the
-approval policy, execution gates, and cross-request ticket flow, see the
+block; applications define how requests acquire and release leases.
+`domains.sessions.agent_conversation` adds `AgentConversation[RuntimeT,
+SessionT]` as a typed container for one application's runtime, framework
+session, confirmation store, runner and renderer. `HttpConversationEngine`
+leases that container, handles confirmation commands before calling the model,
+and creates the shared `AgentReply`. Applications keep their composition roots
+and framework-specific session adapters; their runtime types only need to
+satisfy the small structural ports. Mail and Wiki in `ai_agents` are reference
+consumers of this API.
+
+For the approval policy, execution gates, and cross-request ticket flow, see the
 [human-in-the-loop approval guide](human-in-the-loop.md) and its
 [runnable LangGraph walkthrough](../examples/python-langchain-fastapi/04-human-in-the-loop/README.md).
-There is no standalone `ConversationRuntimeCache` example yet.
+The runtime also provides `domains.humanapproval.approval_loop.ApprovalLoop`.
+Framework adapters expose pending calls, resume/decline operations and final
+text through `ApprovalTurnAdapter`; the shared loop applies the approval and
+total-turn limits and clears recorded grants before bounded, fail-closed cleanup.
+The adapter still interprets Microsoft Agent Framework or LangGraph state.
 
 ## Observability
 
