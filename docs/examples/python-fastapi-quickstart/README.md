@@ -42,27 +42,38 @@ to `/v1/chat/completions`.
 For Anthropic Messages, post `{"model":"echo-agent","max_tokens":64,"messages":[{"role":"user","content":"hello"}]}`
 to `/v1/messages`.
 
-## Structured Responses output and streaming
+## Responses scenarios for compatible clients
 
-The companion `responses_structured_app.py` shows a handler that returns both
-message and function-call output items, and a handler that streams typed
-Responses events. From this directory, run:
+The companion `responses_structured_app.py` is a deterministic Responses test
+server. It needs no model or provider key. From this directory, run:
 
 ```bash
 uvicorn responses_structured_app:app --reload --port 8001
 ```
 
-Send a non-streaming request to inspect the structured output items:
+Connect LibreChat or another OpenAI-compatible client to
+`http://127.0.0.1:8001/v1` and select `structured-agent`. The app allows
+anonymous requests. Send one of these commands as the user message:
+
+| User message | Output shape to inspect |
+|---|---|
+| `test:rag` | One `output_text` block with two URL citation annotations; the stream also emits `response.output_text.annotation.added` events. |
+| `test:content` | One message whose `content` is a collection of three separate `output_text` blocks, including citations. |
+| `test:mcp` | A completed `mcp_call` output item with JSON tool arguments and JSON-string result, followed by an assistant message. Streaming includes MCP progress, argument, and completion events. |
+| Any other message | The default message plus `function_call` example. |
+
+The scenario text can also be posted directly to inspect the raw wire response:
 
 ```bash
 curl -sS http://127.0.0.1:8001/v1/responses \
   -H 'Content-Type: application/json' \
-  -d '{"model":"structured-agent","input":"record this request"}'
+  -d '{"model":"structured-agent","input":"test:rag"}'
 ```
 
-Add `"stream":true` to the JSON body to receive the Responses SSE event
-lifecycle. The example emits complete typed event payloads; handlers that only
-return strings or text deltas can use the runtime's automatic text lifecycle.
+Add `"stream":true` to the body to inspect the same scenario as Responses SSE
+events. `test:rag` and `test:mcp` emit the corresponding annotation and MCP
+event sequences. These are fixed fixtures for checking client rendering; they
+do not call a retriever, MCP server, or language model.
 
 The example deliberately enables anonymous access with
 `AuthenticationPolicy.anonymous()` and publishes the agent through

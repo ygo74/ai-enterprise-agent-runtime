@@ -224,6 +224,10 @@ budgets Python.
 - Expliquer les nouveaux champs que le handler reçoit et les modèles de sortie
   et d’événement structurés, avec un exemple exécutable adapté au runtime
   Python.
+- Ajouter au quickstart un serveur de démonstration sans modèle, déclenché par
+  les mots-clés `test:rag`, `test:content` et `test:mcp`, afin qu’un client
+  OpenAI-compatible puisse inspecter les annotations, les collections de
+  contenu et les sorties d’outils MCP en streaming comme hors streaming.
 - Mesurer les cas Responses représentatifs sans relâcher les seuils existants :
   normalisation/dispatch <10 ms p95, pipeline <50 ms p95 hors handler, premier
   événement <300 ms p95.
@@ -257,19 +261,22 @@ budgets Python.
 - Ruff : PASS avec `/tmp/issue16-venv/bin/python -m ruff check
   packages/python/agents tests
   docs/examples/python-fastapi-quickstart/responses_structured_app.py`.
-- Tests concernés : PASS, 53 tests avec les tests contractuels Responses,
-  l’intégration Responses et les suites existantes d’autorisation et
-  d’authentification.
-- Compatibilité Python hors MCP server hosting : PASS, 511 tests avec
+- Tests concernés : PASS, 58 tests cumulés pour les tests contractuels et
+  d’intégration Responses, les scénarios de démonstration et les suites
+  existantes d’autorisation et d’authentification. Les cinq nouveaux tests de
+  démonstration vérifient aussi les index des citations et les séquences SSE.
+- Compatibilité Python hors MCP server hosting : PASS, 516 tests avec
   `/tmp/issue16-venv/bin/python -m pytest -q tests/
   --ignore=tests/integration/python/test_mcp_server_hosting.py`.
 - La suite complète `pytest tests/` n’a pas terminé dans cet environnement :
   elle reste bloquée dès le premier test de
   `test_mcp_server_hosting.py::TestTheSecurityPosture::test_a_call_without_a_credential_is_refused`,
   avant son résultat. Ce module ne touche pas aux surfaces Responses.
-- Exemple structuré : PASS; une requête ASGI non-streaming a renvoyé les types
-  `message` et `function_call`, et le scénario streaming s’est terminé par
-  `response.completed`.
+- Exemple structuré : PASS; les scénarios `test:rag`, `test:content` et
+  `test:mcp` passent par `/v1/responses` en mode non-streaming et streaming.
+  L’exemple émet aussi les cycles d’arguments de fonction pour le scénario par
+  défaut. Les jeux de données sont fixes et ne contactent aucun modèle, moteur
+  RAG ou serveur MCP.
 - JSON : PASS pour le schéma Standard Exchange et la fixture Responses
   versionnée.
 - Mesures locales Python 3.14.3, ASGI en processus, route anonyme et handler

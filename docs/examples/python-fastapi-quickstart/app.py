@@ -5,9 +5,17 @@ from typing import Any
 
 from fastapi import FastAPI
 from ygo74.agent_runtime.domains.auth.authentication_policy import AuthenticationPolicy
-from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentCapabilitySet, AgentDescriptor
-from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
-from ygo74.agent_runtime.domains.endpoints.hosting_factory import EndpointSurface, HostingFactory
+from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
+    AgentCapabilitySet,
+    AgentDescriptor,
+)
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
+    DiscoveryConfiguration,
+)
+from ygo74.agent_runtime.domains.endpoints.hosting_factory import (
+    EndpointSurface,
+    HostingFactory,
+)
 
 app = FastAPI(title="Agent Runtime Python Quickstart")
 
