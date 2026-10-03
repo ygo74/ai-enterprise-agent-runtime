@@ -3,19 +3,24 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
-from typing import Any
+from functools import wraps
+from typing import Any, ParamSpec, TypeVar
+
+from typing_extensions import deprecated
 
 try:
     from fastapi import HTTPException, Request
-    from fastapi.responses import StreamingResponse
+    from fastapi.responses import JSONResponse, StreamingResponse
 
     _FASTAPI_AVAILABLE = True
     _FASTAPI_IMPORT_ERROR: Exception | None = None
 except Exception as exc:  # noqa: BLE001  # pragma: no cover - depends on web runtime
     HTTPException = Exception  # type: ignore[assignment]
     Request = Any  # type: ignore[assignment]
+    JSONResponse = None  # type: ignore[assignment]
     StreamingResponse = None  # type: ignore[assignment]
     _FASTAPI_AVAILABLE = False
     _FASTAPI_IMPORT_ERROR = exc
@@ -35,6 +40,9 @@ from ygo74.agent_runtime.domains.auth.authenticator import (
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
     JwtAuthenticator,
     JwtValidationConfig,
+)
+from ygo74.agent_runtime.domains.contracts.stream_events import (
+    OpenAIResponsesStreamEvent,
 )
 from ygo74.agent_runtime.domains.discovery.agent_access_policy import AgentAccessPolicy
 from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
@@ -56,15 +64,33 @@ from ygo74.agent_runtime.domains.endpoints.header_forwarding import (
     DEFAULT_CONVERSATION_HEADER,
     RequestHeaderForwarder,
 )
+from ygo74.agent_runtime.domains.endpoints.openai_responses import (
+    OpenAIResponsesCreateRequest,
+    OpenAIResponsesStatus,
+)
 from ygo74.agent_runtime.domains.mapping.request_mapper import map_to_exchange
 from ygo74.agent_runtime.domains.mapping.response_mapper import (
     extract_output_text,
     map_response,
 )
+from ygo74.agent_runtime.domains.streaming.openai_stream_mapper import (
+    OpenAIResponsesStreamEncoder,
+)
 
 AgentEntrypoint = Callable[[dict[str, Any]], Awaitable[Any] | Any]
+P = ParamSpec("P")
+R = TypeVar("R")
 
 logger = logging.getLogger(__name__)
+
+
+def _with_deprecation_warning(function: Callable[P, R], message: str) -> Callable[P, R]:
+    @wraps(function)
+    @deprecated(message)
+    def deprecated_function(*args: P.args, **kwargs: P.kwargs) -> R:
+        return function(*args, **kwargs)
+
+    return deprecated_function
 
 
 def build_request_authenticator(
@@ -174,6 +200,8 @@ def add_ai_endpoints(
                 "metadata": exchange_request.metadata,
                 "auth_context": exchange_request.auth_context,
             }
+            if endpoint_type == "openai.responses":
+                uniform_payload["provider_options"] = exchange_request.provider_options
 
             result = agent_entrypoint(uniform_payload)
 
@@ -182,7 +210,14 @@ def add_ai_endpoints(
                     raise RuntimeError("fastapi is required to use streaming responses")
 
                 return StreamingResponse(
-                    _stream_response(endpoint_type, exchange_request.request_id, payload.get("model"), result),
+                    _stream_response(
+                        endpoint_type,
+                        exchange_request.request_id,
+                        payload.get("model"),
+                        result,
+                        provider_options=payload.get("provider_options"),
+                        request_metadata=payload.get("response_metadata"),
+                    ),
                     media_type="text/event-stream",
                 )
 
@@ -190,9 +225,17 @@ def add_ai_endpoints(
                 result = await result
 
             exchange_response = _normalize_agent_result(result, exchange_request.request_id, exchange_request.route_key)
-            mapped = map_response(endpoint_type, exchange_response, model=payload.get("model"))
+            mapped = map_response(
+                endpoint_type,
+                exchange_response,
+                model=payload.get("model"),
+                provider_options=payload.get("provider_options"),
+                request_metadata=payload.get("response_metadata"),
+            )
             status_code = _error_status_code(exchange_response)
             if status_code is not None:
+                if endpoint_type == "openai.responses" and JSONResponse is not None:
+                    return JSONResponse(status_code=status_code, content=mapped)
                 raise HTTPException(status_code=status_code, detail=mapped)
 
             return mapped
@@ -207,6 +250,8 @@ def add_ai_endpoints(
                 "status": "error",
                 "error": ex.to_dict(),
             }
+            if endpoint_type == "openai.responses" and JSONResponse is not None:
+                return JSONResponse(status_code=403, content=map_response(endpoint_type, err))
             raise HTTPException(status_code=403, detail=map_response(endpoint_type, err)) from ex
         except AuthenticationError as ex:
             payload = body.get("metadata") or {}
@@ -216,6 +261,8 @@ def add_ai_endpoints(
                 "status": "error",
                 "error": ex.to_dict(),
             }
+            if endpoint_type == "openai.responses" and JSONResponse is not None:
+                return JSONResponse(status_code=401, content=map_response(endpoint_type, err))
             raise HTTPException(status_code=401, detail=map_response(endpoint_type, err)) from ex
         except Exception as ex:
             logger.exception(
@@ -233,6 +280,8 @@ def add_ai_endpoints(
                     "message": str(ex) or repr(ex),
                 },
             }
+            if endpoint_type == "openai.responses" and JSONResponse is not None:
+                return JSONResponse(status_code=500, content=map_response(endpoint_type, err))
             raise HTTPException(status_code=500, detail=map_response(endpoint_type, err)) from ex
 
     if enable_openai_responses:
@@ -265,6 +314,13 @@ def add_ai_endpoints(
             authenticator=discovery_authenticator,
             access_policy=authorization_policy,
         )
+
+
+_register_ai_endpoints = add_ai_endpoints
+add_ai_endpoints = _with_deprecation_warning(
+    _register_ai_endpoints,
+    "Direct add_ai_endpoints registration is deprecated; use HostingFactory(...).add_agent(...).add_ai_endpoints(...).register().",
+)
 
 
 def add_discovery_endpoints(
@@ -484,7 +540,8 @@ def _build_raw_payload(
     request_id = str(metadata.get("request_id") or body.get("request_id") or f"req-{uuid.uuid4().hex[:12]}")
 
     if endpoint_type == "openai.responses":
-        normalized_input = body.get("input")
+        responses_request = OpenAIResponsesCreateRequest.from_payload(body)
+        normalized_input = responses_request.input
     else:
         normalized_input = body.get("messages", body.get("input"))
 
@@ -521,6 +578,8 @@ def _build_raw_payload(
         "metadata": metadata,
         "stream": bool(body.get("stream", False)),
         "auth_context": user_context.to_dict() if user_context is not None else None,
+        "provider_options": responses_request.provider_options if endpoint_type == "openai.responses" else None,
+        "response_metadata": dict(body.get("metadata") or {}) if endpoint_type == "openai.responses" else None,
     }
 
 
@@ -721,7 +780,15 @@ def _stream_error_frame(endpoint_type: str, request_id: str, message: str) -> st
     )
 
 
-async def _stream_response(endpoint_type: str, request_id: str, model: Any, entrypoint_result: Any) -> AsyncIterator[str]:
+async def _stream_response(
+    endpoint_type: str,
+    request_id: str,
+    model: Any,
+    entrypoint_result: Any,
+    *,
+    provider_options: dict[str, Any] | None = None,
+    request_metadata: dict[str, Any] | None = None,
+) -> AsyncIterator[str]:
     """Consume the agent entrypoint result and yield Server-Sent Events for the given endpoint type.
 
     Supports two entrypoint styles:
@@ -730,6 +797,17 @@ async def _stream_response(endpoint_type: str, request_id: str, model: Any, entr
     - Single-shot: entrypoint_result is a coroutine/plain value resolving to the full output; it is
       emitted as one chunk followed immediately by the completion frames.
     """
+
+    if endpoint_type == "openai.responses":
+        async for frame in _stream_openai_responses(
+            request_id,
+            model,
+            entrypoint_result,
+            provider_options=provider_options or {},
+            request_metadata=request_metadata or {},
+        ):
+            yield frame
+        return
 
     for frame in _stream_start_frames(endpoint_type, request_id, model):
         yield frame
@@ -773,3 +851,341 @@ async def _stream_response(endpoint_type: str, request_id: str, model: Any, entr
         yield frame
 
     yield _sse_done()
+
+
+async def _stream_openai_responses(
+    request_id: str,
+    model: Any,
+    entrypoint_result: Any,
+    *,
+    provider_options: dict[str, Any],
+    request_metadata: dict[str, Any],
+) -> AsyncIterator[str]:
+    """Stream either plain text deltas or typed, complete Responses events."""
+    encoder = OpenAIResponsesStreamEncoder()
+    response_id = f"resp_{uuid.uuid4().hex}"
+    created_at = int(time.time())
+    try:
+        resolved_result = entrypoint_result
+        if inspect.isawaitable(resolved_result):
+            resolved_result = await resolved_result
+    except Exception as ex:  # noqa: BLE001
+        failed_response = _responses_wire_response(
+            request_id,
+            model,
+            response_id,
+            created_at,
+            status=OpenAIResponsesStatus.FAILED,
+            output=[],
+            provider_options=provider_options,
+            request_metadata=request_metadata,
+            error={"code": "server_error", "message": str(ex) or repr(ex), "type": "server_error"},
+        )
+        yield _encode_responses_event(
+            encoder,
+            "response.failed",
+            {"response": failed_response},
+            0,
+        )
+        return
+
+    iterator = resolved_result.__aiter__() if hasattr(resolved_result, "__aiter__") else None
+    first: Any = None
+    has_first = False
+
+    if iterator is not None:
+        try:
+            first = await anext(iterator)
+            has_first = True
+        except StopAsyncIteration:
+            pass
+
+    try:
+        first_event = _try_responses_event(first, encoder) if has_first else None
+    except ValueError as ex:
+        failed_response = _responses_wire_response(
+            request_id,
+            model,
+            response_id,
+            created_at,
+            status=OpenAIResponsesStatus.FAILED,
+            output=[],
+            provider_options=provider_options,
+            request_metadata=request_metadata,
+            error={"code": "invalid_event", "message": str(ex), "type": "server_error"},
+        )
+        yield _encode_responses_event(
+            encoder,
+            "response.failed",
+            {"response": failed_response},
+            0,
+        )
+        return
+    if first_event is not None:
+        async for frame in _forward_responses_events(
+            iterator,
+            first_event,
+            encoder,
+            request_id=request_id,
+            model=model,
+            response_id=response_id,
+            created_at=created_at,
+            provider_options=provider_options,
+            request_metadata=request_metadata,
+        ):
+            yield frame
+        return
+
+    response = _responses_wire_response(
+        request_id,
+        model,
+        response_id,
+        created_at,
+        status=OpenAIResponsesStatus.IN_PROGRESS,
+        output=[],
+        provider_options=provider_options,
+        request_metadata=request_metadata,
+    )
+    sequence = 0
+    for event_type in ("response.created", "response.in_progress"):
+        yield _encode_responses_event(encoder, event_type, {"response": response}, sequence)
+        sequence += 1
+
+    item_id = f"msg_{uuid.uuid4().hex}"
+    content_part = {"type": "output_text", "text": "", "annotations": []}
+    message = {
+        "id": item_id,
+        "type": "message",
+        "role": "assistant",
+        "status": "in_progress",
+        "content": [],
+    }
+    yield _encode_responses_event(
+        encoder,
+        "response.output_item.added",
+        {"output_index": 0, "item": message},
+        sequence,
+    )
+    sequence += 1
+    yield _encode_responses_event(
+        encoder,
+        "response.content_part.added",
+        {"output_index": 0, "content_index": 0, "item_id": item_id, "part": content_part},
+        sequence,
+    )
+    sequence += 1
+
+    full_text_parts: list[str] = []
+    try:
+        if iterator is not None:
+            if has_first:
+                delta_text = _extract_delta_text(first)
+                full_text_parts.append(delta_text)
+                yield _encode_responses_text_delta(encoder, delta_text, item_id, sequence)
+                sequence += 1
+            async for chunk in iterator:
+                delta_text = _extract_delta_text(chunk)
+                full_text_parts.append(delta_text)
+                yield _encode_responses_text_delta(encoder, delta_text, item_id, sequence)
+                sequence += 1
+        else:
+            normalized = _normalize_agent_result(resolved_result, request_id, "")
+            delta_text = _extract_output_text(normalized.get("output"))
+            full_text_parts.append(delta_text)
+            yield _encode_responses_text_delta(encoder, delta_text, item_id, sequence)
+            sequence += 1
+    except Exception as ex:
+        logger.exception("Responses streaming failed for request_id=%s", request_id)
+        failed_response = _responses_wire_response(
+            request_id,
+            model,
+            response_id,
+            created_at,
+            status=OpenAIResponsesStatus.FAILED,
+            output=[],
+            provider_options=provider_options,
+            request_metadata=request_metadata,
+            error={"code": "server_error", "message": str(ex) or repr(ex), "type": "server_error"},
+        )
+        yield _encode_responses_event(
+            encoder,
+            "response.failed",
+            {"response": failed_response},
+            sequence,
+        )
+        return
+
+    full_text = "".join(full_text_parts)
+    content_part = {"type": "output_text", "text": full_text, "annotations": []}
+    message = {**message, "status": "completed", "content": [content_part]}
+    yield _encode_responses_event(
+        encoder,
+        "response.output_text.done",
+        {"content_index": 0, "item_id": item_id, "output_index": 0, "text": full_text, "logprobs": []},
+        sequence,
+    )
+    sequence += 1
+    yield _encode_responses_event(
+        encoder,
+        "response.content_part.done",
+        {"output_index": 0, "content_index": 0, "item_id": item_id, "part": content_part},
+        sequence,
+    )
+    sequence += 1
+    yield _encode_responses_event(
+        encoder,
+        "response.output_item.done",
+        {"output_index": 0, "item": message},
+        sequence,
+    )
+    sequence += 1
+    completed_response = _responses_wire_response(
+        request_id,
+        model,
+        response_id,
+        created_at,
+        status=OpenAIResponsesStatus.COMPLETED,
+        output=[message],
+        provider_options=provider_options,
+        request_metadata=request_metadata,
+    )
+    yield _encode_responses_event(
+        encoder,
+        "response.completed",
+        {"response": completed_response},
+        sequence,
+    )
+
+
+def _try_responses_event(value: Any, encoder: OpenAIResponsesStreamEncoder) -> OpenAIResponsesStreamEvent | None:
+    if isinstance(value, OpenAIResponsesStreamEvent):
+        return value
+    if not isinstance(value, dict) or not isinstance(value.get("type"), str):
+        return None
+    event_type = value["type"]
+    if event_type != "error" and not event_type.startswith("response."):
+        return None
+    return encoder.create_event(value)
+
+
+async def _forward_responses_events(
+    iterator: Any,
+    first_event: OpenAIResponsesStreamEvent,
+    encoder: OpenAIResponsesStreamEncoder,
+    *,
+    request_id: str,
+    model: Any,
+    response_id: str,
+    created_at: int,
+    provider_options: dict[str, Any],
+    request_metadata: dict[str, Any],
+) -> AsyncIterator[str]:
+    sequence = 0
+    event = first_event
+    error_message: str | None = None
+    try:
+        while True:
+            payload = dict(event.payload)
+            payload.setdefault("sequence_number", sequence)
+            event = OpenAIResponsesStreamEvent(event.event_type, payload)
+            yield encoder.encode(event)
+            sequence += 1
+            if event.event_type.value in {
+                "response.completed",
+                "response.failed",
+                "response.incomplete",
+                "error",
+            }:
+                return
+            next_value = await anext(iterator)
+            next_event = _try_responses_event(next_value, encoder)
+            if next_event is None:
+                error_message = "A Responses event stream cannot switch to plain text after its first event."
+                break
+            event = next_event
+    except StopAsyncIteration:
+        pass
+    except Exception as ex:
+        logger.exception("Responses event stream failed for request_id=%s", request_id)
+        error_message = str(ex) or repr(ex)
+
+    failed_response = _responses_wire_response(
+        request_id,
+        model,
+        response_id,
+        created_at,
+        status=OpenAIResponsesStatus.FAILED,
+        output=[],
+        provider_options=provider_options,
+        request_metadata=request_metadata,
+        error={
+            "code": "server_error",
+            "message": error_message or "The event stream ended without a terminal event.",
+            "type": "server_error",
+        },
+    )
+    yield _encode_responses_event(
+        encoder,
+        "response.failed",
+        {"response": failed_response},
+        sequence,
+    )
+
+
+def _responses_wire_response(
+    request_id: str,
+    model: Any,
+    response_id: str,
+    created_at: int,
+    *,
+    status: OpenAIResponsesStatus,
+    output: list[dict[str, Any]],
+    provider_options: dict[str, Any],
+    request_metadata: dict[str, Any],
+    error: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    response_output: dict[str, Any] = {
+        "id": response_id,
+        "created_at": created_at,
+        "status": status.value,
+        "output": output,
+    }
+    if error is not None:
+        response_output["error"] = error
+    return map_response(
+        "openai.responses",
+        {"request_id": request_id, "status": "success", "output": response_output},
+        model=model,
+        provider_options=provider_options,
+        request_metadata=request_metadata,
+    )
+
+
+def _encode_responses_event(
+    encoder: OpenAIResponsesStreamEncoder,
+    event_type: str,
+    payload: dict[str, Any],
+    sequence: int,
+) -> str:
+    full_payload = {"type": event_type, "sequence_number": sequence, **payload}
+    return encoder.encode(encoder.create_event(full_payload))
+
+
+def _encode_responses_text_delta(
+    encoder: OpenAIResponsesStreamEncoder,
+    delta: str,
+    item_id: str,
+    sequence: int,
+) -> str:
+    return _encode_responses_event(
+        encoder,
+        "response.output_text.delta",
+        {
+            "content_index": 0,
+            "delta": delta,
+            "item_id": item_id,
+            "output_index": 0,
+            "logprobs": [],
+        },
+        sequence,
+    )

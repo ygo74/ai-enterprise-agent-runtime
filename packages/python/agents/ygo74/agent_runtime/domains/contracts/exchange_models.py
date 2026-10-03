@@ -13,6 +13,7 @@ class StandardExchangeRequest:
     stream: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
     auth_context: dict[str, Any] | None = None
+    provider_options: dict[str, Any] | None = None
 
 
 @dataclass(slots=True)

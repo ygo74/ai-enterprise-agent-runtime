@@ -17,6 +17,7 @@ provider dialect carried the request.
 | `stream` | Whether the caller requested streamed output; defaults to false. |
 | `metadata` | Additional non-secret request metadata, including only explicitly forwarded headers. |
 | `auth_context` / `authContext` | Normalized authenticated caller context, or absent/null for allowed anonymous requests. |
+| `provider_options` / `providerOptions` | Optional raw JSON key/value collection for provider request options not represented by normalized fields. Absent when the adapter has no provider options to preserve. |
 
 The adapter may also retain the requested model ID and provider-specific stream
 options in metadata or its boundary payload. A route key must be resolved before

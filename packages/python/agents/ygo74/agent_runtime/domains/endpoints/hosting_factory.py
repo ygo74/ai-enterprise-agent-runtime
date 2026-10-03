@@ -12,7 +12,7 @@ from ygo74.agent_runtime.domains.discovery.descriptor_registry import Descriptor
 from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
     DiscoveryConfiguration,
 )
-from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
+from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import _register_ai_endpoints
 
 AgentEntrypoint = Callable[[dict[str, Any]], Awaitable[Any] | Any]
 
@@ -130,7 +130,7 @@ class HostingFactory:
             raise HostingConfigurationError("the configured app must support FastAPI GET route registration for discovery")
 
         descriptor_registry = DescriptorRegistry((descriptor,))
-        add_ai_endpoints(
+        _register_ai_endpoints(
             self._app,
             entrypoint,
             default_route_key=descriptor.route_key,

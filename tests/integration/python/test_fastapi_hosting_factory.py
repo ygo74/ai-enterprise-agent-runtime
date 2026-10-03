@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import warnings
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
@@ -204,6 +205,15 @@ def test_factory_matches_direct_registration_for_routes_and_responses() -> None:
     direct_models = asyncio.run(_request(direct_app, "GET", "/v1/models"))
     assert factory_models.status_code == direct_models.status_code == 200
     assert factory_models.json() == direct_models.json()
+
+
+def test_factory_registration_does_not_emit_low_level_api_deprecation_warning() -> None:
+    app = FastAPI()
+    factory = _configured_factory(app, (EndpointSurface.OPENAI_RESPONSES,))
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        factory.register()
 
 
 def test_factory_preserves_streaming_response_behavior() -> None:

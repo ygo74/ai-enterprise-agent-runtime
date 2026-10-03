@@ -19,6 +19,7 @@
         "model": {"type": "string"},
         "stream": {"type": "boolean", "default": false},
         "streamRequestOptions": {"type": "object", "additionalProperties": true},
+        "providerOptions": {"type": "object", "additionalProperties": true},
         "input": {},
         "metadata": {"type": "object", "additionalProperties": true},
         "authContext": {

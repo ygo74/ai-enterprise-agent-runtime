@@ -82,6 +82,7 @@ The handler input fields are:
 | `stream` | Whether the caller requested a streamed reply |
 | `metadata` | Request metadata, including explicitly forwarded allowlisted headers |
 | `auth_context` | Authenticated caller context or `None` |
+| `provider_options` | Provider-specific request options not represented by the common fields; for Responses, this retains the raw options from the create request |
 
 Return `{"status": "success", "output": ...}` or an error envelope. The
 standard typed models are `StandardExchangeRequest` and
@@ -92,6 +93,25 @@ and the [exchange specification](../../spec/contracts/exchange-contract.md) and
 For ordinary endpoint integration, the FastAPI adapter currently passes a
 normalized mapping to the configured entrypoint. Framework or agent adapters
 can convert that mapping to the typed contract used by their own code.
+
+For `POST /v1/responses`, `input` keeps the submitted JSON value, including
+arrays and multimodal content. Other Responses parameters such as `tools`,
+`tool_choice`, `instructions`, and generation settings are passed in
+`provider_options`; the request's `metadata` remains in the separate `metadata`
+field. A handler can return the standard success envelope with an `output`
+array of Responses output items to preserve message, function call, refusal, or
+other structured items. The runtime keeps those items and fills the Response
+envelope. See the runnable
+[structured Responses example](../examples/python-fastapi-quickstart/responses_structured_app.py)
+for a complete example.
+
+When streaming Responses, return an async iterator of typed
+`OpenAIResponsesStreamEvent` values (or their complete wire payload mappings)
+to preserve structured events. Text strings and text delta mappings remain
+supported and are wrapped in the Responses SSE lifecycle automatically. Each
+SSE frame uses the event's `type` as its event name and retains the JSON
+payload. The runtime closes the stream after a terminal event and does not add
+the Chat Completions `[DONE]` marker.
 
 ## Configuration and routing
 
