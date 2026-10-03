@@ -12,7 +12,9 @@ from ygo74.agent_runtime.domains.discovery.descriptor_registry import Descriptor
 from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
     DiscoveryConfiguration,
 )
-from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import _register_ai_endpoints
+from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import (
+    _register_ai_endpoints,
+)
 
 AgentEntrypoint = Callable[[dict[str, Any]], Awaitable[Any] | Any]
 

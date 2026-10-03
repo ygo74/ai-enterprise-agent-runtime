@@ -11,6 +11,7 @@ the [Python library documentation](../../python/README.md).
 - `02-jwt-authentication`: OpenAI-compatible FastAPI endpoints protected with JWT validation (`Bearer` + claims + signature).
 - `03-jwt-oidc-keycloak`: same protection, but signature validation against a real OIDC provider (Keycloak) via JWKS instead of a static secret.
 - `04-human-in-the-loop`: the same agent, but its tool call waits for an explicit human approval that spans two HTTP requests - a ticket is issued, the turn ends having changed nothing, and a later `CONFIRM` replays the stored arguments.
+- `05-rag`: LangChain RAG agent using Azure OpenAI chat and embedding deployments, an in-memory vector index over a local Markdown knowledge base, source citations, and OpenAI Responses/Chat Completions exposure.
 
 ## Convention
 
