@@ -71,6 +71,20 @@ def test_mcp_scenario_returns_call_output_and_assistant_message() -> None:
     assert message["content"][0]["type"] == "output_text"
 
 
+def test_latest_user_message_selects_scenario_instead_of_history() -> None:
+    example = _load_example()
+    request_input = [
+        {"role": "user", "content": [{"type": "input_text", "text": "test:rag"}]},
+        {"role": "assistant", "content": [{"type": "output_text", "text": "RAG response"}]},
+        {"role": "user", "content": [{"type": "input_text", "text": "test:mcp"}]},
+    ]
+
+    response = asyncio.run(_post_json(example.app, request_input))
+
+    assert response.status_code == 200
+    assert response.json()["output"][0]["type"] == "mcp_call"
+
+
 def test_streamed_rag_and_mcp_scenarios_include_client_visible_events() -> None:
     example = _load_example()
     rag_events = asyncio.run(_post_and_parse_events(example.app, "test:rag"))

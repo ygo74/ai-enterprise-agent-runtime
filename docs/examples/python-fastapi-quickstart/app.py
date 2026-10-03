@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Any
 
@@ -20,8 +21,18 @@ from ygo74.agent_runtime.domains.endpoints.hosting_factory import (
 app = FastAPI(title="Agent Runtime Python Quickstart")
 
 
-async def echo_agent(payload: dict[str, Any]) -> dict[str, Any]:
-    """Return the normalized input as a simple response."""
+async def _stream_echo(text: str) -> AsyncIterator[str]:
+    yield "Echo: "
+    yield text
+
+
+async def echo_agent(
+    payload: dict[str, Any],
+) -> dict[str, Any] | AsyncIterator[str]:
+    """Return the normalized input as a response or a text stream."""
+    if payload.get("stream") is True:
+        return _stream_echo(str(payload["input"]))
+
     return {
         "request_id": payload["request_id"],
         "status": "success",
@@ -37,7 +48,7 @@ echo_agent_descriptor = AgentDescriptor(
     version="1.0.0",
     owner="quickstart",
     created_at_utc=datetime.now(UTC),
-    capabilities=AgentCapabilitySet(streaming=False),
+    capabilities=AgentCapabilitySet(streaming=True),
 )
 
 (

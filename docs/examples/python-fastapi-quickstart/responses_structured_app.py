@@ -11,6 +11,7 @@ from typing import Any, Protocol
 
 from fastapi import FastAPI
 from ygo74.agent_runtime.domains.auth.authentication_policy import AuthenticationPolicy
+from ygo74.agent_runtime.domains.contracts.contract_errors import EmptyRequestError
 from ygo74.agent_runtime.domains.contracts.stream_events import (
     OpenAIResponsesStreamEvent,
     OpenAIResponsesStreamEventType,
@@ -19,6 +20,7 @@ from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
     AgentCapabilitySet,
     AgentDescriptor,
 )
+from ygo74.agent_runtime.domains.endpoints.conversation_payloads import latest_message
 from ygo74.agent_runtime.domains.endpoints.hosting_factory import (
     EndpointSurface,
     HostingFactory,
@@ -65,7 +67,14 @@ async def structured_agent(
 
 
 def _select_scenario(input_value: Any) -> DemoScenario:
-    request_text = _input_text(input_value).casefold()
+    if isinstance(input_value, list):
+        try:
+            request_text = latest_message(input_value).casefold()
+        except EmptyRequestError:
+            request_text = ""
+    else:
+        request_text = _input_text(input_value).casefold()
+
     for trigger, scenario in _SCENARIO_TRIGGERS:
         if trigger in request_text:
             return scenario

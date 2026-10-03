@@ -39,6 +39,18 @@ envelope; the runtime formats it as an OpenAI Responses response. To see the
 Chat Completions surface, post `{"model":"echo-agent","messages":[{"role":"user","content":"hello"}]}`
 to `/v1/chat/completions`.
 
+To receive incremental Responses events, send `"stream":true` and keep curl's
+output unbuffered with `-N`:
+
+```bash
+curl -N http://127.0.0.1:8000/v1/responses \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"echo-agent","input":"hello","stream":true}'
+```
+
+The stream emits separate text deltas for `Echo: ` and `hello`, followed by
+`response.completed`.
+
 For Anthropic Messages, post `{"model":"echo-agent","max_tokens":64,"messages":[{"role":"user","content":"hello"}]}`
 to `/v1/messages`.
 
@@ -53,7 +65,10 @@ uvicorn responses_structured_app:app --reload --port 8001
 
 Connect LibreChat or another OpenAI-compatible client to
 `http://127.0.0.1:8001/v1` and select `structured-agent`. The app allows
-anonymous requests. Send one of these commands as the user message:
+anonymous requests. When `input` contains conversation history, the scenario is
+selected from the latest user message; earlier messages do not select a scenario.
+
+Send one of these commands as the user message:
 
 | User message | Output shape to inspect |
 |---|---|
@@ -68,6 +83,24 @@ The scenario text can also be posted directly to inspect the raw wire response:
 curl -sS http://127.0.0.1:8001/v1/responses \
   -H 'Content-Type: application/json' \
   -d '{"model":"structured-agent","input":"test:rag"}'
+```
+
+In PowerShell, use `ConvertTo-Json -Depth 100` to display the complete nested
+response payload, including the `output` items and citation annotations:
+
+```powershell
+$body = @{
+    model = "structured-agent"
+    input = "test:rag"
+} | ConvertTo-Json
+
+$response = Invoke-RestMethod `
+    -Uri "http://127.0.0.1:8001/v1/responses" `
+    -Method Post `
+    -ContentType "application/json" `
+    -Body $body
+
+$response | ConvertTo-Json -Depth 100
 ```
 
 Add `"stream":true` to the body to inspect the same scenario as Responses SSE

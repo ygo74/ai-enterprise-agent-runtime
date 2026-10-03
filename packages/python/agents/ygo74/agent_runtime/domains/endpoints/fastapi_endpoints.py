@@ -6,7 +6,10 @@ import logging
 import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
-from typing import Any
+from functools import wraps
+from typing import Any, ParamSpec, TypeVar
+
+from typing_extensions import deprecated
 
 try:
     from fastapi import HTTPException, Request
@@ -75,8 +78,19 @@ from ygo74.agent_runtime.domains.streaming.openai_stream_mapper import (
 )
 
 AgentEntrypoint = Callable[[dict[str, Any]], Awaitable[Any] | Any]
+P = ParamSpec("P")
+R = TypeVar("R")
 
 logger = logging.getLogger(__name__)
+
+
+def _with_deprecation_warning(function: Callable[P, R], message: str) -> Callable[P, R]:
+    @wraps(function)
+    @deprecated(message)
+    def deprecated_function(*args: P.args, **kwargs: P.kwargs) -> R:
+        return function(*args, **kwargs)
+
+    return deprecated_function
 
 
 def build_request_authenticator(
@@ -300,6 +314,13 @@ def add_ai_endpoints(
             authenticator=discovery_authenticator,
             access_policy=authorization_policy,
         )
+
+
+_register_ai_endpoints = add_ai_endpoints
+add_ai_endpoints = _with_deprecation_warning(
+    _register_ai_endpoints,
+    "Direct add_ai_endpoints registration is deprecated; use HostingFactory(...).add_agent(...).add_ai_endpoints(...).register().",
+)
 
 
 def add_discovery_endpoints(
