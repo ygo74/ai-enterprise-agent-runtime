@@ -1,0 +1,2 @@
+ygo74-agent-runtime-agents[http]>=1.0.0,<2
+ygo74-agent-runtime-agentframework>=1.0.0,<2

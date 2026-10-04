@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ygo74-agent-runtime-agentframework"
+version = "1.0.0"
+description = "Typed Microsoft Agent Framework output adapters for the ygo74 agent runtime"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "ygo74-agent-runtime-agents>=1.0.0,<2",
+  "agent-framework-core>=1.18.0,<1.19",
+]
+
+[tool.setuptools.packages.find]
+include = ["ygo74.agent_runtime.integrations.agentframework*"]
+namespaces = true
+
+[tool.setuptools.package-data]
+"ygo74.agent_runtime.integrations.agentframework" = ["py.typed"]

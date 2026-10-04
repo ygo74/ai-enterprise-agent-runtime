@@ -7,6 +7,9 @@ with your own local development key before starting the app.
 
 This is the example the `humanapproval` domain of the runtime exists for, and the
 only one here that shows an approval **spanning two HTTP requests**.
+Its HTTP handler returns `AgentOutput((TextContent(answer),))`, not a raw
+string/dictionary. Ticket ownership, literal confirmation parsing and stored
+arguments are unchanged. Streaming remains off; the reply completes each turn.
 
 ## The problem it solves
 
@@ -48,7 +51,7 @@ Only the descriptor changes.
 
 ## What comes from the library, and what does not
 
-| From `ygo74-agent-runtime` | |
+| From `ygo74-agent-runtime-agents` and its security dependency | |
 |---|---|
 | `ConfiguredConfirmationPolicy` | decides whether an operation needs an approval |
 | `ConfirmationTicket`, `InMemoryPendingConfirmationStore` | carry the operation, and its exact arguments, across two requests |

@@ -15,6 +15,16 @@ the [Python library documentation](../../python/README.md).
 
 ## Convention
 
+All hosting entrypoints return `AgentOutput` or `AgentStreamEvent` streams
+from the agents 1.x typed output contract. Framework-native values and strings
+remain internal to model helpers, never the HTTP handler output boundary.
+`01-get-started` explicitly installs `ygo74-agent-runtime-langchain` for native
+result/event conversion. Other examples wrap their own text answers directly;
+they do not install an unused integration or the framework-pulling meta package.
+Reuse decision: extend existing entrypoints, input/security helpers and model
+helpers; reuse the agents content/event contracts and optional integration
+adapters rather than adding example-specific output models.
+
 - Each example folder contains source files, a `requirements.txt`, and a README
   with run instructions. Environment files or `.env.sample` templates are
   included when the particular example uses them.

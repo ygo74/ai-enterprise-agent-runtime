@@ -3,15 +3,18 @@ from typing import Protocol
 
 from ygo74.agent_runtime.domains.contracts.exchange_models import (
     StandardExchangeRequest,
-    StandardExchangeResponse,
+)
+from ygo74.agent_runtime.domains.handlers.handler_protocol import (
+    AgentInvocation,
+    UseCaseHandler,
 )
 
-
-class UseCaseHandler(Protocol):
-    def __call__(self, request: StandardExchangeRequest) -> StandardExchangeResponse:
-        ...
+__all__ = ["Dispatcher", "UseCaseHandler"]
 
 
 class Dispatcher(Protocol):
-    def dispatch(self, request: StandardExchangeRequest, resolver: Callable[[str], UseCaseHandler]) -> StandardExchangeResponse:
-        ...
+    def dispatch(
+        self,
+        request: StandardExchangeRequest,
+        resolver: Callable[[str], UseCaseHandler],
+    ) -> AgentInvocation: ...

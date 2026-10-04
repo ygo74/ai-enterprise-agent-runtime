@@ -5,6 +5,9 @@ validation backed by a real OIDC provider (Keycloak), using JWKS-based signature
 verification instead of a shared static secret.
 
 Use Python 3.12 or newer and Docker Compose for the local Keycloak service.
+The handler returns `AgentOutput` containing JSON-formatted `TextContent` with
+the verified subject, roles, groups, claims and input. JWT/JWKS validation and
+the shared role authorization policy are unchanged.
 
 Implemented checks:
 - Bearer token extraction from `Authorization` header
@@ -33,7 +36,7 @@ pip install -r requirements.txt
 Set `PYTHONPATH` to use the package from this repository:
 
 ```powershell
-$env:PYTHONPATH="../../../../packages/python/security;../../../../packages/python/agents"
+$env:PYTHONPATH="..\..\..\..\packages\python\security;..\..\..\..\packages\python\agents"
 ```
 
 ## Configure

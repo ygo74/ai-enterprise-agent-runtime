@@ -6,6 +6,55 @@
 
 **Status**: Draft
 
+**Output amendment (2026-10-04)**: Approved Python-first typed output pivot.
+This is a breaking output API change, not a change to incoming handler payloads.
+The user explicitly approved deferring implementation parity to a separate
+.NET/Java delivery; the language-neutral contract remains the design authority.
+Existing v1 behavior in those runtimes is not claimed to implement this amendment.
+
+### Typed output amendment requirements
+
+- **FR-047**: Python handlers MUST produce typed, provider-neutral results and
+  streaming events. Raw strings/dictionaries and native OpenAI Responses events
+  MUST NOT be accepted as alternate output contracts.
+- **FR-048**: Results and events MUST share typed text, notification, tool call,
+  tool result, exposable reasoning, usage, image and audio content semantics.
+  Internal tool observations MUST be distinct from calls delegated to clients.
+- **FR-049**: Media MUST preserve URI or encoded data, MIME/format and correlation
+  metadata. The runtime MUST NOT transcode or fetch media automatically.
+- **FR-050**: Developers MUST control selection of framework-native events without
+  knowledge of the invoking protocol. Unknown native events MAY be ignored or
+  explicitly converted to typed textual notifications in developer code.
+- **FR-051**: A valid pivot content unsupported by the selected protocol MUST be
+  filtered with an explicit correlated diagnostic that contains no sensitive
+  content. Associated lifecycle events MUST NOT become orphaned.
+- **FR-052**: Notifications MUST be available as text in streaming and excluded
+  from non-streaming business results with a logged filtering diagnostic.
+- **FR-053**: Invalid events and execution failures MUST remain explicit errors;
+  filtering MUST NOT hide malformed sequences or produce success after failure.
+  Streaming producers MUST close on termination, cancellation and errors.
+- **FR-054**: HTTP route registration MUST delegate result normalization, output
+  projection and SSE lifecycle/encoding to separate cohesive classes/modules.
+- **FR-055**: LangChain and Microsoft Agent Framework Python integrations MUST
+  ship as separate distributions with one-way dependencies on the core and their
+  respective framework. The core and base meta-package MUST NOT depend on them.
+- **FR-056**: The breaking output contract MUST be versioned separately from v1,
+  with migrated runnable examples, documented support matrices and independent
+  wheel installation tests. No native OpenAI passthrough compatibility is retained.
+
+### Typed output acceptance criteria
+
+- The same typed output is exercised against all three protocol surfaces and
+  both response modes; mappings or explicit filtering follow a tested matrix.
+- Tool/media identities and interleaved deltas remain correlated per invocation.
+- Notices never contaminate the non-streaming business result.
+- Installing the agents distribution alone imports no agent framework; each
+  integration wheel owns a disjoint namespace and includes typing markers.
+- Output formatting and SSE helper implementations no longer reside in
+  `fastapi_endpoints.py`; authentication, routing and input behavior stay covered.
+- Existing latency budgets are measured on the actual local processing path,
+  rather than inferred from a threshold file. .NET/Java parity is follow-up work.
+
 **Input**: User description: "les librairies dotnet/java/python doivent permettrent aux developpeurs d'agents d'exposer leur AI use case dans les deux formats les plus courants qui sont les endpoints openai (chat/completion ou responses) et les endpoints anthropic messages. Les developpeurs doivent pouvoir simplement ajouter ces endpoints en utilisant les methodes standards de configuration de ces framework. je ne veux pas modifier les templates des specifications plan et tasks avec cette demande mais je veux developper cette premiere fonctionnalite. Je veux donc l'ajouter sous forme de premiere specification qui consiste a l'exposition des endpoints compatibles openai et qui permettra aux developpeurs de recuperer les payload pour les traiter comme ils le souhaitent dans leur use case. Il faudrait aussi un format d'echange standard pour qu'ils puissent implementer son use case et fournir le resultat"
 
 **Additional input** (2026-08-16): User description: "dans les specs pour les endpoints compatibles openai/anthropic, j'ai oublie de demander celui qui permet d'exposer la liste des modeles. Par exemple, il faudrait pour openai un endpoint v1/models qui renvoit comme nom de modele le nom de l'agent et d'autres informations qui permettent de connaitre les capacites de l'agent. Pour anthropic je ne sais pas s'il y a une correspondance. Si oui il faudrait alors aussi un endpoint pour recuperer le nom de l'agent et ses capacites. Si les deux providers ont d'autres informations a retourner il faut aussi les mettre. Ces informations doivent etre configurables et comme il faudra aussi exposer le protocole a2a avec la card de l'agent je pense que ce serait bien d'utiliser la meme source pour l'agent card et ce qui sera retourne par le endpoint v1/models et celui d'anthropic"

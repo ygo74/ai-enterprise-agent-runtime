@@ -9,6 +9,10 @@ citations. Both model calls use Azure OpenAI deployments.
 The FastAPI app exposes OpenAI Responses (`/v1/responses`) and Chat Completions
 (`/v1/chat/completions`) through the runtime's public `HostingFactory` API. Both
 non-streaming and streaming requests use the same retrieval pipeline.
+The hosting boundary returns `AgentOutput` with `TextContent`, or a typed
+`ContentStart`/`TextDelta`/`ContentEnd`/`TerminalEvent` stream. Source filenames
+and the appended `Sources:` section are preserved in both modes. The internal
+LangChain model helper still produces text; no unused integration is installed.
 
 ## Prerequisites
 
@@ -26,10 +30,10 @@ pip install -r requirements.txt
 ```
 
 For development against the runtime source in this repository, set `PYTHONPATH`
-instead of installing a separate runtime build:
+after installing the framework requirements, to use the local runtime source:
 
 ```powershell
-$env:PYTHONPATH="../../../../packages/python/security;../../../../packages/python/agents"
+$env:PYTHONPATH="..\..\..\..\packages\python\security;..\..\..\..\packages\python\agents"
 ```
 
 ## Configure

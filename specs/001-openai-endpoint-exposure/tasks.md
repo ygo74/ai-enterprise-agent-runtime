@@ -585,3 +585,31 @@ before this amendment and are retained as completed history.
 2. Team B: .NET track tasks for active phase.
 3. Team C: Java track tasks for active phase.
 4. Shared QA: contract/parity tests and cross-language examples.
+
+## Typed output amendment (2026-10-04)
+
+User-approved Python-first implementation for FR-047..FR-056. Dependencies:
+contract/tests -> models -> projections -> HTTP wiring; framework integrations
+can proceed independently once the models stabilize.
+
+- [X] T189 Specify the versioned neutral result/event contract and support matrix.
+- [X] T190 Write failing typed output, lifecycle, media and diagnostic tests.
+- [X] T191 Implement typed result/content/event models and validation.
+- [X] T192 Extract non-streaming normalization and protocol projection classes.
+- [X] T193 Extract stream processing/state, protocol projectors and SSE encoding.
+- [X] T194 Wire FastAPI/HostingFactory and remove raw/native output contracts.
+- [X] T195 Implement independently installable LangChain integration and SDK tests.
+- [X] T196 Implement independently installable Agent Framework integration and SDK tests.
+- [X] T197 Migrate affected examples/docs and extend CI/build/publication.
+- [X] T198 Verify output matrices, cancellation, wheels and real latency budgets.
+- [ ] T199 Follow up with .NET/Java implementation and cross-language output parity.
+
+T199 is intentionally not claimed as delivered by this Python amendment.
+
+Validation: 932 Python contract/integration/performance/example tests passed;
+Ruff and whitespace checks passed. All six distributions built as wheels and
+sdists and passed Twine. Four isolated installed-wheel scenarios (core, each
+framework alone, both together) passed dependency, namespace, typing-marker,
+local-artifact provenance and public API checks. LangChain adapters were tested
+with SDK 1.6.3 and 1.6.6; Agent Framework with SDK 1.18.0. Actual OpenAI and
+Anthropic SDK schema/client tests cover usage and termination translation.

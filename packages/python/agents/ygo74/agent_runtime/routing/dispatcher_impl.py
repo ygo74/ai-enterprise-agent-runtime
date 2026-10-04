@@ -2,8 +2,8 @@ from collections.abc import Callable
 
 from ygo74.agent_runtime.domains.contracts.exchange_models import (
     StandardExchangeRequest,
-    StandardExchangeResponse,
 )
+from ygo74.agent_runtime.domains.handlers.handler_protocol import AgentInvocation
 from ygo74.agent_runtime.routing.dispatcher import Dispatcher, UseCaseHandler
 
 
@@ -12,6 +12,6 @@ class DispatcherImpl(Dispatcher):
         self,
         request: StandardExchangeRequest,
         resolver: Callable[[str], UseCaseHandler],
-    ) -> StandardExchangeResponse:
+    ) -> AgentInvocation:
         handler = resolver(request.route_key)
         return handler(request)

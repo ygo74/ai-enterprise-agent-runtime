@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import os
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import AsyncIterator, TypedDict, cast
+from typing import TypedDict, cast
 
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -101,7 +102,7 @@ class LocalKnowledgeBaseAgent:
             return answer
         return f"{answer}\n\nSources: {', '.join(sources)}"
 
-    async def stream(self, question: str) -> AsyncIterator[str]:
+    async def stream(self, question: str) -> AsyncGenerator[str, None]:
         documents = await self._retrieve(question)
         async for chunk in self._model.astream(self._messages(question, documents)):
             text = self._content_as_text(chunk.content)

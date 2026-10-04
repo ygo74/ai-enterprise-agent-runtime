@@ -8,6 +8,22 @@ This file is that written record. It lists capabilities that currently ship in
 one language only, why, and what the other implementations must provide to reach
 parity. An entry here is a debt with a name, not a waiver.
 
+## 2026-10-04 - typed agent output and framework integrations
+
+Accepted constraint: the user explicitly approved **Python-first** delivery.
+Python agents 1.0 replaces raw output/native Responses events with typed neutral
+results and streaming events, including text, notices, tools, reasoning, usage,
+images and audio without transcoding. Independent LangChain and Microsoft Agent
+Framework Python distributions adapt their SDK outputs without core dependencies
+on either framework.
+
+.NET and Java implementation is pending. It must preserve the versioned
+[typed output contract](../specs/001-openai-endpoint-exposure/contracts/typed-output-contract.md),
+including protocol-specific filtering diagnostics, notification exclusion in
+non-streaming results, content correlation, errors and stream cleanup.
+The historical v1 runtime/tests do not establish v2 parity. Task T199 in the
+active feature tracks this follow-up.
+
 ## 2026-09-27 — issue #6 conversation approval and MCP client APIs
 
 Accepted constraint: the new conversation and MCP client APIs are **Python-first**.

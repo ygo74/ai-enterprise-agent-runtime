@@ -11,6 +11,7 @@ from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
     StaticApiKeyUserResolver,
 )
 from ygo74.agent_runtime.domains.auth.auth_context import ResolvedUser
+from ygo74.agent_runtime.domains.contracts import AgentOutput, TextContent
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 from ygo74.agent_runtime.domains.endpoints.header_forwarding import (
     DEFAULT_CONVERSATION_HEADER,
@@ -21,9 +22,9 @@ from ygo74.agent_runtime.domains.endpoints.header_forwarding import (
 def _capturing_app(seen: list[dict[str, Any]], **options: Any) -> FastAPI:
     """An app whose handler records the uniform payload it was given."""
 
-    async def entrypoint(payload: dict[str, Any]) -> dict[str, Any]:
+    async def entrypoint(payload: dict[str, Any]) -> AgentOutput:
         seen.append(payload)
-        return {"request_id": payload["request_id"], "status": "success", "output": "ok"}
+        return AgentOutput((TextContent("ok"),))
 
     app = FastAPI()
     add_ai_endpoints(app, entrypoint, default_route_key="demo-route", **options)
@@ -50,7 +51,9 @@ def _invoke(
     """Post one request and return the metadata the handler received."""
 
     seen: list[dict[str, Any]] = []
-    response = asyncio.run(_post_json(_capturing_app(seen, **options), payload, headers=headers))
+    response = asyncio.run(
+        _post_json(_capturing_app(seen, **options), payload, headers=headers)
+    )
 
     assert response.status_code == 200
     return seen[0]["metadata"]
@@ -78,7 +81,10 @@ def test_conversation_id_in_the_body_wins_over_the_header() -> None:
 
 def test_a_body_cannot_forge_transport_headers() -> None:
     metadata = _invoke(
-        {**_message(), "metadata": {"headers": {DEFAULT_CONVERSATION_HEADER: "spoofed"}}},
+        {
+            **_message(),
+            "metadata": {"headers": {DEFAULT_CONVERSATION_HEADER: "spoofed"}},
+        },
         headers={"X-Conversation-Id": "conv-42"},
     )
 
@@ -94,7 +100,9 @@ def test_headers_outside_the_allowlist_are_not_forwarded() -> None:
 
 
 def test_credential_headers_are_never_forwarded() -> None:
-    resolver = StaticApiKeyUserResolver({"key-admin": ResolvedUser(user_id="svc-admin")})
+    resolver = StaticApiKeyUserResolver(
+        {"key-admin": ResolvedUser(user_id="svc-admin")}
+    )
     metadata = _invoke(
         _message(),
         headers={"x-api-key": "key-admin", "X-Conversation-Id": "conv-42"},
@@ -131,7 +139,9 @@ def test_forwarding_is_refused_for_a_standard_credential_header() -> None:
 
 
 def test_forwarding_is_refused_for_a_renamed_api_key_header() -> None:
-    resolver = StaticApiKeyUserResolver({"key-admin": ResolvedUser(user_id="svc-admin")})
+    resolver = StaticApiKeyUserResolver(
+        {"key-admin": ResolvedUser(user_id="svc-admin")}
+    )
 
     with pytest.raises(ValueError, match="x-house-key"):
         _capturing_app(
@@ -152,4 +162,7 @@ def test_forwarder_reads_a_header_whatever_its_case() -> None:
 def test_forwarder_tolerates_a_request_without_headers() -> None:
     forwarder = RequestHeaderForwarder.create(forwarded=("x-conversation-id",))
 
-    assert forwarder.apply({"tenant": "acme"}, None) == {"tenant": "acme", "headers": {}}
+    assert forwarder.apply({"tenant": "acme"}, None) == {
+        "tenant": "acme",
+        "headers": {},
+    }

@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import json
 import os
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import FastAPI
 from dotenv import load_dotenv
-
+from fastapi import FastAPI
+from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
+    JwtValidationConfig,
+    StaticSymmetricKeyResolver,
+)
+from ygo74.agent_runtime.domains.contracts.agent_output import AgentOutput, TextContent
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
     AgentCapabilitySet,
     AgentDescriptor,
@@ -14,30 +19,26 @@ from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
     Modality,
 )
 from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
-from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
+    DiscoveryConfiguration,
+)
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
-from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtValidationConfig, StaticSymmetricKeyResolver
 
 load_dotenv()
 
 app = FastAPI(title="OpenAI Responses + JWT Authentication Example")
 
 
-async def _entrypoint(payload: dict[str, Any]) -> dict[str, Any]:
+async def _entrypoint(payload: dict[str, Any]) -> AgentOutput:
     auth_context = payload.get("auth_context") or {}
     identity = auth_context.get("identity") or {}
 
-    return {
-        "request_id": payload["request_id"],
-        "status": "success",
-        "output": {
+    return AgentOutput((TextContent(json.dumps({
             "message": "JWT authenticated request accepted",
             "subject": identity.get("subject"),
             "claims": auth_context.get("claims", {}),
             "input": payload.get("input"),
-        },
-        "metadata": {"route_key": payload["route_key"]},
-    }
+    }, ensure_ascii=False)),))
 
 
 jwt_config = JwtValidationConfig(

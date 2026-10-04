@@ -12,6 +12,11 @@ from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
     JwtValidationConfig,
     StaticSymmetricKeyResolver,
 )
+from ygo74.agent_runtime.domains.contracts import AgentOutput, TextContent
+from ygo74.agent_runtime.domains.contracts.error_envelope import ErrorEnvelope
+from ygo74.agent_runtime.domains.contracts.exchange_models import (
+    StandardExchangeResponse,
+)
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 
 
@@ -80,7 +85,7 @@ def test_raising_authorization_error_returns_403_and_skips_business_logic() -> N
             )
 
         executed.append(payload["request_id"])
-        return {"request_id": payload["request_id"], "status": "success", "output": "secret"}
+        return AgentOutput((TextContent("secret"),))
 
     response = asyncio.run(
         _post_json(
@@ -100,12 +105,12 @@ def test_raising_authorization_error_returns_403_and_skips_business_logic() -> N
 
 
 def test_returning_authorization_error_envelope_returns_403() -> None:
-    async def entrypoint(payload: dict) -> dict:
-        return {
-            "request_id": payload["request_id"],
-            "status": "error",
-            "error": auth_error("forbidden", "access denied", "authorization"),
-        }
+    async def entrypoint(payload: dict) -> StandardExchangeResponse:
+        return StandardExchangeResponse(
+            payload["request_id"],
+            "error",
+            error=ErrorEnvelope("forbidden", "authorization", "access denied"),
+        )
 
     response = asyncio.run(
         _post_json(
@@ -143,7 +148,7 @@ def test_authorized_request_executes_business_logic() -> None:
         if "admin" not in (payload["auth_context"] or {}).get("roles", []):
             raise AuthorizationError()
 
-        return {"request_id": payload["request_id"], "status": "success", "output": "secret"}
+        return AgentOutput((TextContent("secret"),))
 
     response = asyncio.run(
         _post_json(
@@ -187,13 +192,15 @@ def test_handler_exception_still_maps_to_500() -> None:
         ("handler_execution", 500),
     ],
 )
-def test_error_category_maps_to_http_status(category: str, expected_status: int) -> None:
-    async def entrypoint(payload: dict) -> dict:
-        return {
-            "request_id": payload["request_id"],
-            "status": "error",
-            "error": {"code": "denied", "category": category, "message": "nope"},
-        }
+def test_error_category_maps_to_http_status(
+    category: str, expected_status: int
+) -> None:
+    async def entrypoint(payload: dict) -> StandardExchangeResponse:
+        return StandardExchangeResponse(
+            payload["request_id"],
+            "error",
+            error=ErrorEnvelope("denied", category, "nope"),
+        )
 
     response = asyncio.run(
         _post_json(

@@ -3,6 +3,9 @@
 This example shows how to protect `/v1/responses` and `/v1/chat/completions` with JWT validation in the Python runtime.
 
 Use Python 3.12 or newer.
+The handler returns `AgentOutput` containing JSON-formatted `TextContent` with
+the authenticated subject, claims and input. The typed output migration does
+not change JWT validation or trust caller-supplied identity fields.
 
 Implemented checks:
 - Bearer token extraction from `Authorization` header
@@ -30,7 +33,7 @@ pip install -r requirements.txt
 Set `PYTHONPATH` to use the package from this repository:
 
 ```powershell
-$env:PYTHONPATH="../../../../packages/python/security;../../../../packages/python/agents"
+$env:PYTHONPATH="..\..\..\..\packages\python\security;..\..\..\..\packages\python\agents"
 ```
 
 ## Configure

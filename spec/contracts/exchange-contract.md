@@ -36,9 +36,12 @@ optional `ErrorEnvelope`, and metadata. The supported status values are
 - `ResponseValidator` rejects a status outside those values and rejects a
   missing output or error for the corresponding status.
 
-The runtime does not prescribe the application's result object. Provider
-adapters render plain text or structured output according to their supported
-mapping behavior.
+For Python agents 1.0, successful output is a typed `AgentOutput`, either returned
+directly or carried by the typed exchange envelope. Its content is independent
+of the invoking protocol. Raw dictionaries/strings and native Responses output
+items are not alternate output contracts. .NET/Java retain historical v1.
+See the [typed output contract](../../specs/001-openai-endpoint-exposure/contracts/typed-output-contract.md)
+and [migration guide](../../docs/python/typed-outputs.md).
 
 ## Errors
 
@@ -61,11 +64,14 @@ remains the shared diagnostic value.
 
 ## Streaming events
 
-`StandardStreamingExchangeEvent` carries a request ID, monotonically assigned
-sequence, event type, optional delta, optional final output, and optional
-error. The event types used by the contract are `chunk`, `completion`, and
-`error`. Provider adapters translate these events into their provider-specific
-server-sent event envelopes.
+Python handlers produce typed `AgentStreamEvent` values. Content/event identities
+are neutral; response IDs, indices and SSE sequences are projection state.
+Valid unsupported content is filtered with explicit safe diagnostics. Notifications
+are visible in streaming and excluded from the non-streaming business result.
+Invalid events and execution failures are errors, not filtering decisions.
+
+The historical v1 `chunk`/`completion`/`error` contract remains the implemented
+contract in .NET/Java until the separately tracked parity work is delivered.
 
 ## Serialization and language shape
 

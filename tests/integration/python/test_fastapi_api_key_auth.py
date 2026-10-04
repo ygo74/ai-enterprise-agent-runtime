@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 import httpx
 import pytest
@@ -11,6 +12,7 @@ from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
 )
 from ygo74.agent_runtime.domains.auth.auth_context import ResolvedUser
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
+from ygo74.agent_runtime.domains.contracts import AgentOutput, TextContent
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 
 
@@ -29,12 +31,10 @@ def _resolver() -> StaticApiKeyUserResolver:
     )
 
 
-async def _entrypoint(payload: dict) -> dict:
-    return {
-        "request_id": payload["request_id"],
-        "status": "success",
-        "output": {"auth_context": payload["auth_context"]},
-    }
+async def _entrypoint(payload: dict) -> AgentOutput:
+    return AgentOutput(
+        (TextContent(json.dumps({"auth_context": payload["auth_context"]})),)
+    )
 
 
 def _auth_context_of(response: httpx.Response) -> dict | None:

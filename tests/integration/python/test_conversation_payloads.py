@@ -10,6 +10,7 @@ from typing import Any
 
 import pytest
 from ygo74.agent_runtime.domains.auth.agent_principal import PrincipalError
+from ygo74.agent_runtime.domains.contracts import AgentOutput, TextContent
 from ygo74.agent_runtime.domains.contracts.contract_errors import EmptyRequestError
 from ygo74.agent_runtime.domains.contracts.conversation import (
     AgentReply,
@@ -21,6 +22,7 @@ from ygo74.agent_runtime.domains.endpoints.conversation_payloads import (
     ConversationPayloadReader,
     latest_message,
 )
+from ygo74.agent_runtime.domains.mapping.response_mapper import map_response
 
 
 def payload(**overrides: Any) -> dict[str, Any]:
@@ -33,7 +35,11 @@ def payload(**overrides: Any) -> dict[str, Any]:
         "auth_context": {
             "authType": "jwt",
             "userId": "3f9a-user",
-            "identity": {"subject": "3f9a-user", "email": "ada@example.com", "name": "Ada"},
+            "identity": {
+                "subject": "3f9a-user",
+                "email": "ada@example.com",
+                "name": "Ada",
+            },
             "roles": ["agent-user"],
         },
     }
@@ -50,7 +56,9 @@ def test_it_reads_the_caller_the_conversation_and_the_message() -> None:
 
 
 def test_the_state_key_puts_the_authenticated_subject_first() -> None:
-    turn = ConversationPayloadReader().to_turn(payload(metadata={"conversation_id": "conv-9"}))
+    turn = ConversationPayloadReader().to_turn(
+        payload(metadata={"conversation_id": "conv-9"})
+    )
 
     assert turn.key == ("3f9a-user", "conv-9")
 
@@ -58,7 +66,10 @@ def test_the_state_key_puts_the_authenticated_subject_first() -> None:
 def test_the_conversation_is_read_from_the_stable_metadata_key() -> None:
     reader = ConversationPayloadReader()
 
-    assert reader.conversation_of(payload(metadata={"conversation_id": " conv-7 "})) == "conv-7"
+    assert (
+        reader.conversation_of(payload(metadata={"conversation_id": " conv-7 "}))
+        == "conv-7"
+    )
 
 
 def test_the_conversation_is_also_read_from_the_forwarded_header() -> None:
@@ -70,7 +81,12 @@ def test_the_conversation_is_also_read_from_the_forwarded_header() -> None:
 
 def test_the_stable_key_wins_over_the_header() -> None:
     reader = ConversationPayloadReader()
-    body = payload(metadata={"conversation_id": "conv-7", "headers": {"x-conversation-id": "conv-8"}})
+    body = payload(
+        metadata={
+            "conversation_id": "conv-7",
+            "headers": {"x-conversation-id": "conv-8"},
+        }
+    )
 
     assert reader.conversation_of(body) == "conv-7"
 
@@ -78,7 +94,9 @@ def test_the_stable_key_wins_over_the_header() -> None:
 def test_a_request_naming_no_conversation_continues_the_default() -> None:
     reader = ConversationPayloadReader(default_conversation="solo")
 
-    assert reader.conversation_of(payload(metadata={"conversation_id": "   "})) == "solo"
+    assert (
+        reader.conversation_of(payload(metadata={"conversation_id": "   "})) == "solo"
+    )
 
 
 def test_a_request_without_an_authenticated_caller_is_refused() -> None:
@@ -89,7 +107,11 @@ def test_a_request_without_an_authenticated_caller_is_refused() -> None:
 
 def test_an_agent_that_does_not_address_by_email_accepts_a_caller_without_one() -> None:
     body = payload(
-        auth_context={"userId": "wiki-user", "identity": {"subject": "wiki-user"}, "roles": []},
+        auth_context={
+            "userId": "wiki-user",
+            "identity": {"subject": "wiki-user"},
+            "roles": [],
+        },
     )
 
     turn = ConversationPayloadReader(require_email=False).to_turn(body)
@@ -130,11 +152,13 @@ def test_a_request_carrying_no_user_message_is_reported(value: object) -> None:
 def test_a_reply_is_rendered_against_the_request_it_answers() -> None:
     rendered = AgentReplyRenderer().to_payload(payload(), AgentReply("here you are"))
 
-    assert rendered["request_id"] == "req-1"
-    assert rendered["status"] == "success"
-    assert rendered["output"] == "here you are"
-    assert rendered["metadata"]["route_key"] == "mail-agent"
-    assert rendered["metadata"]["pending_confirmations"] == []
+    assert rendered.request_id == "req-1"
+    assert rendered.status == "success"
+    assert rendered.output == AgentOutput((TextContent("here you are"),))
+    assert rendered.metadata["route_key"] == "mail-agent"
+    assert rendered.metadata["pending_confirmations"] == []
+    wire = map_response("openai.responses", rendered)
+    assert wire["output_text"] == "here you are"
 
 
 def test_a_reply_reports_what_it_left_waiting() -> None:
@@ -143,7 +167,7 @@ def test_a_reply_reports_what_it_left_waiting() -> None:
     rendered = AgentReplyRenderer().to_payload(payload(), reply)
 
     assert reply.awaits_confirmation
-    assert rendered["metadata"]["pending_confirmations"] == ["cfm-abc123"]
+    assert rendered.metadata["pending_confirmations"] == ["cfm-abc123"]
 
 
 def test_a_reply_with_nothing_pending_does_not_claim_success_of_a_write() -> None:

@@ -1,5 +1,8 @@
-from ygo74.agent_runtime.domains.contracts.exchange_models import StandardExchangeRequest, StandardExchangeResponse
+from ygo74.agent_runtime.domains.contracts.agent_output import AgentOutput, TextContent
+from ygo74.agent_runtime.domains.contracts.exchange_models import (
+    StandardExchangeRequest,
+)
 
 
-def basic_handler(request: StandardExchangeRequest) -> StandardExchangeResponse:
-    return StandardExchangeResponse(request_id=request.request_id, status="success", output={"message": "ok"})
+def basic_handler(request: StandardExchangeRequest) -> AgentOutput:
+    return AgentOutput((TextContent("ok"),))

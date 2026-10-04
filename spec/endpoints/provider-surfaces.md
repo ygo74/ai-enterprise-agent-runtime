@@ -41,12 +41,11 @@ For Python FastAPI, the normalized handler payload carries:
 - safe metadata;
 - authentication context or `None`.
 
-An application handler can be synchronous or asynchronous. A dictionary with a
-`status` field is treated as an exchange-shaped result; a dictionary without
-one and other ordinary values are wrapped as successful output. The Python
-response mapper renders OpenAI Chat Completions, OpenAI Responses, and
-Anthropic Messages success envelopes. Handler-declared error envelopes retain
-the error details and are mapped to an HTTP error status.
+An application handler can be synchronous or asynchronous and returns typed
+`AgentOutput`, optionally in `StandardExchangeResponse`. Protocol projection
+classes render the response envelope outside the FastAPI transport. Raw strings,
+dictionaries and native OpenAI Responses result/event payloads are no longer
+accepted as output contracts. Incoming normalized mappings remain unchanged.
 
 The handler remains responsible for application behavior. The runtime does
 not invoke an LLM, select a provider, or infer a business operation from the
@@ -55,12 +54,18 @@ request.
 ## Streaming
 
 The Python adapter responds with `text/event-stream` when the request asks for
-streaming. A handler may return an async iterator of text/delta values, or a
-single synchronous/asynchronous result that is emitted as one content delta.
-The adapter emits provider-specific chunk and completion frames, then the
-`data: [DONE]` terminator. Anthropic streams additionally emit message and
-content-block lifecycle events. Failures after stream headers are sent are
-reported as a terminal stream error event rather than a new HTTP status.
+streaming. A handler returns typed events or a typed final result. Separate
+stream processing/projection classes own validation, correlation, protocol
+lifecycle and SSE serialization. Only Chat Completions uses `data: [DONE]`;
+Responses and Anthropic terminate through their native lifecycle events.
+Failures after stream headers are sent are terminal stream failures.
+
+Notifications are deliberate stream-visible text, not business answer content.
+Non-streaming projection excludes them with diagnostics. Images/audio retain
+their URI or encoded data and MIME/format without transcoding. A valid content
+unsupported by the selected protocol is filtered with a correlated log; the
+developer need not inspect the invoking protocol. Invalid event sequences still
+fail. See the tested [output contract and support matrix](../../specs/001-openai-endpoint-exposure/contracts/typed-output-contract.md).
 
 The .NET package includes an OpenAI stream mapper and stream termination
 building blocks; Java includes Anthropic stream mapping and termination types.

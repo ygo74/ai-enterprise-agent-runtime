@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ygo74-agent-runtime"
-version = "0.7.0"
+version = "1.0.0"
 description = "Cross-language AI enterprise agent runtime (meta-package)"
 requires-python = ">=3.12"
 
@@ -20,16 +20,16 @@ requires-python = ">=3.12"
 #   ygo74-agent-runtime-mcp        hosting an MCP server
 dependencies = [
   "ygo74-agent-runtime-security>=0.6.0",
-  "ygo74-agent-runtime-agents>=0.6.0",
+  "ygo74-agent-runtime-agents>=1.0.0,<2",
   "ygo74-agent-runtime-mcp>=0.6.0",
 ]
 
 [project.optional-dependencies]
 # Passed through, so `ygo74-agent-runtime[http]` keeps working as it did.
-http = ["ygo74-agent-runtime-agents[http]==0.1.0"]
-mcp = ["ygo74-agent-runtime-agents[mcp]==0.1.0"]
-configuration = ["ygo74-agent-runtime-agents[configuration]==0.1.0"]
-mcp-server = ["ygo74-agent-runtime-mcp[http]==0.1.0"]
+http = ["ygo74-agent-runtime-agents[http]>=1.0.0,<2"]
+mcp = ["ygo74-agent-runtime-agents[mcp]>=1.0.0,<2"]
+configuration = ["ygo74-agent-runtime-agents[configuration]>=1.0.0,<2"]
+mcp-server = ["ygo74-agent-runtime-mcp[http]>=0.6.0"]
 
 [tool.setuptools]
 # No package to find: this distribution is its dependency list.

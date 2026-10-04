@@ -11,17 +11,14 @@ from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
     JwtValidationConfig,
     StaticSymmetricKeyResolver,
 )
+from ygo74.agent_runtime.domains.contracts import AgentOutput, TextContent
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 
 
-async def _entrypoint(payload: dict) -> dict:
-    return {
-        "request_id": payload["request_id"],
-        "status": "success",
-        "output": {
-            "auth_context": payload["auth_context"],
-        },
-    }
+async def _entrypoint(payload: dict) -> AgentOutput:
+    return AgentOutput(
+        (TextContent(json.dumps({"auth_context": payload["auth_context"]})),)
+    )
 
 
 def _config() -> JwtValidationConfig:

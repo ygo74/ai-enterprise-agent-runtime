@@ -2,25 +2,36 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator, Awaitable
-from contextlib import asynccontextmanager
+from contextlib import aclosing, asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
-
 from rag_agent import LocalKnowledgeBaseAgent
 from ygo74.agent_runtime.domains.auth.authentication_policy import AuthenticationPolicy
+from ygo74.agent_runtime.domains.contracts.agent_output import AgentOutput, TextContent
+from ygo74.agent_runtime.domains.contracts.stream_events import (
+    AgentStreamEvent,
+    ContentEnd,
+    ContentStart,
+    TerminalEvent,
+    TextDelta,
+)
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
     AgentCapabilitySet,
     AgentDescriptor,
     AgentSkill,
     Modality,
 )
-from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
-from ygo74.agent_runtime.domains.endpoints.hosting_factory import EndpointSurface, HostingFactory
-
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
+    DiscoveryConfiguration,
+)
+from ygo74.agent_runtime.domains.endpoints.hosting_factory import (
+    EndpointSurface,
+    HostingFactory,
+)
 
 EXAMPLE_DIRECTORY = Path(__file__).resolve().parent
 KNOWLEDGE_DIRECTORY = EXAMPLE_DIRECTORY / "knowledge_base"
@@ -41,25 +52,24 @@ class RagApplication:
     def entrypoint(
         self,
         payload: dict[str, Any],
-    ) -> Awaitable[dict[str, Any]] | AsyncIterator[str]:
+    ) -> Awaitable[AgentOutput] | AsyncIterator[AgentStreamEvent]:
         if payload.get("stream"):
             return self._stream(payload)
         return self._invoke(payload)
 
-    async def _invoke(self, payload: dict[str, Any]) -> dict[str, Any]:
+    async def _invoke(self, payload: dict[str, Any]) -> AgentOutput:
         agent = self._get_agent()
         result = await agent.answer(self._extract_question(payload))
-        return {
-            "request_id": payload["request_id"],
-            "status": "success",
-            "output": {"role": "assistant", "content": result},
-            "metadata": {"route_key": payload["route_key"]},
-        }
+        return AgentOutput((TextContent(result),))
 
-    async def _stream(self, payload: dict[str, Any]) -> AsyncIterator[str]:
+    async def _stream(self, payload: dict[str, Any]) -> AsyncIterator[AgentStreamEvent]:
         agent = self._get_agent()
-        async for delta in agent.stream(self._extract_question(payload)):
-            yield delta
+        yield ContentStart("rag-answer", TextContent(""))
+        async with aclosing(agent.stream(self._extract_question(payload))) as stream:
+            async for delta in stream:
+                yield TextDelta("rag-answer", delta)
+        yield ContentEnd("rag-answer")
+        yield TerminalEvent()
 
     def _get_agent(self) -> LocalKnowledgeBaseAgent:
         if self._agent is None:

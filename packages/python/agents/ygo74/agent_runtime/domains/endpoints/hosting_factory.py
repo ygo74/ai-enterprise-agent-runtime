@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from enum import StrEnum
 from typing import Any, Self
 
@@ -15,8 +15,9 @@ from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import (
     _register_ai_endpoints,
 )
+from ygo74.agent_runtime.domains.streaming.stream_processor import AgentInvocation
 
-AgentEntrypoint = Callable[[dict[str, Any]], Awaitable[Any] | Any]
+AgentEntrypoint = Callable[[dict[str, Any]], AgentInvocation]
 
 
 class HostingConfigurationError(ValueError):
@@ -52,12 +53,16 @@ class HostingFactory:
         self._discovery: DiscoveryConfiguration | None = None
         self._registered = False
 
-    def add_agent(self, entrypoint: AgentEntrypoint, descriptor: AgentDescriptor) -> Self:
+    def add_agent(
+        self, entrypoint: AgentEntrypoint, descriptor: AgentDescriptor
+    ) -> Self:
         """Set the entrypoint and public descriptor for the hosted agent."""
 
         self._ensure_configurable()
         if self._entrypoint is not None or self._descriptor is not None:
-            raise HostingConfigurationError("an agent is already configured for this factory")
+            raise HostingConfigurationError(
+                "an agent is already configured for this factory"
+            )
 
         self._entrypoint = entrypoint
         self._descriptor = descriptor
@@ -68,11 +73,17 @@ class HostingFactory:
 
         self._ensure_configurable()
         if self._surfaces is not None:
-            raise HostingConfigurationError("AI endpoint surfaces are already configured for this factory")
+            raise HostingConfigurationError(
+                "AI endpoint surfaces are already configured for this factory"
+            )
         if any(not isinstance(surface, EndpointSurface) for surface in surfaces):
-            raise HostingConfigurationError("AI endpoint surfaces must be EndpointSurface values")
+            raise HostingConfigurationError(
+                "AI endpoint surfaces must be EndpointSurface values"
+            )
         if len(set(surfaces)) != len(surfaces):
-            raise HostingConfigurationError("AI endpoint surfaces must not contain duplicates")
+            raise HostingConfigurationError(
+                "AI endpoint surfaces must not contain duplicates"
+            )
 
         self._surfaces = frozenset(surfaces)
         return self
@@ -82,7 +93,9 @@ class HostingFactory:
 
         self._ensure_configurable()
         if self._authentication is not None:
-            raise HostingConfigurationError("security is already configured for this factory")
+            raise HostingConfigurationError(
+                "security is already configured for this factory"
+            )
 
         self._authentication = policy
         return self
@@ -92,7 +105,9 @@ class HostingFactory:
 
         self._ensure_configurable()
         if self._discovery is not None:
-            raise HostingConfigurationError("discovery is already configured for this factory")
+            raise HostingConfigurationError(
+                "discovery is already configured for this factory"
+            )
 
         self._discovery = configuration
         return self
@@ -101,7 +116,9 @@ class HostingFactory:
         """Validate all options and register the selected routes exactly once."""
 
         if self._registered:
-            raise HostingConfigurationError("this hosting factory has already registered its routes")
+            raise HostingConfigurationError(
+                "this hosting factory has already registered its routes"
+            )
 
         entrypoint = self._entrypoint
         descriptor = self._descriptor
@@ -109,9 +126,13 @@ class HostingFactory:
         authentication = self._authentication
 
         if entrypoint is None or descriptor is None:
-            raise HostingConfigurationError("configure an agent entrypoint and descriptor before registration")
+            raise HostingConfigurationError(
+                "configure an agent entrypoint and descriptor before registration"
+            )
         if not surfaces:
-            raise HostingConfigurationError("select at least one AI endpoint surface before registration")
+            raise HostingConfigurationError(
+                "select at least one AI endpoint surface before registration"
+            )
         if authentication is None:
             raise HostingConfigurationError(
                 "configure an AuthenticationPolicy before registration; use "
@@ -122,14 +143,23 @@ class HostingFactory:
                 raise HostingConfigurationError(
                     "discovery configuration must enable OpenAI models, Anthropic models, or both"
                 )
-            if self._discovery.require_authentication and not authentication.authenticators:
+            if (
+                self._discovery.require_authentication
+                and not authentication.authenticators
+            ):
                 raise HostingConfigurationError(
                     "protected discovery requires an AuthenticationPolicy with at least one authenticator"
                 )
         if not callable(getattr(self._app, "post", None)):
-            raise HostingConfigurationError("the configured app must support FastAPI POST route registration")
-        if self._discovery is not None and not callable(getattr(self._app, "get", None)):
-            raise HostingConfigurationError("the configured app must support FastAPI GET route registration for discovery")
+            raise HostingConfigurationError(
+                "the configured app must support FastAPI POST route registration"
+            )
+        if self._discovery is not None and not callable(
+            getattr(self._app, "get", None)
+        ):
+            raise HostingConfigurationError(
+                "the configured app must support FastAPI GET route registration for discovery"
+            )
 
         descriptor_registry = DescriptorRegistry((descriptor,))
         _register_ai_endpoints(
@@ -137,7 +167,8 @@ class HostingFactory:
             entrypoint,
             default_route_key=descriptor.route_key,
             enable_openai_responses=EndpointSurface.OPENAI_RESPONSES in surfaces,
-            enable_openai_chat_completions=EndpointSurface.OPENAI_CHAT_COMPLETIONS in surfaces,
+            enable_openai_chat_completions=EndpointSurface.OPENAI_CHAT_COMPLETIONS
+            in surfaces,
             enable_anthropic_messages=EndpointSurface.ANTHROPIC_MESSAGES in surfaces,
             require_bearer_token=authentication.requires_authentication,
             authenticators=authentication.authenticators,
@@ -150,4 +181,6 @@ class HostingFactory:
         """Refuse changes after route registration."""
 
         if self._registered:
-            raise HostingConfigurationError("hosting configuration cannot change after registration")
+            raise HostingConfigurationError(
+                "hosting configuration cannot change after registration"
+            )

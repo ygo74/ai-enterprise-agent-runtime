@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+import json
 import os
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import FastAPI
 from dotenv import load_dotenv
-
-from ygo74.agent_runtime.domains.discovery.agent_access_policy import RoleRequiredAccessPolicy
+from fastapi import FastAPI
+from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
+    JwksKeyResolver,
+    JwtValidationConfig,
+)
+from ygo74.agent_runtime.domains.contracts.agent_output import AgentOutput, TextContent
+from ygo74.agent_runtime.domains.discovery.agent_access_policy import (
+    RoleRequiredAccessPolicy,
+)
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
     AgentCapabilitySet,
     AgentDescriptor,
@@ -15,9 +22,10 @@ from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
     Modality,
 )
 from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
-from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
+    DiscoveryConfiguration,
+)
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
-from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwksKeyResolver, JwtValidationConfig
 
 load_dotenv()
 
@@ -31,15 +39,12 @@ required_role = os.getenv("REQUIRED_ROLE", "")
 authorization_policy = RoleRequiredAccessPolicy(required_role=required_role)
 
 
-async def _entrypoint(payload: dict[str, Any]) -> dict[str, Any]:
+async def _entrypoint(payload: dict[str, Any]) -> AgentOutput:
     auth_context = payload.get("auth_context") or {}
     identity = auth_context.get("identity") or {}
     roles = auth_context.get("roles", [])
 
-    return {
-        "request_id": payload["request_id"],
-        "status": "success",
-        "output": {
+    return AgentOutput((TextContent(json.dumps({
             "message": "OIDC-authenticated request accepted",
             "subject": identity.get("subject"),
             "name": identity.get("name"),
@@ -48,9 +53,7 @@ async def _entrypoint(payload: dict[str, Any]) -> dict[str, Any]:
             "groups": auth_context.get("groups", []),
             "claims": auth_context.get("claims", {}),
             "input": payload.get("input"),
-        },
-        "metadata": {"route_key": payload["route_key"]},
-    }
+    }, ensure_ascii=False)),))
 
 
 keycloak_base_url = os.getenv("KEYCLOAK_BASE_URL", "http://localhost:8080")

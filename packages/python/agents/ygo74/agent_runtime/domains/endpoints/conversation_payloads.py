@@ -22,10 +22,14 @@ from collections.abc import Mapping
 from typing import Any
 
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
+from ygo74.agent_runtime.domains.contracts.agent_output import AgentOutput, TextContent
 from ygo74.agent_runtime.domains.contracts.contract_errors import EmptyRequestError
 from ygo74.agent_runtime.domains.contracts.conversation import (
     AgentReply,
     ConversationTurn,
+)
+from ygo74.agent_runtime.domains.contracts.exchange_models import (
+    StandardExchangeResponse,
 )
 from ygo74.agent_runtime.domains.endpoints.header_forwarding import (
     CONVERSATION_KEY,
@@ -98,7 +102,10 @@ class ConversationPayloadReader:
         """
         metadata = _mapping(payload.get(_METADATA))
         headers = _mapping(metadata.get(HEADERS_KEY))
-        for source, key in ((metadata, CONVERSATION_KEY), (headers, DEFAULT_CONVERSATION_HEADER)):
+        for source, key in (
+            (metadata, CONVERSATION_KEY),
+            (headers, DEFAULT_CONVERSATION_HEADER),
+        ):
             value = source.get(key)
             if isinstance(value, str) and value.strip():
                 return value.strip()
@@ -108,17 +115,19 @@ class ConversationPayloadReader:
 class AgentReplyRenderer:
     """Renders a reply in the exchange shape the endpoint maps to a protocol."""
 
-    def to_payload(self, payload: Mapping[str, Any], reply: AgentReply) -> dict[str, Any]:
+    def to_payload(
+        self, payload: Mapping[str, Any], reply: AgentReply
+    ) -> StandardExchangeResponse:
         """Render one reply against the request it answers."""
-        return {
-            _REQUEST_ID: str(payload.get(_REQUEST_ID, "")),
-            "status": "success",
-            "output": reply.text,
-            _METADATA: {
+        return StandardExchangeResponse(
+            request_id=str(payload.get(_REQUEST_ID, "")),
+            status="success",
+            output=AgentOutput((TextContent(reply.text),)),
+            metadata={
                 _ROUTE_KEY: str(payload.get(_ROUTE_KEY, "")),
                 "pending_confirmations": list(reply.pending_confirmations),
             },
-        }
+        )
 
 
 def latest_message(value: object) -> str:
@@ -148,7 +157,11 @@ def _content_text(content: object) -> str:
         return content.strip()
     if not isinstance(content, list):
         return ""
-    parts = [str(part.get(_TEXT, "")).strip() for part in content if isinstance(part, Mapping) and part.get(_TEXT)]
+    parts = [
+        str(part.get(_TEXT, "")).strip()
+        for part in content
+        if isinstance(part, Mapping) and part.get(_TEXT)
+    ]
     return "\n".join(part for part in parts if part)
 
 

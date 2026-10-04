@@ -30,7 +30,7 @@ jobs:
 
       - name: Build Python distributions
         run: |
-          for project in security agents mcpserver meta; do
+          for project in security agents mcpserver meta langchain agentframework; do
             echo "::group::Build $project"
             python -m build --outdir "dist/$project" "packages/python/$project"
             echo "::endgroup::"
@@ -39,6 +39,36 @@ jobs:
       - name: Validate distributions with Twine
         run: |
           twine check dist/*/*
+
+      - name: Validate independent wheel installations
+        run: |
+          for project in core langchain agentframework; do
+            python -m venv ".package-check/$project"
+            runtime=".package-check/$project/bin/python"
+            "$runtime" -m pip install --find-links dist/security --find-links dist/agents dist/agents/*.whl
+            if [ "$project" != core ]; then
+              "$runtime" -m pip install --find-links dist/security --find-links dist/agents "dist/$project/"*.whl
+            fi
+            "$runtime" -m pip check
+            "$runtime" -I -c '
+          import importlib
+          import importlib.resources
+          import importlib.util
+          import sys
+          from ygo74.agent_runtime.domains.contracts.agent_output import AgentOutput
+          selected = sys.argv[1]
+          for integration, sdk in (("langchain", "langchain_core"), ("agentframework", "agent_framework")):
+              installed = importlib.util.find_spec(sdk) is not None
+              assert installed == (selected == integration), (selected, sdk, installed)
+              if selected == integration:
+                  module = importlib.import_module("ygo74.agent_runtime.integrations." + integration)
+                  assert importlib.resources.files(module).joinpath("py.typed").is_file()
+          ' "$project"
+          done
+          runtime=".package-check/agentframework/bin/python"
+          "$runtime" -m pip install --find-links dist/security --find-links dist/agents dist/langchain/*.whl
+          "$runtime" -m pip check
+          "$runtime" -I -c 'import ygo74.agent_runtime.integrations.langchain; import ygo74.agent_runtime.integrations.agentframework'
 
   test-python:
     name: Run Python Tests (Python ${{ matrix.python-version }})
@@ -60,11 +90,14 @@ jobs:
       - name: Install test dependencies and runtime packages
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ruff pytest pytest-asyncio anyio
+          python -m pip install ruff pytest pytest-asyncio anyio jsonschema
           python -m pip install -e packages/python/security
           python -m pip install -e "packages/python/agents[http,mcp]"
           python -m pip install -e "packages/python/mcpserver[http]"
           python -m pip install -e packages/python/meta
+          python -m pip install -e packages/python/langchain
+          python -m pip install -e packages/python/agentframework
+          python -m pip install -r docs/examples/python-langchain-fastapi/01-get-started/requirements.txt -r docs/examples/python-langchain-fastapi/04-human-in-the-loop/requirements.txt -r docs/examples/python-langchain-fastapi/05-rag/requirements.txt
 
       - name: Lint with Ruff
         run: |
@@ -72,7 +105,7 @@ jobs:
 
       - name: Execute pytest
         run: |
-          python -m pytest tests/ --junitxml=python-test-results.xml
+          python -m pytest tests/ docs/examples/python-agentframework-fastapi/test_agentframework_fastapi_example.py --junitxml=python-test-results.xml
 
       - name: Publish Python Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -109,5 +142,3 @@ jobs:
           check_name: ".NET Test Results"
           check_run: "false"
           comment_mode: "off"
-
-
