@@ -16,11 +16,18 @@ class ModelRouteResolver:
     read from a listing. Matching is exact: an identifier that does not correspond
     to a known agent resolves to ``None`` so the caller can fall back to its own
     default rather than being routed somewhere unintended.
-    """
 
+    Args:
+        registry (DescriptorRegistry): The registry that supplies the configured entries for this operation.
+    """
     registry: DescriptorRegistry
 
     def route_key_for(self, model: object) -> str | None:
+        """Resolve the configured route key that receives a request naming this public agent ID.
+
+        Args:
+            model (object): Provider-visible model or agent identifier.
+        """
         if not isinstance(model, str) or not model:
             return None
 

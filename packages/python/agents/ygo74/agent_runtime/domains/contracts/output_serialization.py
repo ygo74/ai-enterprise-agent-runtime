@@ -38,6 +38,8 @@ from .stream_events import (
 
 
 class OutputValueType(StrEnum):
+    """Names the supported JSON wire-value categories used by the output serializer.
+    """
     AGENT_OUTPUT = "agent_output"
     EXCHANGE_RESPONSE = "exchange_response"
     TEXT = "text"
@@ -65,6 +67,8 @@ class OutputSerializationError(ValueError):
 
 
 class _DataclassInstance(Protocol):
+    """Structural protocol identifying dataclass instances accepted by the output serializer.
+    """
     __dataclass_fields__: ClassVar[dict[str, Field[object]]]
 
 
@@ -83,7 +87,6 @@ class AgentOutputSerializer:
     The result is a neutral JSON snapshot, not a provider payload or accepted raw
     handler result. Non-union records retain their ordinary field representation.
     """
-
     _tags: ClassVar[dict[type[object], OutputValueType]] = {
         AgentOutput: OutputValueType.AGENT_OUTPUT,
         StandardExchangeResponse: OutputValueType.EXCHANGE_RESPONSE,
@@ -108,6 +111,11 @@ class AgentOutputSerializer:
     }
 
     def serialize(self, value: OutputSerializable) -> dict[str, JsonValue]:
+        """Serialize runtime data into the stable wire representation expected by callers.
+
+        Args:
+            value (OutputSerializable): The value being converted, checked, or serialized.
+        """
         try:
             return self._tag(value)
         except RecursionError as exc:
@@ -116,6 +124,11 @@ class AgentOutputSerializer:
             ) from exc
 
     def _tag(self, value: object) -> dict[str, JsonValue]:
+        """Attach the stable type tag used to serialize a supported dataclass value.
+
+        Args:
+            value (object): The value being converted, checked, or serialized.
+        """
         tag = self._tags.get(type(value))
         if tag is None:
             raise OutputSerializationError(
@@ -124,12 +137,22 @@ class AgentOutputSerializer:
         return {"type": tag.value, "value": self._record(value)}
 
     def _record(self, value: object) -> dict[str, JsonValue]:
+        """Serialize dataclass fields recursively while preserving the explicit tagged-record contract.
+
+        Args:
+            value (object): The value being converted, checked, or serialized.
+        """
         return {
             field.name: self._json(cast(object, getattr(value, field.name)))
             for field in fields(cast(_DataclassInstance, value))
         }
 
     def _json(self, value: object) -> JsonValue:
+        """Convert a value to JSON-compatible primitives and reject unsupported values.
+
+        Args:
+            value (object): The value being converted, checked, or serialized.
+        """
         if type(value) in self._tags:
             return self._tag(value)
         if isinstance(value, (TokenUsage, Termination, ErrorEnvelope, UrlCitation)):

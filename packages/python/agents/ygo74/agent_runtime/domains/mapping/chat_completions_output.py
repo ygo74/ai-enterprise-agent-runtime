@@ -15,9 +15,17 @@ from ygo74.agent_runtime.domains.mapping.output_projector import (
 
 
 class ChatCompletionsOutputProjector:
+    """Translate typed runtime values into the OpenAI Chat Completions output representation using protocol-specific mapping rules.
+    """
     def project(
         self, output: AgentOutput, context: ProjectionContext
     ) -> dict[str, JsonValue]:
+        """Project OpenAI Chat Completions output into the response shape required by the selected protocol.
+
+        Args:
+            output (AgentOutput): Typed agent output being validated, filtered, or projected.
+            context (ProjectionContext): The execution context carrying identity and correlated metadata.
+        """
         error = OutputWireValues.error(output, context)
         if error is not None:
             return error

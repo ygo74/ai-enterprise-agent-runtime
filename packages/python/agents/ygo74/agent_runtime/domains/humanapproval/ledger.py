@@ -22,16 +22,27 @@ class InMemoryConfirmationLedger(ConfirmationLedger):
     neither authorise an operation for another user nor authorise the same
     operation twice.
     """
-
     def __init__(self) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+        """
         self._outcomes: dict[tuple[str, ConfirmationKey], list[ConfirmationOutcome]] = {}
 
     def record(self, outcome: ConfirmationOutcome, user: UserContext) -> None:
-        """Store one answered confirmation for a user."""
+        """Store one answered confirmation for a user.
+
+        Args:
+            outcome (ConfirmationOutcome): Typed result of framework conversion or runtime execution.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
+        """
         self._outcomes.setdefault((user.user_id, outcome.request.key), []).append(outcome)
 
     def take(self, key: ConfirmationKey, user: UserContext) -> ConfirmationOutcome | None:
-        """Consume the answer recorded for an operation, if any."""
+        """Consume the answer recorded for an operation, if any.
+
+        Args:
+            key (ConfirmationKey): The identifier used to locate the corresponding registered value.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
+        """
         queue = self._outcomes.get((user.user_id, key))
         if not queue:
             return None
@@ -45,10 +56,17 @@ class InMemoryConfirmationLedger(ConfirmationLedger):
 
         Used when a turn is abandoned: an answer given under one premise must
         never authorise an operation during a later, unrelated turn.
+
+        Args:
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
         """
         for entry in [entry for entry in self._outcomes if entry[0] == user.user_id]:
             del self._outcomes[entry]
 
     def pending_count(self, user: UserContext) -> int:
-        """How many unconsumed answers a user still has, for assertions."""
+        """How many unconsumed answers a user still has, for assertions.
+
+        Args:
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
+        """
         return sum(len(queue) for (user_id, _), queue in self._outcomes.items() if user_id == user.user_id)

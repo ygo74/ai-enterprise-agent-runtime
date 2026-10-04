@@ -16,18 +16,26 @@ class Authenticator(Protocol):
     first authenticator that claims them, so adding a scheme means adding a
     class implementing this protocol.
     """
-
     @property
     def auth_type(self) -> str:
         """Stable identifier projected as ``authContext.authType``."""
         ...
 
     def can_authenticate(self, headers: Mapping[str, Any]) -> bool:
-        """Return True when the request carries a credential for this scheme."""
+        """Return True when the request carries a credential for this scheme.
+
+        Args:
+            headers (Mapping[str, Any]): The request headers used for protocol selection, forwarding, or authentication.
+        """
         ...
 
     def authenticate(self, headers: Mapping[str, Any]) -> AuthenticatedUserContext:
-        """Validate the credential and project a normalized user context."""
+        """Validate the credential and project a normalized user context.
+
+        Args:
+            headers (Mapping[str, Any]): The request headers used for protocol selection, forwarding, or authentication.
+        """
+        # Try authenticators in configured order and stop at the first scheme that recognizes the headers; enforce the required-authentication policy only after no identity is produced.
         ...
 
     def missing_credential_error(self) -> AuthenticationError:
@@ -41,12 +49,21 @@ class RequestAuthenticator:
 
     Authenticators are evaluated in order and the first one claiming the request
     wins, so ordering expresses precedence (JWT before API key by convention).
-    """
 
+    Args:
+        authenticators (list[Authenticator]): Ordered authentication schemes evaluated for incoming credentials.
+        require_authentication (bool): Whether absence of a recognized credential must reject the request.
+    """
     authenticators: list[Authenticator] = field(default_factory=list)
     require_authentication: bool = False
 
     def authenticate(self, headers: Mapping[str, Any] | None) -> AuthenticatedUserContext | None:
+        """Authenticate runtime data and return identity context or a structured failure.
+
+        Args:
+            headers (Mapping[str, Any] | None): The request headers used for protocol selection, forwarding, or authentication.
+        """
+        # Try authenticators in configured order and stop at the first scheme that recognizes the headers; enforce the required-authentication policy only after no identity is produced.
         if headers is None:
             if self.require_authentication:
                 raise self._missing_credential_error()
@@ -62,6 +79,8 @@ class RequestAuthenticator:
         return None
 
     def _missing_credential_error(self) -> AuthenticationError:
+        """Create the configured missing-credential response without exposing supplied credentials.
+        """
         if self.authenticators:
             return self.authenticators[0].missing_credential_error()
 

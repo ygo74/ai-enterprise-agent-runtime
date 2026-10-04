@@ -33,7 +33,6 @@ class ConversationTurn:
             once combined with the authenticated subject.
         message: What the person wrote, verbatim.
     """
-
     principal: AgentPrincipal
     conversation_id: str
     message: str
@@ -58,7 +57,6 @@ class AgentReply:
             performed, awaiting an explicit answer. Empty means nothing is
             waiting - never that everything succeeded.
     """
-
     text: str
     pending_confirmations: tuple[str, ...] = ()
 
@@ -71,7 +69,10 @@ class AgentReply:
 @runtime_checkable
 class ConversationEngine(Protocol):
     """Answers one turn of a conversation."""
-
     async def respond(self, turn: ConversationTurn) -> AgentReply:
-        """Return the agent's answer to a turn."""
+        """Return the agent's answer to a turn.
+
+        Args:
+            turn (ConversationTurn): Conversation turn whose request and response are added to session history.
+        """
         ...

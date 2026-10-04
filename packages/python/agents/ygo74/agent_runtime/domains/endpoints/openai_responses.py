@@ -23,8 +23,12 @@ _RUNTIME_FIELDS = frozenset(
 
 @dataclass(slots=True, frozen=True)
 class OpenAIResponsesCreateRequest:
-    """The Responses request's raw JSON input and unnormalized provider options."""
+    """The Responses request's raw JSON input and unnormalized provider options.
 
+    Args:
+        input (JsonValue): Normalized request input passed to the application handler.
+        provider_options (dict[str, JsonValue]): Provider-specific options retained for response projection.
+    """
     input: JsonValue
     provider_options: dict[str, JsonValue]
 
@@ -32,7 +36,11 @@ class OpenAIResponsesCreateRequest:
     def from_payload(
         cls, payload: Mapping[str, JsonValue]
     ) -> "OpenAIResponsesCreateRequest":
-        """Keep input intact and retain request options not represented by exchange fields."""
+        """Keep input intact and retain request options not represented by exchange fields.
+
+        Args:
+            payload (Mapping[str, JsonValue]): The payload being translated at the protocol boundary.
+        """
         supplied_options = payload.get("provider_options")
         if isinstance(supplied_options, dict):
             options = dict(supplied_options)
@@ -47,6 +55,8 @@ class OpenAIResponsesCreateRequest:
 
 
 class OpenAIResponsesStatus(StrEnum):
+    """Names OpenAI Responses lifecycle statuses used while constructing a response.
+    """
     COMPLETED = "completed"
     FAILED = "failed"
     IN_PROGRESS = "in_progress"

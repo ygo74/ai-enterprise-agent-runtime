@@ -38,12 +38,21 @@ class AgentFrameworkStreamAdapter:
 
     Native finish reasons can terminate intermediate tool rounds, so updates
     never emit a terminal event. The caller owns producer completion and policy.
-    """
 
+    Args:
+        expose_reasoning (bool): Whether reasoning content may be included in client-visible output.
+        tool_execution (ToolExecution): Whether tool calls are internal or delegated to the client.
+    """
     def __init__(
         self, *, expose_reasoning: bool = False,
         tool_execution: ToolExecution = ToolExecution.INTERNAL,
     ) -> None:
+        """Initialize the instance framework stream updates with supplied collaborators and configuration.
+
+        Args:
+            expose_reasoning (bool): Whether reasoning content may be included in client-visible output.
+            tool_execution (ToolExecution): Whether tool calls are internal or delegated to the client.
+        """
         self._mapper = _ContentMapper(expose_reasoning=expose_reasoning, tool_execution=tool_execution)
         self._active: dict[str, None] = {}
         self._counter = 0
@@ -51,6 +60,12 @@ class AgentFrameworkStreamAdapter:
         self._termination = Termination()
 
     def convert_update(self, update: AgentResponseUpdate) -> UpdateConversion:
+        """Translate one SDK update into correlated typed content and lifecycle events.
+
+        Args:
+            update (AgentResponseUpdate): Framework response update being translated into typed stream events.
+        """
+        # Route tool calls through their correlation path, exclude non-output roles, and translate text updates into one start followed by deltas for each active content identity.
         if self._closed:
             raise ValueError("cannot convert updates after finish")
         if not isinstance(update, AgentResponseUpdate):
@@ -107,6 +122,14 @@ class AgentFrameworkStreamAdapter:
         self, content: Content, identity: str,
         events: list[AgentStreamEvent], decisions: list[ConversionDecision],
     ) -> None:
+        """Emit a tool call start and argument fragments while keeping the framework call identity stable.
+
+        Args:
+            content (Content): The content item being interpreted or projected.
+            identity (str): Identifier required to correlate a route, content item, tool call, or user.
+            events (list[AgentStreamEvent]): The ordered typed events that describe the streamed response.
+            decisions (list[ConversionDecision]): Per-content conversion or filtering decisions returned to the caller.
+        """
         name = content.name or self._mapper.tool_names.get(content.call_id or "")
         if not content.call_id or not name or content.exception:
             reason = ConversionReason.TOOL_ERROR if content.exception else ConversionReason.MISSING_TOOL_IDENTITY
@@ -137,6 +160,11 @@ class AgentFrameworkStreamAdapter:
 
     @staticmethod
     def _json_arguments(value: object) -> str:
+        """Serialize framework tool arguments to JSON text and report non-JSON values as unsupported.
+
+        Args:
+            value (object): The value being converted, checked, or serialized.
+        """
         if value is None:
             return ""
         return json.dumps(_ContentMapper.json_value(value), separators=(",", ":"), allow_nan=False)
@@ -146,6 +174,9 @@ class AgentFrameworkStreamAdapter:
 
         Exceptions/cancellation are not success: propagate them or provide an
         explicit failed/incomplete Termination rather than calling this on abort.
+
+        Args:
+            termination (Termination | None): Terminal outcome used to complete the result or stream.
         """
         if self._closed:
             return ()

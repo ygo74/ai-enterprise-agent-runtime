@@ -28,13 +28,23 @@ from ygo74.agent_runtime.domains.streaming.stream_state import ContentState, Str
 
 
 class ResponsesStreamProjector:
+    """Translate typed runtime values into the framework stream events representation using protocol-specific mapping rules.
+    """
     done_marker = False
 
     def __init__(self) -> None:
+        """Initialize the instance framework stream events with supplied collaborators and configuration.
+        """
         self._sequence = 0
         self._output = ResponsesOutputProjector()
 
     def _event(self, name: str, payload: dict[str, JsonValue]) -> WireEvent:
+        """Build a typed OpenAI Responses event with its event name and JSON data.
+
+        Args:
+            name (str): The name used to locate or label the value.
+            payload (dict[str, JsonValue]): The payload being translated at the protocol boundary.
+        """
         event = WireEvent(
             {"type": name, "sequence_number": self._sequence, **payload}, name
         )
@@ -43,6 +53,12 @@ class ResponsesStreamProjector:
 
     def _response(self, state: StreamState, status: str) -> dict[str, JsonValue]:
         # Terminal status and items are owned by the runtime, never supplied by a provider.
+        """Build the response-level object shared by Responses lifecycle frames.
+
+        Args:
+            state (StreamState): The state that tracks the current operation lifecycle.
+            status (str): Success, incomplete, or failed outcome for the operation.
+        """
         entries = [entry for entry in state.contents.values() if entry.supported]
         contents = tuple(self._snapshot_content(entry) for entry in entries)
         response = self._output.project(
@@ -64,11 +80,21 @@ class ResponsesStreamProjector:
 
     @staticmethod
     def _wire_content(content: AgentContent) -> AgentContent:
+        """Map supported neutral content to a Responses output item type.
+
+        Args:
+            content (AgentContent): The content item being interpreted or projected.
+        """
         return (
             TextContent(content.text) if isinstance(content, Notification) else content
         )
 
     def _snapshot_content(self, entry: ContentState) -> AgentContent:
+        """Build the final snapshot for a completed content item.
+
+        Args:
+            entry (ContentState): State or registry entry currently being processed.
+        """
         content = self._wire_content(entry.content)
         if entry.closed:
             return content
@@ -79,6 +105,11 @@ class ResponsesStreamProjector:
         return content
 
     def start(self, state: StreamState) -> list[WireEvent]:
+        """Start framework stream events the current content or operation in the target protocol.
+
+        Args:
+            state (StreamState): The state that tracks the current operation lifecycle.
+        """
         response = self._response(state, "in_progress")
         return [
             self._event(name, {"response": response})
@@ -86,6 +117,16 @@ class ResponsesStreamProjector:
         ]
 
     def project(self, event: AgentStreamEvent, state: StreamState) -> list[WireEvent]:
+        """Convert typed lifecycle and delta events into OpenAI Responses frames.
+
+        Preserve each content identity, response item ID, and output index across
+        start, delta, and end frames. Other event families produce no frames here.
+
+        Args:
+            event (AgentStreamEvent): The typed event whose content or lifecycle effect is processed.
+            state (StreamState): The state that tracks the current operation lifecycle.
+        """
+        # The shared stream state has already validated sequencing; this projector now turns only supported lifecycle and delta events into correlated Responses frames.
         if not isinstance(
             event, (ContentStart, ContentEnd, TextDelta, ToolArgumentsDelta)
         ):
@@ -191,6 +232,13 @@ class ResponsesStreamProjector:
         item_id: str,
         coords: dict[str, JsonValue],
     ) -> list[WireEvent]:
+        """Emit the provider start frames for a supported text, reasoning, or tool item.
+
+        Args:
+            content (TextContent | ReasoningContent | ToolCallContent | object): The content item being interpreted or projected.
+            item_id (str): Stable provider item ID correlated across stream events.
+            coords (dict[str, JsonValue]): Provider correlation fields shared by all frames for the output item.
+        """
         if not isinstance(content, (TextContent, ReasoningContent, ToolCallContent)):
             return []
         item = self._output.item(content, item_id, in_progress=True)
@@ -235,6 +283,13 @@ class ResponsesStreamProjector:
     def _text_delta(
         self, content: object, coords: dict[str, JsonValue], text: str
     ) -> WireEvent:
+        """Build the protocol-specific delta event for text or reasoning content.
+
+        Args:
+            content (object): The content item being interpreted or projected.
+            coords (dict[str, JsonValue]): Provider correlation fields shared by all frames for the output item.
+            text (str): Text value or fragment carried by this content item.
+        """
         if isinstance(content, ReasoningContent):
             return self._event(
                 "response.reasoning_summary_text.delta",
@@ -246,6 +301,12 @@ class ResponsesStreamProjector:
         )
 
     def finish(self, termination: Termination, state: StreamState) -> list[WireEvent]:
+        """Finalize framework stream events the operation and emit its terminal representation.
+
+        Args:
+            termination (Termination): Terminal outcome used to complete the result or stream.
+            state (StreamState): The state that tracks the current operation lifecycle.
+        """
         status = {
             TerminationStatus.SUCCESS: "completed",
             TerminationStatus.INCOMPLETE: "incomplete",

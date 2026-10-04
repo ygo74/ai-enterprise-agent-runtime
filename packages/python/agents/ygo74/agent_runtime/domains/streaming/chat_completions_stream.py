@@ -22,9 +22,13 @@ from ygo74.agent_runtime.domains.streaming.stream_state import StreamState
 
 
 class ChatCompletionsStreamProjector:
+    """Translate typed runtime values into the framework stream events representation using protocol-specific mapping rules.
+    """
     done_marker = True
 
     def __init__(self) -> None:
+        """Initialize the instance framework stream events with supplied collaborators and configuration.
+        """
         self._tool_indices: dict[str, int] = {}
 
     def _chunk(
@@ -34,6 +38,14 @@ class ChatCompletionsStreamProjector:
         finish: str | None = None,
         usage: dict[str, JsonValue] | None = None,
     ) -> WireEvent:
+        """Build an OpenAI Chat Completions stream chunk with stable request and choice identifiers.
+
+        Args:
+            state (StreamState): The state that tracks the current operation lifecycle.
+            delta (dict[str, JsonValue]): New fragment appended to an already-started content item.
+            finish (str | None): Framework finish reason translated into the neutral termination status.
+            usage (dict[str, JsonValue] | None): Token counters supplied by the framework or provider.
+        """
         context = state.context
         payload: dict[str, JsonValue] = {
             "id": context.request_id,
@@ -47,9 +59,20 @@ class ChatCompletionsStreamProjector:
         return WireEvent(payload)
 
     def start(self, state: StreamState) -> list[WireEvent]:
+        """Start framework stream events the current content or operation in the target protocol.
+
+        Args:
+            state (StreamState): The state that tracks the current operation lifecycle.
+        """
         return [self._chunk(state, {"role": "assistant", "content": ""})]
 
     def project(self, event: AgentStreamEvent, state: StreamState) -> list[WireEvent]:
+        """Project framework stream events into the response shape required by the selected protocol.
+
+        Args:
+            event (AgentStreamEvent): The typed event whose content or lifecycle effect is processed.
+            state (StreamState): The state that tracks the current operation lifecycle.
+        """
         if isinstance(event, UsageEvent):
             return []
         if not isinstance(
@@ -104,6 +127,13 @@ class ChatCompletionsStreamProjector:
         return []
 
     def _tool_delta(self, state: StreamState, content_id: str, delta: str) -> WireEvent:
+        """Project a tool argument fragment into its indexed Chat Completions delta.
+
+        Args:
+            state (StreamState): The state that tracks the current operation lifecycle.
+            content_id (str): Stable identity correlating one content item across start, delta, and end events.
+            delta (str): New fragment appended to an already-started content item.
+        """
         return self._chunk(
             state,
             {
@@ -117,6 +147,12 @@ class ChatCompletionsStreamProjector:
         )
 
     def finish(self, termination: Termination, state: StreamState) -> list[WireEvent]:
+        """Finalize framework stream events the operation and emit its terminal representation.
+
+        Args:
+            termination (Termination): Terminal outcome used to complete the result or stream.
+            state (StreamState): The state that tracks the current operation lifecycle.
+        """
         if termination.status == TerminationStatus.FAILED:
             error = termination.error
             return [

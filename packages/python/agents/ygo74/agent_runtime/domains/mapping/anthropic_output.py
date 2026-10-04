@@ -12,9 +12,22 @@ from ygo74.agent_runtime.domains.mapping.output_projector import (
 
 
 class AnthropicOutputProjector:
+    """Translate typed runtime values into the Anthropic responses representation using protocol-specific mapping rules.
+    """
     def project(
         self, output: AgentOutput, context: ProjectionContext
     ) -> dict[str, JsonValue]:
+        """Project neutral output into an Anthropic Messages response.
+
+        Filter unsupported items first, then map text and client-facing tool calls
+        into content blocks. Derive the stop reason from termination and whether a
+        tool-use block remains.
+
+        Args:
+            output (AgentOutput): Typed agent output being validated, filtered, or projected.
+            context (ProjectionContext): The execution context carrying identity and correlated metadata.
+        """
+        # Filter unsupported content before projection, then map the surviving text and tool calls and derive the stop reason from whether a tool call remains.
         error = OutputWireValues.error(output, context)
         if error is not None:
             return error

@@ -92,9 +92,21 @@ logger = logging.getLogger(__name__)
 
 
 def _with_deprecation_warning(function: Callable[P, R], message: str) -> Callable[P, R]:
+    """Wrap a callable so use of a legacy endpoint API emits the configured deprecation warning.
+
+    Args:
+        function (Callable[P, R]): Wrapped callable receiving the original invocation arguments.
+        message (str): Framework message or protocol message being converted.
+    """
     @wraps(function)
     @deprecated(message)
     def deprecated_function(*args: P.args, **kwargs: P.kwargs) -> R:
+        """Forward a legacy call to the wrapped function after the deprecation decorator records the warning.
+
+        Args:
+            args (P.args): Positional arguments forwarded to the wrapped function.
+            kwargs (P.kwargs): Keyword arguments forwarded to the wrapped function.
+        """
         return function(*args, **kwargs)
 
     return deprecated_function
@@ -111,8 +123,13 @@ def build_request_authenticator(
 
     JWT is evaluated before API key, so an ``Authorization`` header always wins
     over an ``x-api-key`` header when both are present.
-    """
 
+    Args:
+        jwt_validation (JwtValidationConfig | None): JWT settings used to derive the protected resource descriptor.
+        api_key_resolver (ApiKeyUserResolver | None): Application callback that resolves an API key to an authenticated user.
+        require_authentication (bool): Whether absence of a recognized credential must reject the request.
+        authenticators (Sequence[Authenticator] | None): Ordered authentication schemes evaluated for incoming credentials.
+    """
     if authenticators is not None:
         return RequestAuthenticator(
             list(authenticators), require_authentication=require_authentication
@@ -159,8 +176,24 @@ def add_ai_endpoints(
     conversation without knowing the transport. Both are allowlists, and a
     header carrying a credential - including the one the authenticator chain
     reads - is refused here rather than forwarded.
-    """
 
+    Args:
+        app (Any): ASGI application receiving the configured agent routes.
+        agent_entrypoint (AgentEntrypoint): Registered callback that handles normalized requests for this agent.
+        default_route_key (str): Route used when an incoming request does not name a specific agent.
+        enable_openai_responses (bool): Whether the OpenAI Responses route is enabled.
+        enable_openai_chat_completions (bool): Whether the OpenAI Chat Completions route is enabled.
+        enable_anthropic_messages (bool): Whether the Anthropic Messages route is exposed.
+        jwt_validation (JwtValidationConfig | None): JWT settings used to derive the protected resource descriptor.
+        require_bearer_token (bool): Whether MCP requests must include a valid Bearer token.
+        api_key_resolver (ApiKeyUserResolver | None): Application callback that resolves an API key to an authenticated user.
+        authenticators (Sequence[Authenticator] | None): Ordered authentication schemes evaluated for incoming credentials.
+        descriptor_registry (DescriptorRegistry | None): Registry of validated agent descriptors indexed by public ID and route key.
+        discovery (DiscoveryConfiguration | None): Discovery settings and registry used to expose agent metadata.
+        authorization_policy (AgentAccessPolicy | None): Policy applied to the authenticated identity before exposing a protected resource.
+        forwarded_headers (Sequence[str] | None): Request headers safe to expose to application code.
+        conversation_header (str): Header carrying the client conversation identifier.
+    """
     if not _FASTAPI_AVAILABLE:
         raise RuntimeError(
             "fastapi is required to use add_ai_endpoints"
@@ -186,6 +219,13 @@ def add_ai_endpoints(
     async def _invoke(
         endpoint_type: str, body: dict[str, Any], request: Request
     ) -> Any:
+        """Authenticate, normalize, dispatch, and project one incoming endpoint invocation.
+
+        Args:
+            endpoint_type (str): Protocol surface through which the request arrived.
+            body (dict[str, Any]): Incoming HTTP request body or approval message handled by this operation.
+            request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+        """
         payload: dict[str, Any] = {
             "request_id": str(
                 (body.get("metadata") or {}).get("request_id")
@@ -355,6 +395,12 @@ def add_ai_endpoints(
 
         @app.post("/v1/responses")
         async def openai_responses(body: dict[str, Any], request: Request) -> Any:
+            """Handle one OpenAI Responses request and return its projected response or stream.
+
+            Args:
+                body (dict[str, Any]): Incoming HTTP request body or approval message handled by this operation.
+                request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+            """
             return await _invoke("openai.responses", body, request)
 
     if enable_openai_chat_completions:
@@ -363,12 +409,24 @@ def add_ai_endpoints(
         async def openai_chat_completions(
             body: dict[str, Any], request: Request
         ) -> Any:
+            """Handle one OpenAI Chat Completions request and return its projected response or stream.
+
+            Args:
+                body (dict[str, Any]): Incoming HTTP request body or approval message handled by this operation.
+                request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+            """
             return await _invoke("openai.chat_completions", body, request)
 
     if enable_anthropic_messages:
 
         @app.post("/v1/messages")
         async def anthropic_messages(body: dict[str, Any], request: Request) -> Any:
+            """Handle one Anthropic Messages request and return its projected response or stream.
+
+            Args:
+                body (dict[str, Any]): Incoming HTTP request body or approval message handled by this operation.
+                request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+            """
             return await _invoke("anthropic.messages", body, request)
 
     if descriptor_registry is not None and discovery is not None:
@@ -409,8 +467,14 @@ def add_discovery_endpoints(
     ``authenticator`` identifies the caller (best-effort unless
     ``discovery.require_authentication`` is set) so ``access_policy`` can filter
     listings and single-model retrieval the same way it gates invocation.
-    """
 
+    Args:
+        app (Any): ASGI application receiving the configured agent routes.
+        descriptor_registry (DescriptorRegistry): Registry of validated agent descriptors indexed by public ID and route key.
+        discovery (DiscoveryConfiguration): Discovery settings and registry used to expose agent metadata.
+        authenticator (RequestAuthenticator | None): Authentication implementation inspected for its scheme details.
+        access_policy (AgentAccessPolicy | None): Authorization policy applied to model discovery.
+    """
     if not _FASTAPI_AVAILABLE:
         raise RuntimeError(
             "fastapi is required to use add_discovery_endpoints"
@@ -425,11 +489,22 @@ def add_discovery_endpoints(
     prefix = discovery.route_prefix.rstrip("/")
 
     def _authenticate(request: Request) -> Any:
+        """Resolve the authenticated user context from request headers or return no identity when optional.
+
+        Args:
+            request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+        """
         if authenticator is None:
             return None
         return authenticator.authenticate(getattr(request, "headers", None))
 
     def _list(request: Request, dialect: ProviderDialect | None) -> Any:
+        """List visible models in the selected provider dialect and apply pagination.
+
+        Args:
+            request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+            dialect (ProviderDialect | None): Provider wire dialect selected for this discovery response.
+        """
         try:
             auth_context = _authenticate(request)
             return service.list_models(
@@ -444,6 +519,13 @@ def add_discovery_endpoints(
             raise _discovery_http_error(ex) from ex
 
     def _get(request: Request, model_id: str, dialect: ProviderDialect | None) -> Any:
+        """Resolve one visible model by identifier or return the provider-compatible not-found result.
+
+        Args:
+            request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+            model_id (str): Public model identifier used for discovery or request routing.
+            dialect (ProviderDialect | None): Provider wire dialect selected for this discovery response.
+        """
         try:
             auth_context = _authenticate(request)
             return service.get_model(
@@ -459,28 +541,61 @@ def add_discovery_endpoints(
 
     @app.get(f"{prefix}/v1/models")
     async def list_models(request: Request) -> Any:
+        """Handle the shared model-list route and select its provider dialect from request headers.
+
+        Args:
+            request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+        """
         return _list(request, None)
 
     @app.get(f"{prefix}/v1/models/{{model_id}}")
     async def get_model(model_id: str, request: Request) -> Any:
+        """Return model from HTTP route handlers, applying the documented lookup rules.
+
+        Args:
+            model_id (str): Public model identifier used for discovery or request routing.
+            request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+        """
         return _get(request, model_id, None)
 
     if discovery.enable_openai_models and discovery.enable_anthropic_models:
 
         @app.get(f"{prefix}/openai/v1/models")
         async def list_openai_models(request: Request) -> Any:
+            """List discoverable agents using the OpenAI models envelope.
+
+            Args:
+                request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+            """
             return _list(request, ProviderDialect.OPENAI)
 
         @app.get(f"{prefix}/openai/v1/models/{{model_id}}")
         async def get_openai_model(model_id: str, request: Request) -> Any:
+            """Return openai model from HTTP route handlers, applying the documented lookup rules.
+
+            Args:
+                model_id (str): Public model identifier used for discovery or request routing.
+                request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+            """
             return _get(request, model_id, ProviderDialect.OPENAI)
 
         @app.get(f"{prefix}/anthropic/v1/models")
         async def list_anthropic_models(request: Request) -> Any:
+            """List discoverable agents using the Anthropic model-list envelope.
+
+            Args:
+                request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+            """
             return _list(request, ProviderDialect.ANTHROPIC)
 
         @app.get(f"{prefix}/anthropic/v1/models/{{model_id}}")
         async def get_anthropic_model(model_id: str, request: Request) -> Any:
+            """Return anthropic model from HTTP route handlers, applying the documented lookup rules.
+
+            Args:
+                model_id (str): Public model identifier used for discovery or request routing.
+                request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+            """
             return _get(request, model_id, ProviderDialect.ANTHROPIC)
 
 
@@ -492,6 +607,11 @@ _DISCOVERY_STATUS_BY_CATEGORY: dict[str, int] = {
 
 
 def _discovery_http_error(error: DiscoveryError) -> Any:
+    """Translate a discovery domain error into its HTTP status and provider error body.
+
+    Args:
+        error (DiscoveryError): Structured error associated with a failed operation.
+    """
     status_code = _DISCOVERY_STATUS_BY_CATEGORY.get(str(error.category), 500)
     logger.info(
         "Discovery request failed code=%s category=%s", error.code, error.category
@@ -500,11 +620,21 @@ def _discovery_http_error(error: DiscoveryError) -> Any:
 
 
 def _discovery_auth_error(error: AuthenticationError) -> Any:
+    """Translate an authentication failure into the discovery endpoint error response.
+
+    Args:
+        error (AuthenticationError): Structured error associated with a failed operation.
+    """
     logger.warning("Discovery request authentication failed code=%s", error.code)
     return HTTPException(status_code=401, detail={"error": error.to_dict()})
 
 
 def _pagination_from_query(request: Any) -> PaginationRequest:
+    """Parse provider query parameters into a validated pagination request.
+
+    Args:
+        request (Any): The request received at this layer, with its protocol-specific or normalized fields.
+    """
     params = getattr(request, "query_params", None)
     getter = getattr(params, "get", None)
     if not callable(getter):
@@ -529,6 +659,11 @@ def _pagination_from_query(request: Any) -> PaginationRequest:
 
 
 def _optional_query(value: object) -> str | None:
+    """Read an optional query value and treat blank strings as absent.
+
+    Args:
+        value (object): The value being converted, checked, or serialized.
+    """
     return value if isinstance(value, str) and value else None
 
 
@@ -550,8 +685,25 @@ def add_ai_endpoint(
     forwarded_headers: Sequence[str] | None = None,
     conversation_header: str = DEFAULT_CONVERSATION_HEADER,
 ) -> None:
-    """Alias for add_ai_endpoints with a singular name for API ergonomics."""
+    """Alias for add_ai_endpoints with a singular name for API ergonomics.
 
+    Args:
+        app (Any): ASGI application receiving the configured agent routes.
+        agent_entrypoint (AgentEntrypoint): Registered callback that handles normalized requests for this agent.
+        default_route_key (str): Route used when an incoming request does not name a specific agent.
+        enable_openai_responses (bool): Whether the OpenAI Responses route is enabled.
+        enable_openai_chat_completions (bool): Whether the OpenAI Chat Completions route is enabled.
+        enable_anthropic_messages (bool): Whether the Anthropic Messages route is exposed.
+        jwt_validation (JwtValidationConfig | None): JWT settings used to derive the protected resource descriptor.
+        require_bearer_token (bool): Whether MCP requests must include a valid Bearer token.
+        api_key_resolver (ApiKeyUserResolver | None): Application callback that resolves an API key to an authenticated user.
+        authenticators (Sequence[Authenticator] | None): Ordered authentication schemes evaluated for incoming credentials.
+        descriptor_registry (DescriptorRegistry | None): Registry of validated agent descriptors indexed by public ID and route key.
+        discovery (DiscoveryConfiguration | None): Discovery settings and registry used to expose agent metadata.
+        authorization_policy (AgentAccessPolicy | None): Policy applied to the authenticated identity before exposing a protected resource.
+        forwarded_headers (Sequence[str] | None): Request headers safe to expose to application code.
+        conversation_header (str): Header carrying the client conversation identifier.
+    """
     add_ai_endpoints(
         app,
         agent_entrypoint,
@@ -577,8 +729,11 @@ def _credential_headers(authenticator: RequestAuthenticator) -> tuple[str, ...]:
     Collected from the chain rather than hard-coded, so renaming an API key
     header keeps it out of a handler's reach instead of silently making it
     forwardable.
-    """
 
+    Args:
+        authenticator (RequestAuthenticator): Authentication implementation inspected for its scheme details.
+    """
+    # Derive credential names from the actual authenticator chain so custom API-key headers are withheld from application header forwarding too.
     names: list[str] = []
     for scheme in authenticator.authenticators:
         name = getattr(scheme, "header_name", None) or getattr(
@@ -602,6 +757,19 @@ def _build_raw_payload(
     authorization_policy: AgentAccessPolicy | None = None,
     header_forwarder: RequestHeaderForwarder | None = None,
 ) -> dict[str, Any]:
+    """Build the normalized handler payload from protocol fields and authenticated request context.
+
+    Args:
+        endpoint_type (str): Protocol surface through which the request arrived.
+        body (dict[str, Any]): Incoming HTTP request body or approval message handled by this operation.
+        request (Any): The request received at this layer, with its protocol-specific or normalized fields.
+        default_route_key (str): Route used when an incoming request does not name a specific agent.
+        request_authenticator (RequestAuthenticator): Authenticator chain applied to the incoming request headers.
+        model_route_resolver (ModelRouteResolver | None): Resolver mapping public model IDs to configured route keys.
+        descriptor_registry (DescriptorRegistry | None): Registry of validated agent descriptors indexed by public ID and route key.
+        authorization_policy (AgentAccessPolicy | None): Policy applied to the authenticated identity before exposing a protected resource.
+        header_forwarder (RequestHeaderForwarder | None): Policy controlling which caller headers reach application code.
+    """
     forwarder = header_forwarder or RequestHeaderForwarder.create()
     metadata = forwarder.apply(
         body.get("metadata") or {}, getattr(request, "headers", None)
@@ -677,6 +845,11 @@ def _build_raw_payload(
 
 
 def _error_status_code(output: AgentOutput) -> int | None:
+    """Map a structured runtime error category to its HTTP response status.
+
+    Args:
+        output (AgentOutput): Typed agent output being validated, filtered, or projected.
+    """
     error = output.termination.error
     if output.termination.status != TerminationStatus.FAILED or error is None:
         return None

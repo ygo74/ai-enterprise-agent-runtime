@@ -39,6 +39,8 @@ from .conversion import ConversionDiagnostic, LangChainConversionError
 
 
 class BlockKind(StrEnum):
+    """Names LangChain content-block variants handled by the message and streaming adapters.
+    """
     TEXT = "text"
     REASONING = "reasoning"
     IMAGE = "image"
@@ -52,14 +54,28 @@ class BlockKind(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class ContentConversion:
+    """Carries a converted neutral content item together with its diagnostic and support status.
+
+    Args:
+        content (AgentContent | None): The content item being interpreted or projected.
+        diagnostic (ConversionDiagnostic | None): Conversion diagnostic explaining an unsupported or filtered value.
+        unsupported (bool): Whether conversion encountered content it could not safely represent.
+    """
     content: AgentContent | None = None
     diagnostic: ConversionDiagnostic | None = None
     unsupported: bool = False
 
 
 class JsonBoundary:
+    """Protocol for converting framework values into JSON-compatible values or reporting that the value cannot be represented.
+    """
     @classmethod
     def convert(cls, value: object) -> JsonValue:
+        """Convert framework message content into the typed representation consumed by the runtime.
+
+        Args:
+            value (object): The value being converted, checked, or serialized.
+        """
         if value is None or isinstance(value, (str, bool, int)):
             return value
         if isinstance(value, float) and isfinite(value):
@@ -74,6 +90,12 @@ class JsonBoundary:
 
 
 class LangChainContentAdapter:
+    """Adapt framework values to or from the shared typed output contract while preserving supported metadata.
+
+    Args:
+        expose_reasoning (bool): Whether reasoning content may be included in client-visible output.
+        tool_execution (ToolExecution): Whether tool calls are internal or delegated to the client.
+    """
     _audio_formats: ClassVar[dict[str, AudioFormat]] = {
         "audio/wav": AudioFormat.WAV,
         "audio/x-wav": AudioFormat.WAV,
@@ -85,6 +107,12 @@ class LangChainContentAdapter:
     }
 
     def __init__(self, *, expose_reasoning: bool, tool_execution: ToolExecution) -> None:
+        """Initialize the instance framework message content with supplied collaborators and configuration.
+
+        Args:
+            expose_reasoning (bool): Whether reasoning content may be included in client-visible output.
+            tool_execution (ToolExecution): Whether tool calls are internal or delegated to the client.
+        """
         self.expose_reasoning = expose_reasoning
         self.tool_execution = tool_execution
 
@@ -92,6 +120,13 @@ class LangChainContentAdapter:
         self, block: ContentBlock, *, fallback_id: str,
         tool_names: Mapping[str, str] | None = None,
     ) -> ContentConversion:
+        """Convert framework message content into the typed representation consumed by the runtime.
+
+        Args:
+            block (ContentBlock): Framework content block being converted into the neutral contract.
+            fallback_id (str): Deterministic content identity used when the SDK block has no ID.
+            tool_names (Mapping[str, str] | None): Lookup from tool-call IDs to names in the current SDK message.
+        """
         kind = block["type"]
         if kind == BlockKind.TEXT.value:
             return self._text(cast(TextContentBlock, block))
@@ -109,10 +144,22 @@ class LangChainContentAdapter:
 
     @staticmethod
     def unsupported(code: str, reason: str) -> ContentConversion:
+        """Create a conversion outcome that marks a native block unsupported and includes a safe diagnostic.
+
+        Args:
+            code (str): Stable error or diagnostic code returned to the caller.
+            reason (str): Reason code or message associated with this decision or failure.
+        """
         return ContentConversion(diagnostic=ConversionDiagnostic(code, reason), unsupported=True)
 
     @staticmethod
     def _text(block: TextContentBlock) -> ContentConversion:
+        """Convert a text block and supported citations while reporting unsupported annotations.
+
+        Args:
+            block (TextContentBlock): Framework content block being converted into the neutral contract.
+        """
+        # Preserve supported citations while keeping the text block; mark unsupported annotation variants so callers receive a diagnostic instead of silent data loss.
         annotations: list[UrlCitation] = []
         unsupported = False
         for annotation in block.get("annotations", []):
@@ -131,6 +178,11 @@ class LangChainContentAdapter:
         return ContentConversion(TextContent(block["text"], tuple(annotations)), diagnostic, unsupported)
 
     def _reasoning(self, block: ReasoningContentBlock) -> ContentConversion:
+        """Convert a reasoning block and apply the configured reasoning-exposure policy.
+
+        Args:
+            block (ReasoningContentBlock): Framework content block being converted into the neutral contract.
+        """
         if not self.expose_reasoning:
             return ContentConversion(diagnostic=ConversionDiagnostic(
                 "reasoning_not_selected", "Reasoning requires explicit developer selection.",
@@ -140,6 +192,11 @@ class LangChainContentAdapter:
         return ContentConversion(ReasoningContent(block["reasoning"], exposable=True))
 
     def _tool_call(self, block: ToolCall | ServerToolCall) -> ContentConversion:
+        """Convert a LangChain tool call while preserving its call ID and JSON arguments.
+
+        Args:
+            block (ToolCall | ServerToolCall): Framework content block being converted into the neutral contract.
+        """
         call_id = block["id"]
         if not call_id or not call_id.strip():
             return self.unsupported("missing_tool_call_id", "A tool call must have an SDK correlation identity.")
@@ -150,6 +207,12 @@ class LangChainContentAdapter:
 
     @classmethod
     def tool_names(cls, blocks: Sequence[ContentBlock]) -> dict[str, str]:
+        """Index tool call IDs and names so related result blocks remain correlated.
+
+        Args:
+            blocks (Sequence[ContentBlock]): Ordered framework content blocks being converted.
+        """
+        # Build the call-ID-to-name index before converting blocks so later tool results can retain the name associated with their invocation.
         names: dict[str, str] = {}
         for block in blocks:
             if block["type"] not in (BlockKind.TOOL_CALL.value, BlockKind.SERVER_TOOL_CALL.value):
@@ -161,6 +224,13 @@ class LangChainContentAdapter:
 
     @staticmethod
     def register_tool_name(names: dict[str, str], call_id: str, name: str) -> None:
+        """Register tool name after checking identity and uniqueness constraints.
+
+        Args:
+            names (dict[str, str]): Tool call IDs and names used to correlate related blocks.
+            call_id (str): Stable tool invocation identity used to correlate its result.
+            name (str): The name used to locate or label the value.
+        """
         previous = names.setdefault(call_id, name)
         if previous != name:
             raise LangChainConversionError("SDK tool name changed for a correlated call identity.")
@@ -168,6 +238,12 @@ class LangChainContentAdapter:
     def _server_tool_result(
         self, block: ServerToolResult, tool_names: Mapping[str, str] | None,
     ) -> ContentConversion:
+        """Convert a server tool result as an internal observation, not a client-delegated call.
+
+        Args:
+            block (ServerToolResult): Framework content block being converted into the neutral contract.
+            tool_names (Mapping[str, str] | None): Lookup from tool-call IDs to names in the current SDK message.
+        """
         call_id = block["tool_call_id"]
         if not call_id.strip():
             return self.unsupported("missing_tool_call_id", "A tool result must have an SDK correlation identity.")
@@ -184,12 +260,23 @@ class LangChainContentAdapter:
         return ContentConversion(content)
 
     def _image(self, block: ImageContentBlock) -> ContentConversion:
+        """Convert an image block while preserving its URI or encoded source and MIME type.
+
+        Args:
+            block (ImageContentBlock): Framework content block being converted into the neutral contract.
+        """
         source = self._source(block)
         if source is None:
             return self.unsupported("unsupported_media_source", "Image output requires a URI or base64 and explicit MIME.")
         return ContentConversion(ImageContent(source))
 
     def _audio(self, block: AudioContentBlock, fallback_id: str) -> ContentConversion:
+        """Convert an audio block while preserving source, format, and available transcript metadata.
+
+        Args:
+            block (AudioContentBlock): Framework content block being converted into the neutral contract.
+            fallback_id (str): Deterministic content identity used when the SDK block has no ID.
+        """
         source = self._source(block)
         audio_format = self._audio_formats.get(block.get("mime_type", ""))
         if source is None or audio_format is None:
@@ -198,6 +285,11 @@ class LangChainContentAdapter:
 
     @staticmethod
     def _source(block: ImageContentBlock | AudioContentBlock) -> MediaSource | None:
+        """Read a media source from a framework block without retrieving or transcoding it.
+
+        Args:
+            block (ImageContentBlock | AudioContentBlock): Framework content block being converted into the neutral contract.
+        """
         mime = block.get("mime_type")
         if not mime:
             return None

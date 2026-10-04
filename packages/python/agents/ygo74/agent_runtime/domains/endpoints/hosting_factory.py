@@ -26,7 +26,6 @@ class HostingConfigurationError(ValueError):
 
 class EndpointSurface(StrEnum):
     """Invocation endpoint surfaces currently supported by the Python runtime."""
-
     OPENAI_RESPONSES = "openai.responses"
     OPENAI_CHAT_COMPLETIONS = "openai.chat_completions"
     ANTHROPIC_MESSAGES = "anthropic.messages"
@@ -42,9 +41,16 @@ class HostingFactory:
     Routes are not added until :meth:`register` validates the full configuration.
     Authentication is mandatory and must be chosen explicitly; use
     :meth:`AuthenticationPolicy.anonymous` when open access is intentional.
-    """
 
+    Args:
+        app (Any): ASGI application receiving the configured agent routes.
+    """
     def __init__(self, app: Any) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            app (Any): ASGI application receiving the configured agent routes.
+        """
         self._app = app
         self._entrypoint: AgentEntrypoint | None = None
         self._descriptor: AgentDescriptor | None = None
@@ -56,8 +62,12 @@ class HostingFactory:
     def add_agent(
         self, entrypoint: AgentEntrypoint, descriptor: AgentDescriptor
     ) -> Self:
-        """Set the entrypoint and public descriptor for the hosted agent."""
+        """Set the entrypoint and public descriptor for the hosted agent.
 
+        Args:
+            entrypoint (AgentEntrypoint): Application callback that handles the normalized request.
+            descriptor (AgentDescriptor): The canonical agent descriptor whose identity and capabilities are used.
+        """
         self._ensure_configurable()
         if self._entrypoint is not None or self._descriptor is not None:
             raise HostingConfigurationError(
@@ -69,8 +79,11 @@ class HostingFactory:
         return self
 
     def add_ai_endpoints(self, *surfaces: EndpointSurface) -> Self:
-        """Select which supported invocation routes the app will expose."""
+        """Select which supported invocation routes the app will expose.
 
+        Args:
+            surfaces (EndpointSurface): Enabled endpoint and discovery surfaces used to validate capabilities.
+        """
         self._ensure_configurable()
         if self._surfaces is not None:
             raise HostingConfigurationError(
@@ -89,8 +102,11 @@ class HostingFactory:
         return self
 
     def add_security(self, policy: AuthenticationPolicy) -> Self:
-        """Set the explicit invocation authentication policy."""
+        """Set the explicit invocation authentication policy.
 
+        Args:
+            policy (AuthenticationPolicy): Configured authentication or authorization policy.
+        """
         self._ensure_configurable()
         if self._authentication is not None:
             raise HostingConfigurationError(
@@ -101,8 +117,11 @@ class HostingFactory:
         return self
 
     def add_discovery(self, configuration: DiscoveryConfiguration) -> Self:
-        """Enable provider model discovery with its own authentication setting."""
+        """Enable provider model discovery with its own authentication setting.
 
+        Args:
+            configuration (DiscoveryConfiguration): Validated endpoint or discovery settings controlling this operation.
+        """
         self._ensure_configurable()
         if self._discovery is not None:
             raise HostingConfigurationError(
@@ -114,7 +133,6 @@ class HostingFactory:
 
     def register(self) -> None:
         """Validate all options and register the selected routes exactly once."""
-
         if self._registered:
             raise HostingConfigurationError(
                 "this hosting factory has already registered its routes"
@@ -179,7 +197,6 @@ class HostingFactory:
 
     def _ensure_configurable(self) -> None:
         """Refuse changes after route registration."""
-
         if self._registered:
             raise HostingConfigurationError(
                 "hosting configuration cannot change after registration"

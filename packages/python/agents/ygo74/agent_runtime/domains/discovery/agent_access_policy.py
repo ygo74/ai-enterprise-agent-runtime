@@ -27,13 +27,17 @@ from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentDescript
 @runtime_checkable
 class AgentAccessPolicy(Protocol):
     """Contract for the single authorization rule reused across every agent-scoped route."""
-
     def is_authorized(
         self,
         descriptor: AgentDescriptor,
         auth_context: AuthenticatedUserContext | None,
     ) -> bool:
-        """Return ``True`` when ``auth_context`` may see and invoke ``descriptor``."""
+        """Return ``True`` when ``auth_context`` may see and invoke ``descriptor``.
+
+        Args:
+            descriptor (AgentDescriptor): The canonical agent descriptor whose identity and capabilities are used.
+            auth_context (AuthenticatedUserContext | None): Authenticated identity context passed from the security layer.
+        """
         ...
 
 
@@ -43,8 +47,10 @@ class RoleRequiredAccessPolicy(AgentAccessPolicy):
 
     Applies uniformly to every descriptor. Leave ``required_role`` empty to
     allow any caller, including anonymous ones.
-    """
 
+    Args:
+        required_role (str): Role a caller must possess to discover the protected agent.
+    """
     required_role: str = ""
 
     def is_authorized(
@@ -52,6 +58,12 @@ class RoleRequiredAccessPolicy(AgentAccessPolicy):
         descriptor: AgentDescriptor,
         auth_context: AuthenticatedUserContext | None,
     ) -> bool:
+        """Determine whether access is authorized runtime data under the configured identity and policy.
+
+        Args:
+            descriptor (AgentDescriptor): The canonical agent descriptor whose identity and capabilities are used.
+            auth_context (AuthenticatedUserContext | None): Authenticated identity context passed from the security layer.
+        """
         if not self.required_role:
             return True
         if auth_context is None:

@@ -42,6 +42,19 @@ from ygo74.agent_runtime.domains.mapping.output_projector import (
 
 @dataclass(slots=True)
 class ContentState:
+    """Track stream lifecycle state across the operation lifecycle and enforce valid state transitions.
+
+    Args:
+        content (AgentContent): The content item being interpreted or projected.
+        supported (bool): Whether the provider or framework can represent this value.
+        index (int): Position used to correlate an item within its message or stream.
+        closed (bool): Whether the content or run has already emitted its terminal event.
+        text (list[str]): Text value or fragment carried by this content item.
+        arguments (list[str]): JSON arguments associated with a tool call.
+        audio (list[bytes]): Audio fragments accumulated for one correlated audio item.
+        transcript (list[str]): Audio transcript fragments accumulated for this content item.
+        next_audio_sequence (int): Next sequence number to assign to an audio fragment.
+    """
     content: AgentContent
     supported: bool
     index: int
@@ -54,7 +67,17 @@ class ContentState:
 
 
 class StreamState:
+    """Track stream lifecycle state across the operation lifecycle and enforce valid state transitions.
+
+    Args:
+        context (ProjectionContext): The execution context carrying identity and correlated metadata.
+    """
     def __init__(self, context: ProjectionContext) -> None:
+        """Initialize the instance stream lifecycle state with supplied collaborators and configuration.
+
+        Args:
+            context (ProjectionContext): The execution context carrying identity and correlated metadata.
+        """
         self.context = context
         self.contents: dict[str, ContentState] = {}
         self.usage: TokenUsage | None = None
@@ -67,6 +90,11 @@ class StreamState:
         self._has_projected_audio = False
 
     def apply(self, event: AgentStreamEvent) -> None:
+        """Apply stream lifecycle state to current state while enforcing event sequence invariants.
+
+        Args:
+            event (AgentStreamEvent): The typed event whose content or lifecycle effect is processed.
+        """
         if self.termination is not None:
             raise OutputValidationError("No events may follow terminal")
         if isinstance(event, ContentStart):
@@ -108,6 +136,16 @@ class StreamState:
         self._update(entry, event)
 
     def _start(self, event: ContentStart) -> None:
+        """Validate a content start and initialize state for its later deltas.
+
+        Reject duplicate content, tool-call, or audio identities before storing
+        the entry. Unsupported content stays tracked for correlation, while only
+        supported content consumes an output index and accumulates projected data.
+
+        Args:
+            event (ContentStart): The typed event whose content or lifecycle effect is processed.
+        """
+        # Validate identity and content before allocating a stable output index; filtered content remains tracked for correlation but does not consume a provider index.
         self._normalizer.identity(event.content_id)
         self._normalizer.validate_content(event.content)
         if event.content_id in self.contents:
@@ -150,6 +188,12 @@ class StreamState:
         | AudioTranscriptDelta
         | ContentEnd,
     ) -> None:
+        """Apply a content delta to its correlated state and reject updates after closure or before start.
+
+        Args:
+            entry (ContentState): State or registry entry currently being processed.
+            event (TextDelta | ToolArgumentsDelta | AudioDelta | AudioTranscriptDelta | ContentEnd): The typed event whose content or lifecycle effect is processed.
+        """
         content = entry.content
         if isinstance(event, TextDelta):
             self._normalizer.text(event.text)
@@ -196,6 +240,16 @@ class StreamState:
         self._finish(entry)
 
     def _finish(self, entry: ContentState) -> None:
+        """Reassemble a content item from its deltas and mark it closed.
+
+        Parse and validate completed tool arguments, join text fragments, or rebuild
+        encoded audio and its transcript. Citation bounds are checked once all text
+        fragments are available.
+
+        Args:
+            entry (ContentState): State or registry entry currently being processed.
+        """
+        # Rebuild fragmented tool, text, and encoded audio values before closing the entry, then validate data that could only be checked after all deltas arrived.
         content = entry.content
         if isinstance(content, ToolCallContent) and entry.arguments:
             try:
@@ -235,6 +289,8 @@ class StreamState:
         entry.closed = True
 
     def output(self) -> AgentOutput:
+        """Return the current neutral output stream lifecycle state from accumulated and validated stream state.
+        """
         return AgentOutput(
             tuple(
                 entry.content

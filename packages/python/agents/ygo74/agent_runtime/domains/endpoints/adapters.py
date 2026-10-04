@@ -9,6 +9,12 @@ _SUPPORTED = {"openai.chat_completions", "openai.responses", "anthropic.messages
 
 
 def normalize_request(endpoint_type: str, payload: dict) -> StandardExchangeRequest:
+    """Convert a protocol payload into the standard exchange request while preserving safe request metadata.
+
+    Args:
+        endpoint_type (str): Protocol surface through which the request arrived.
+        payload (dict): The input or output payload being translated at the protocol boundary.
+    """
     if endpoint_type not in _SUPPORTED:
         raise ValueError(f"Unsupported endpoint type: {endpoint_type}")
 

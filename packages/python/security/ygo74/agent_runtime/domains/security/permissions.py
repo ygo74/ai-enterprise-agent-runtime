@@ -25,22 +25,34 @@ class UnknownPermissionError(SecurityError):
     Configuration names permissions as text. Resolving that text against the
     declared permissions is what keeps a typo from silently granting nothing -
     or from being read as a permission that does not exist.
-    """
 
+    Args:
+        value (str): The value being converted, checked, or serialized.
+    """
     def __init__(self, value: str) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            value (str): The value being converted, checked, or serialized.
+        """
         super().__init__(f"permission {value!r} is not declared by any domain")
         self.value = value
 
 
 @dataclass(frozen=True, slots=True, order=True)
 class Permission:
-    """One capability, namespaced by the domain that declares it."""
+    """One capability, namespaced by the domain that declares it.
 
+    Args:
+        domain (str): Permission or origin domain used in its serialized identity.
+        action (str): Permission action being evaluated.
+    """
     domain: str
     action: str
 
     def __post_init__(self) -> None:
         """Reject a permission that could not be written as ``domain:action``."""
+        # Check both permission components so the serialized domain:action key remains unambiguous and nonempty.
         for part in (self.domain, self.action):
             if not part or _SEPARATOR in part:
                 raise ValueError(f"invalid permission part {part!r}")
@@ -61,13 +73,24 @@ class PermissionRegistry:
     The registry is built explicitly from the declarations of the domains an
     application composes, rather than populated by imports. Nothing is registered
     as a side effect, so a test builds exactly the registry it means to test.
-    """
 
+    Args:
+        permissions (Iterable[Permission]): Permissions granted to the user or required by the operation.
+    """
     def __init__(self, permissions: Iterable[Permission]) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            permissions (Iterable[Permission]): Permissions granted to the user or required by the operation.
+        """
         self._by_value = {permission.value: permission for permission in permissions}
 
     def resolve(self, value: str) -> Permission:
-        """Return the declared permission carrying the given text form."""
+        """Return the declared permission carrying the given text form.
+
+        Args:
+            value (str): The value being converted, checked, or serialized.
+        """
         permission = self._by_value.get(value)
         if permission is None:
             raise UnknownPermissionError(value)

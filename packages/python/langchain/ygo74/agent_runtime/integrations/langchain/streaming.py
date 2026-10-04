@@ -50,6 +50,8 @@ from .results import LangChainResultAdapter
 
 
 class NativeEvent(StrEnum):
+    """Names LangChain event types consumed by the stream adapter.
+    """
     CHAT_STREAM = "on_chat_model_stream"
     CHAT_END = "on_chat_model_end"
     CHAT_START = "on_chat_model_start"
@@ -67,6 +69,16 @@ class NativeEvent(StrEnum):
 
 @dataclass(slots=True)
 class _ContentState:
+    """Accumulates content fragments and correlation metadata for one item within a LangChain run.
+
+    Args:
+        content_id (str): Stable identity correlating one content item across start, delta, and end events.
+        content (AgentContent | None): The content item being interpreted or projected.
+        tool_id (str | None): Framework tool-call identifier used for correlation.
+        tool_name (str | None): Name of the tool whose declaration or invocation is being resolved.
+        arguments (list[str]): JSON arguments associated with a tool call.
+        started (bool): Whether the corresponding content start event has been emitted.
+    """
     content_id: str
     content: AgentContent | None = None
     tool_id: str | None = None
@@ -77,6 +89,13 @@ class _ContentState:
 
 @dataclass(slots=True)
 class _RunState:
+    """Tracks content items, usage, and closure for one independently correlated LangChain run.
+
+    Args:
+        contents (dict[str, _ContentState]): Ordered typed content items associated with the agent output.
+        usage (TokenUsage | None): Token counters supplied by the framework or provider.
+        closed (bool): Whether the content or run has already emitted its terminal event.
+    """
     contents: dict[str, _ContentState] = field(default_factory=dict)
     usage: TokenUsage | None = None
     closed: bool = False
@@ -84,17 +103,33 @@ class _RunState:
 
 @dataclass(frozen=True, slots=True)
 class _ToolRun:
+    """Accumulates a tool invocation identity and argument fragments until the call can be emitted as typed events.
+
+    Args:
+        call_id (str): Stable tool invocation identity used to correlate its result.
+        name (str): The name used to locate or label the value.
+    """
     call_id: str
     name: str
 
 
 class LangChainStreamAdapter:
-    """Create a fresh instance per invocation, not one shared across requests."""
+    """Create a fresh instance per invocation, not one shared across requests.
 
+    Args:
+        expose_reasoning (bool): Whether reasoning content may be included in client-visible output.
+        tool_execution (ToolExecution): Whether tool calls are internal or delegated to the client.
+    """
     def __init__(
         self, *, expose_reasoning: bool = False,
         tool_execution: ToolExecution = ToolExecution.INTERNAL,
     ) -> None:
+        """Initialize the instance framework stream events with supplied collaborators and configuration.
+
+        Args:
+            expose_reasoning (bool): Whether reasoning content may be included in client-visible output.
+            tool_execution (ToolExecution): Whether tool calls are internal or delegated to the client.
+        """
         self.result_adapter = LangChainResultAdapter(
             expose_reasoning=expose_reasoning, tool_execution=tool_execution,
         )
@@ -104,6 +139,12 @@ class LangChainStreamAdapter:
         self._termination = Termination()
 
     def convert(self, event: StreamEvent, *, tool_call_id: str | None = None) -> ConversionOutcome:
+        """Convert framework stream events into the typed representation consumed by the runtime.
+
+        Args:
+            event (StreamEvent): The typed event whose content or lifecycle effect is processed.
+            tool_call_id (str | None): Identifier of the tool call associated with this result.
+        """
         if self._finished:
             return self._excluded("stream_finished", "The invocation is already terminal.")
         kind = event["event"]
@@ -151,6 +192,13 @@ class LangChainStreamAdapter:
         )
 
     def convert_chunk(self, chunk: AIMessageChunk, *, run_id: str) -> ConversionOutcome:
+        """Convert an SDK chunk into correlated typed stream events and per-run usage.
+
+        Args:
+            chunk (AIMessageChunk): Partial SDK message containing new content or tool-call arguments.
+            run_id (str): SDK run identity used to keep interleaved model output correlated.
+        """
+        # Chunks are grouped by SDK run identity so interleaved model runs retain separate content state, diagnostics, and cumulative usage.
         if self._finished:
             return self._excluded("stream_finished", "The invocation is already terminal.")
         if not run_id:
@@ -193,6 +241,13 @@ class LangChainStreamAdapter:
     def _text_chunk(
         self, content: TextContent | ReasoningContent, content_id: str, state: _RunState,
     ) -> tuple[AgentStreamEvent, ...]:
+        """Emit a content start once and append the new text or reasoning fragment to that run item.
+
+        Args:
+            content (TextContent | ReasoningContent): The content item being interpreted or projected.
+            content_id (str): Stable identity correlating one content item across start, delta, and end events.
+            state (_RunState): The state that tracks the current operation lifecycle.
+        """
         if not content.text and not (isinstance(content, TextContent) and content.annotations):
             return ()
         events: list[AgentStreamEvent] = []
@@ -210,6 +265,13 @@ class LangChainStreamAdapter:
 
     @staticmethod
     def _late_citation(content: TextContent, content_id: str, state: _RunState) -> bool:
+        """Detect citations that arrive after text streaming began and report that the prior text cannot be retracted.
+
+        Args:
+            content (TextContent): The content item being interpreted or projected.
+            content_id (str): Stable identity correlating one content item across start, delta, and end events.
+            state (_RunState): The state that tracks the current operation lifecycle.
+        """
         existing = state.contents.get(content_id)
         if existing is None or not isinstance(existing.content, TextContent):
             return False
@@ -217,6 +279,8 @@ class LangChainStreamAdapter:
 
     @staticmethod
     def _citation_diagnostic() -> ConversionDiagnostic:
+        """Create the safe diagnostic used when citation metadata arrives too late to attach reliably.
+        """
         return ConversionDiagnostic(
             "late_citation", "Citation metadata arrived after content start; the neutral stream has no annotation amendment event.",
         )
@@ -224,6 +288,14 @@ class LangChainStreamAdapter:
     def _tool_chunk(
         self, chunk: ToolCallChunk | ServerToolCallChunk, run_id: str, state: _RunState,
     ) -> tuple[AgentStreamEvent, ...]:
+        """Accumulate indexed tool fragments until their identity is complete, then emit the call and arguments.
+
+        Args:
+            chunk (ToolCallChunk | ServerToolCallChunk): Partial SDK message containing new content or tool-call arguments.
+            run_id (str): SDK run identity used to keep interleaved model output correlated.
+            state (_RunState): The state that tracks the current operation lifecycle.
+        """
+        # An indexed tool call may arrive before its ID or name, so accumulate fragments until correlation is complete and emit its start event only once.
         index = chunk.get("index")
         if index is None:
             raise LangChainConversionError("Tool argument chunks require an SDK index for parallel correlation.")
@@ -257,6 +329,13 @@ class LangChainStreamAdapter:
         return tuple(events)
 
     def _end_model(self, message: AIMessage, run_id: str) -> ConversionOutcome:
+        """Reconcile the final SDK message with chunks already emitted for this model run.
+
+        Args:
+            message (AIMessage): Framework message or protocol message being converted.
+            run_id (str): SDK run identity used to keep interleaved model output correlated.
+        """
+        # The final SDK snapshot can repeat content already emitted as chunks; reconcile it against run state so streamed content is not emitted twice.
         state = self._runs.setdefault(run_id, _RunState())
         if state.closed:
             return self._excluded("model_already_closed", "This SDK model snapshot was already processed.")
@@ -299,12 +378,25 @@ class LangChainStreamAdapter:
 
     @staticmethod
     def _was_streamed(block: ContentBlock, index: int, run_id: str, state: _RunState) -> bool:
+        """Determine whether a final SDK block was already represented by emitted run events.
+
+        Args:
+            block (ContentBlock): Framework content block being converted into the neutral contract.
+            index (int): Position used to correlate an item within its message or stream.
+            run_id (str): SDK run identity used to keep interleaved model output correlated.
+            state (_RunState): The state that tracks the current operation lifecycle.
+        """
         if block["type"] in (BlockKind.TOOL_CALL.value, BlockKind.SERVER_TOOL_CALL.value):
             return any(content.tool_id == block.get("id") and content.started for content in state.contents.values())
         return f"{run_id}:{block['type']}:{block.get('index', index)}" in state.contents
 
     @staticmethod
     def _close_run(state: _RunState) -> tuple[AgentStreamEvent, ...]:
+        """Close all started content items owned by one SDK run and clear its pending fragments.
+
+        Args:
+            state (_RunState): The state that tracks the current operation lifecycle.
+        """
         if state.closed:
             return ()
         if any(not content.started for content in state.contents.values()):
@@ -313,6 +405,12 @@ class LangChainStreamAdapter:
         return tuple(ContentEnd(content.content_id) for content in state.contents.values())
 
     def _tool_start(self, event: StreamEvent, call_id: str | None) -> ConversionOutcome:
+        """Create the neutral start event for a fully identified tool invocation.
+
+        Args:
+            event (StreamEvent): The typed event whose content or lifecycle effect is processed.
+            call_id (str | None): Stable tool invocation identity used to correlate its result.
+        """
         run_id = event["run_id"]
         if run_id in self._tools:
             raise LangChainConversionError("A tool invocation started twice.")
@@ -323,6 +421,11 @@ class LangChainStreamAdapter:
         return ConversionOutcome(ConversionStatus.CONVERTED, (ContentEvent(f"{run_id}:invocation", content),))
 
     def _tool_end(self, event: StreamEvent) -> ConversionOutcome:
+        """Close the tool invocation after its correlated result has been emitted.
+
+        Args:
+            event (StreamEvent): The typed event whose content or lifecycle effect is processed.
+        """
         run_id = event["run_id"]
         invocation = self._tools.get(run_id)
         if invocation is None:
@@ -347,7 +450,12 @@ class LangChainStreamAdapter:
         return ConversionOutcome(status, (ContentEvent(f"{run_id}:result", content),), diagnostics=diagnostics)
 
     def finish(self, termination: Termination | None = None) -> ConversionOutcome:
-        """Complete a developer-selected stream, or explicitly report its failure."""
+        """Close active content and emit the invocation’s single terminal event.
+
+        Args:
+            termination (Termination | None): Terminal outcome used to complete the result or stream.
+        """
+        # Failed runs close their started items without treating incomplete fragments as successful content; other runs use normal closure before the terminal event.
         if self._finished:
             return self._excluded("stream_finished", "The invocation is already terminal.")
         events: list[AgentStreamEvent] = []
@@ -363,6 +471,9 @@ class LangChainStreamAdapter:
         return ConversionOutcome(ConversionStatus.CONVERTED, tuple(events))
 
     def _total_usage(self) -> TokenUsage:
+        """Sum available usage snapshots across SDK runs and fail when no counts were supplied.
+        """
+        # Aggregate only counts actually supplied by each run and fail when there is no usage data instead of fabricating zero totals.
         total: TokenUsage | None = None
         for state in self._runs.values():
             if state.usage is not None:
@@ -373,6 +484,12 @@ class LangChainStreamAdapter:
 
     @classmethod
     def _combine_usage(cls, current: TokenUsage | None, incoming: TokenUsage) -> TokenUsage:
+        """Combine compatible usage snapshots while preserving unknown optional counters.
+
+        Args:
+            current (TokenUsage | None): Current state or value compared with an incoming update.
+            incoming (TokenUsage): New state or value being merged with the current one.
+        """
         if current is None:
             return incoming
         return TokenUsage(
@@ -386,15 +503,32 @@ class LangChainStreamAdapter:
 
     @staticmethod
     def _sum_optional(current: int | None, incoming: int | None) -> int | None:
+        """Add optional token counters only when both values are known.
+
+        Args:
+            current (int | None): Current state or value compared with an incoming update.
+            incoming (int | None): New state or value being merged with the current one.
+        """
         if current is None or incoming is None:
             return None
         return current + incoming
 
     @staticmethod
     def notification(text: str, *, content_id: str) -> ConversionOutcome:
-        """Only developer code decides whether a native event becomes a notice."""
+        """Only developer code decides whether a native event becomes a notice.
+
+        Args:
+            text (str): Text value or fragment carried by this content item.
+            content_id (str): Stable identity correlating one content item across start, delta, and end events.
+        """
         return ConversionOutcome(ConversionStatus.CONVERTED, (ContentEvent(content_id, Notification(text)),))
 
     @staticmethod
     def _excluded(code: str, reason: str) -> ConversionOutcome:
+        """Return an excluded conversion outcome with a stable reason and diagnostic.
+
+        Args:
+            code (str): Stable error or diagnostic code returned to the caller.
+            reason (str): Reason code or message associated with this decision or failure.
+        """
         return ConversionOutcome(ConversionStatus.EXCLUDED, diagnostics=(ConversionDiagnostic(code, reason),))

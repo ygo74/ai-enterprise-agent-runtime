@@ -13,4 +13,12 @@ AgentInvocation = AgentResult | Awaitable[AgentResult]
 
 
 class UseCaseHandler(Protocol):
-    def __call__(self, request: StandardExchangeRequest) -> AgentInvocation: ...
+    """Callable contract for application handlers that receive a normalized request and return typed output or a stream.
+    """
+    def __call__(self, request: StandardExchangeRequest) -> AgentInvocation:
+        """Implement the callable contract runtime data for the supplied input and execution context.
+
+        Args:
+            request (StandardExchangeRequest): The request received at this layer, with its protocol-specific or normalized fields.
+        """
+        ...

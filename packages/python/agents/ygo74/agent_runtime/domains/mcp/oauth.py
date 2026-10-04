@@ -64,14 +64,28 @@ _logger = logging.getLogger(__name__)
 
 
 def loopback_redirect_uri(port: int) -> str:
-    """Where the authorisation server sends the person back."""
+    """Where the authorisation server sends the person back.
+
+    Args:
+        port (int): Network port used by the local MCP HTTP server.
+    """
     return f"http://localhost:{port}{CALLBACK_PATH}"
 
 
 class LoopbackConsent:
-    """Serves exactly one redirect on the loopback interface, then stops."""
+    """Serves exactly one redirect on the loopback interface, then stops.
 
+    Args:
+        port (int): Network port used by the local MCP HTTP server.
+        timeout_seconds (int): Maximum duration allowed for the operation.
+    """
     def __init__(self, port: int, *, timeout_seconds: int = 300) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            port (int): Network port used by the local MCP HTTP server.
+            timeout_seconds (int): Maximum duration allowed for the operation.
+        """
         self._port = port
         self._timeout = timeout_seconds
 
@@ -81,11 +95,18 @@ class LoopbackConsent:
         Raises:
             McpToolUnavailableError: the redirect carried no authorisation code,
                 which is what a refusal at the consent screen looks like.
+
+        Args:
+            authorisation_url (str): OAuth authorization endpoint advertised to the MCP client.
         """
         captured: dict[str, str] = {}
 
         class Handler(BaseHTTPRequestHandler):
+            """Callable boundary used by the MCP OAuth flow to resolve the application response for a protected request.
+            """
             def do_GET(self) -> None:
+                """Provide the do GET operation for runtime data, preserving the runtime contract and validation rules.
+                """
                 query = parse_qs(urlparse(self.path).query)
                 captured.update({key: values[0] for key, values in query.items() if values})
                 self.send_response(200)
@@ -94,7 +115,12 @@ class LoopbackConsent:
                 self.wfile.write(_DONE.encode("utf-8"))
 
             def log_message(self, *_: Any) -> None:
-                """Silence the default stderr logging: it prints the query string."""
+                """Silence the default stderr logging: it prints the query string.
+
+                Args:
+                    _ (Any): Ignored callback parameter required by the wrapped interface.
+                """
+
 
         webbrowser.open(authorisation_url)
         with HTTPServer((LOOPBACK_HOST, self._port), Handler) as server:
@@ -116,8 +142,13 @@ class FileTokenStorage(TokenStorage):  # type: ignore[misc]
             registration happens - several providers do not support it, and one
             that did would register a client nobody decided on.
     """
-
     def __init__(self, token_file: Path, client_info: OAuthClientInformationFull) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            token_file (Path): Path used to persist OAuth client tokens.
+            client_info (OAuthClientInformationFull): OAuth client registration details used by the authorization flow.
+        """
         self._token_file = token_file
         self._client_info = client_info
 
@@ -133,7 +164,11 @@ class FileTokenStorage(TokenStorage):  # type: ignore[misc]
             return None
 
     async def set_tokens(self, tokens: OAuthToken) -> None:
-        """Persist the issued tokens for the next run."""
+        """Persist the issued tokens for the next run.
+
+        Args:
+            tokens (OAuthToken): OAuth access and refresh tokens returned by the authorization server.
+        """
         self._token_file.parent.mkdir(parents=True, exist_ok=True)
         self._token_file.write_text(tokens.model_dump_json(), encoding="utf-8")
         self._token_file.chmod(0o600)
@@ -147,6 +182,9 @@ class FileTokenStorage(TokenStorage):  # type: ignore[misc]
 
         The client is configuration. Accepting one from the server would mean an
         identity nobody chose, and a rotated secret that never took effect.
+
+        Args:
+            client_info (OAuthClientInformationFull): OAuth client registration details used by the authorization flow.
         """
         del client_info
 
@@ -160,9 +198,20 @@ class PinnedScopeOAuthProvider(OAuthClientProvider):  # type: ignore[misc]
 
     Dropping this class, or reimplementing it casually, silently grants the
     application everything the server is willing to offer.
-    """
 
+    Args:
+        pinned_scope (str): OAuth scope fixed by configuration for this protected resource.
+        args (Any): Positional arguments forwarded to the wrapped function.
+        kwargs (Any): Keyword arguments forwarded to the wrapped function.
+    """
     def __init__(self, *args: Any, pinned_scope: str, **kwargs: Any) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            pinned_scope (str): OAuth scope fixed by configuration for this protected resource.
+            args (Any): Positional arguments forwarded to the wrapped function.
+            kwargs (Any): Keyword arguments forwarded to the wrapped function.
+        """
         super().__init__(*args, **kwargs)
         self._pinned_scope = pinned_scope
 
@@ -178,5 +227,9 @@ class PinnedScopeOAuthProvider(OAuthClientProvider):  # type: ignore[misc]
 
 
 def describe_scopes(scopes: str) -> str:
-    """Render a scope string for a log line, without inviting a copy-paste secret."""
+    """Render a scope string for a log line, without inviting a copy-paste secret.
+
+    Args:
+        scopes (str): OAuth scopes projected from the authenticated claims.
+    """
     return json.dumps(sorted(scopes.split()))

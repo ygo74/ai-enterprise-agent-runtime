@@ -59,14 +59,23 @@ def _utc_now() -> datetime:
 
 @dataclass(slots=True)
 class _Entry(Generic[RuntimeT]):
-    """One conversation's runtime, when it was last used, and who is using it."""
+    """One conversation's runtime, when it was last used, and who is using it.
 
+    Args:
+        build (asyncio.Future[RuntimeT]): In-progress task that creates the runtime for a cache entry.
+        last_used (datetime): Timestamp used to evict the least recently used idle conversation.
+        leases (int): Number of active users holding the conversation entry.
+    """
     build: asyncio.Future[RuntimeT]
     last_used: datetime
     leases: int = field(default=0)
 
     def touch(self, now: datetime) -> None:
-        """Record that this conversation is still alive."""
+        """Record that this conversation is still alive.
+
+        Args:
+            now (datetime): Current time used to evaluate expiry and ordering.
+        """
         self.last_used = now
 
     @property
@@ -89,7 +98,6 @@ class ConversationRuntimeCache(Generic[RuntimeT]):
         idle_lifetime: How long an untouched conversation is kept.
         clock: Injected so expiry is testable without waiting.
     """
-
     def __init__(
         self,
         factory: Callable[[AgentPrincipal, str], Awaitable[RuntimeT]],
@@ -99,6 +107,15 @@ class ConversationRuntimeCache(Generic[RuntimeT]):
         idle_lifetime: timedelta = DEFAULT_IDLE_LIFETIME,
         clock: Clock = _utc_now,
     ) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            factory (Callable[[AgentPrincipal, str], Awaitable[RuntimeT]]): Factory that creates or retrieves the requested runtime component.
+            closer (Callable[[RuntimeT], Awaitable[None]]): Async callback that releases a runtime after eviction.
+            max_conversations (int): Target upper bound for retained conversation runtimes.
+            idle_lifetime (timedelta): Maximum age of an unused conversation before eviction.
+            clock (Clock): Clock used to make expiry and time-based behavior deterministic.
+        """
         if max_conversations < 1:
             raise ValueError("a cache holding no conversation cannot serve one")
         self._factory = factory
@@ -120,6 +137,10 @@ class ConversationRuntimeCache(Generic[RuntimeT]):
         While the block runs, the entry cannot be evicted or expired. That is the
         whole point: a getter would hand out a runtime and let the next request
         close it mid-use.
+
+        Args:
+            principal (AgentPrincipal): Authenticated principal whose identity and claims are being projected.
+            conversation_id (str): Conversation identity used to select session state for this caller.
         """
         key = (principal.subject, conversation_id)
         build, evicted = await self._borrow(principal, conversation_id)
@@ -139,7 +160,12 @@ class ConversationRuntimeCache(Generic[RuntimeT]):
             await self._return(key)
 
     async def release(self, principal: AgentPrincipal, conversation_id: str) -> None:
-        """Close and forget one conversation."""
+        """Close and forget one conversation.
+
+        Args:
+            principal (AgentPrincipal): Authenticated principal whose identity and claims are being projected.
+            conversation_id (str): Conversation identity used to select session state for this caller.
+        """
         entry = await self._detach((principal.subject, conversation_id))
         await self._release_all([entry] if entry is not None else [])
 
@@ -164,6 +190,10 @@ class ConversationRuntimeCache(Generic[RuntimeT]):
 
         Nothing is awaited here beyond the lock itself: the entries to close are
         handed back so the caller can release them outside it.
+
+        Args:
+            principal (AgentPrincipal): Authenticated principal whose identity and claims are being projected.
+            conversation_id (str): Conversation identity used to select session state for this caller.
         """
         key = (principal.subject, conversation_id)
         async with self._lock:
@@ -186,19 +216,31 @@ class ConversationRuntimeCache(Generic[RuntimeT]):
             return entry.build, evicted
 
     async def _return(self, key: tuple[str, str]) -> None:
-        """Give back a lease once the caller is done with the runtime."""
+        """Give back a lease once the caller is done with the runtime.
+
+        Args:
+            key (tuple[str, str]): The identifier used to locate the corresponding registered value.
+        """
         async with self._lock:
             entry = self._entries.get(key)
             if entry is not None and entry.leases > 0:
                 entry.leases -= 1
 
     async def _discard(self, key: tuple[str, str]) -> None:
-        """Drop an entry whose build failed, without closing anything."""
+        """Drop an entry whose build failed, without closing anything.
+
+        Args:
+            key (tuple[str, str]): The identifier used to locate the corresponding registered value.
+        """
         async with self._lock:
             self._entries.pop(key, None)
 
     async def _detach(self, key: tuple[str, str]) -> _Entry[RuntimeT] | None:
-        """Remove one entry from the cache and hand it back to be closed."""
+        """Remove one entry from the cache and hand it back to be closed.
+
+        Args:
+            key (tuple[str, str]): The identifier used to locate the corresponding registered value.
+        """
         async with self._lock:
             return self._entries.pop(key, None)
 
@@ -207,6 +249,9 @@ class ConversationRuntimeCache(Generic[RuntimeT]):
 
         A leased entry is skipped rather than closed. It is reconsidered on the
         next pass, by which time its lease will have been returned.
+
+        Args:
+            now (datetime): Current time used to evaluate expiry and ordering.
         """
         deadline = now - self._idle_lifetime
         stale = [key for key, entry in self._entries.items() if entry.is_idle and entry.last_used <= deadline]
@@ -220,6 +265,7 @@ class ConversationRuntimeCache(Generic[RuntimeT]):
         serving slightly more than asked is a bounded overshoot, whereas closing a
         runtime somebody is using is a broken turn.
         """
+        # Evict the least-recently-used idle entry while over capacity; if every entry is leased, preserve active work and temporarily allow the cache to exceed its bound.
         taken: list[_Entry[RuntimeT]] = []
         while len(self._entries) > self._max_conversations:
             idle = [key for key, entry in self._entries.items() if entry.is_idle]
@@ -235,7 +281,11 @@ class ConversationRuntimeCache(Generic[RuntimeT]):
         return taken
 
     async def _release_all(self, entries: list[_Entry[RuntimeT]]) -> None:
-        """Release entries that are already out of the cache, off the lock."""
+        """Release entries that are already out of the cache, off the lock.
+
+        Args:
+            entries (list[_Entry[RuntimeT]]): Conversation cache entries considered for release or eviction.
+        """
         for entry in entries:
             await self._close(entry)
 
@@ -244,6 +294,9 @@ class ConversationRuntimeCache(Generic[RuntimeT]):
 
         Shutting down must not raise: whatever went wrong, the entry is already
         gone from the cache and nothing can reach it any more.
+
+        Args:
+            entry (_Entry[RuntimeT]): State or registry entry currently being processed.
         """
         try:
             runtime = await entry.build

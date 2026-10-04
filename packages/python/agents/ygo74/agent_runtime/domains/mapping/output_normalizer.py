@@ -32,13 +32,29 @@ from ygo74.agent_runtime.domains.contracts.media_content import (
 
 
 class OutputValidationError(ValueError):
+    """Represent a structured OutputValidationError failure so callers can handle the condition consistently.
+    """
     code = "invalid_agent_output"
 
 
 class OutputNormalizer:
+    """Validates handler results and converts the supported exchange envelope into the typed AgentOutput contract.
+    """
     def normalize(
         self, result: object, *, request_id: str | None = None
     ) -> AgentOutput:
+        """Normalize a handler result, then validate its content and cross-item invariants.
+
+        Standard exchange error envelopes become failed agent outputs. Successful
+        envelopes must match the invocation request ID and contain typed output.
+        Duplicate identities, invalid citations, usage, or termination values raise
+        ``OutputValidationError`` before provider projection.
+
+        Args:
+            result (object): The operation result to validate, project, or return.
+            request_id (str | None): Correlation identifier for the incoming request and its response.
+        """
+        # Normalize the exchange envelope first, then validate each typed content item and enforce unique tool and audio identities across the complete result.
         if isinstance(result, StandardExchangeResponse):
             if request_id is not None and result.request_id != request_id:
                 raise OutputValidationError(
@@ -88,6 +104,17 @@ class OutputNormalizer:
         return result
 
     def validate_content(self, content: object) -> None:
+        """Validate the fields and invariants specific to a content variant.
+
+        Text and reasoning require valid text and citations; tools require valid
+        identities and JSON values; media requires a typed source whose MIME type
+        matches the content kind. Audio also validates identity, format, transcript,
+        and optional expiry.
+
+        Args:
+            content (object): The content item being interpreted or projected.
+        """
+        # Validate by content variant so each branch checks the fields and media constraints specific to that contract type.
         if isinstance(content, (TextContent, Notification, ReasoningContent)):
             self.text(content.text)
             if isinstance(content, TextContent):
@@ -138,6 +165,15 @@ class OutputNormalizer:
         raise OutputValidationError("Unsupported pivot content type")
 
     def _validate_annotations(self, annotations: object) -> None:
+        """Require each citation to have valid fields, URL, and ordered offsets.
+
+        URLs must be absolute HTTP or HTTPS. Offsets are nonnegative and the end
+        offset cannot precede the start offset.
+
+        Args:
+            annotations (object): Citations associated with the text item.
+        """
+        # Validate each citation as an absolute HTTP(S) URL with a title and ordered, nonnegative text offsets.
         if not isinstance(annotations, tuple):
             raise OutputValidationError(
                 "Text annotations must be a tuple of UrlCitation values"
@@ -167,6 +203,11 @@ class OutputNormalizer:
 
     @staticmethod
     def validate_citation_bounds(content: TextContent) -> None:
+        """Validate citation bounds and raise a domain-specific error when its constraints are not met.
+
+        Args:
+            content (TextContent): The content item being interpreted or projected.
+        """
         if any(
             annotation.end_index > len(content.text)
             for annotation in content.annotations
@@ -176,6 +217,11 @@ class OutputNormalizer:
             )
 
     def validate_termination(self, termination: object) -> None:
+        """Validate termination and raise a domain-specific error when its constraints are not met.
+
+        Args:
+            termination (object): Terminal outcome used to complete the result or stream.
+        """
         if not isinstance(termination, Termination) or not isinstance(
             termination.status, TerminationStatus
         ):
@@ -193,6 +239,11 @@ class OutputNormalizer:
             raise OutputValidationError("Only failed termination may contain an error")
 
     def validate_usage(self, usage: object) -> None:
+        """Validate usage and raise a domain-specific error when its constraints are not met.
+
+        Args:
+            usage (object): Token counters supplied by the framework or provider.
+        """
         if not isinstance(usage, TokenUsage):
             raise OutputValidationError("Usage must be TokenUsage")
         self.counter(usage.input_tokens)
@@ -212,16 +263,31 @@ class OutputNormalizer:
 
     @staticmethod
     def counter(value: object) -> None:
+        """Require a nonnegative integer counter and reject booleans or other value types.
+
+        Args:
+            value (object): The value being converted, checked, or serialized.
+        """
         if type(value) is not int or value < 0:
             raise OutputValidationError("Counters must be nonnegative integers")
 
     @staticmethod
     def text(value: object) -> None:
+        """Require a valid text value for a typed output field.
+
+        Args:
+            value (object): The value being converted, checked, or serialized.
+        """
         if not isinstance(value, str):
             raise OutputValidationError("Text values must be strings")
 
     @staticmethod
     def identity(value: object) -> None:
+        """Validate a nonempty stable identifier used to correlate output items.
+
+        Args:
+            value (object): The value being converted, checked, or serialized.
+        """
         if not isinstance(value, str) or not value.strip():
             raise OutputValidationError(
                 "Content identifiers and names must be nonempty strings"
@@ -229,6 +295,11 @@ class OutputNormalizer:
 
     @staticmethod
     def base64(value: object) -> None:
+        """Validate that encoded media contains well-formed base64 data.
+
+        Args:
+            value (object): The value being converted, checked, or serialized.
+        """
         if not isinstance(value, str):
             raise OutputValidationError("Encoded media must be base64 text")
         try:
@@ -238,6 +309,11 @@ class OutputNormalizer:
 
     @classmethod
     def json_value(cls, value: object) -> None:
+        """Recursively validate that a tool value can be represented as JSON.
+
+        Args:
+            value (object): The value being converted, checked, or serialized.
+        """
         try:
             json.dumps(value, allow_nan=False)
         except (ValueError, TypeError, RecursionError) as exc:
@@ -248,6 +324,15 @@ class OutputNormalizer:
 
     @classmethod
     def _json_types(cls, value: object) -> None:
+        """Recursively ensure that a value belongs to the JSON data model.
+
+        Lists and string-keyed dictionaries are walked to their leaves; unsupported
+        objects and non-string dictionary keys raise ``OutputValidationError``.
+
+        Args:
+            value (object): The value being converted, checked, or serialized.
+        """
+        # Walk nested arrays and objects recursively; object keys must be strings and every leaf must be a JSON scalar.
         if value is None or isinstance(value, (str, bool, int, float)):
             return
         if isinstance(value, list):

@@ -61,13 +61,18 @@ class ConversationPayloadReader:
         default_conversation: Which conversation a request that names none
             continues.
     """
-
     def __init__(
         self,
         *,
         require_email: bool = True,
         default_conversation: str = DEFAULT_CONVERSATION,
     ) -> None:
+        """Initialize the instance runtime data with the supplied collaborators and configuration.
+
+        Args:
+            require_email (bool): Whether a verified email claim is required to identify the caller.
+            default_conversation (str): Stable conversation ID used when the request has no explicit ID.
+        """
         self._require_email = require_email
         self._default_conversation = default_conversation
 
@@ -77,6 +82,9 @@ class ConversationPayloadReader:
         The principal comes from ``auth_context``, which the endpoint populated
         from a verified token or an API key. It is never taken from the body: a
         caller must not be able to name themselves.
+
+        Args:
+            payload (Mapping[str, Any]): The input or output payload being translated at the protocol boundary.
         """
         return ConversationTurn(
             principal=AgentPrincipal.from_auth_context(
@@ -99,7 +107,11 @@ class ConversationPayloadReader:
         A stable default is used when neither is present. Falling back is safe:
         the identifier only selects state *within* an authenticated subject, so
         at worst one caller's turns share a conversation, never two callers'.
+
+        Args:
+            payload (Mapping[str, Any]): The input or output payload being translated at the protocol boundary.
         """
+        # Prefer the canonical metadata key, then the forwarded header for compatibility, and use the stable fallback only when neither carries a usable value.
         metadata = _mapping(payload.get(_METADATA))
         headers = _mapping(metadata.get(HEADERS_KEY))
         for source, key in (
@@ -114,11 +126,15 @@ class ConversationPayloadReader:
 
 class AgentReplyRenderer:
     """Renders a reply in the exchange shape the endpoint maps to a protocol."""
-
     def to_payload(
         self, payload: Mapping[str, Any], reply: AgentReply
     ) -> StandardExchangeResponse:
-        """Render one reply against the request it answers."""
+        """Render one reply against the request it answers.
+
+        Args:
+            payload (Mapping[str, Any]): The input or output payload being translated at the protocol boundary.
+            reply (AgentReply): Text returned to the caller after handling the current turn.
+        """
         return StandardExchangeResponse(
             request_id=str(payload.get(_REQUEST_ID, "")),
             status="success",
@@ -139,7 +155,11 @@ def latest_message(value: object) -> str:
 
     Raises:
         EmptyRequestError: the request carried no user message at all.
+
+    Args:
+        value (object): The value being converted, checked, or serialized.
     """
+    # Scan history from newest to oldest and return the latest nonempty user turn, since earlier turns have already been processed by the agent session.
     if isinstance(value, str) and value.strip():
         return value.strip()
     if isinstance(value, list):
@@ -152,7 +172,11 @@ def latest_message(value: object) -> str:
 
 
 def _content_text(content: object) -> str:
-    """Flatten a message content, string or content-part list."""
+    """Flatten a message content, string or content-part list.
+
+    Args:
+        content (object): The content item being interpreted or projected.
+    """
     if isinstance(content, str):
         return content.strip()
     if not isinstance(content, list):
@@ -166,5 +190,9 @@ def _content_text(content: object) -> str:
 
 
 def _mapping(value: object) -> Mapping[str, Any]:
-    """Return a mapping, whatever the transport actually sent."""
+    """Return a mapping, whatever the transport actually sent.
+
+    Args:
+        value (object): The value being converted, checked, or serialized.
+    """
     return value if isinstance(value, Mapping) else {}

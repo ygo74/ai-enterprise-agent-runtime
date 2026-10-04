@@ -21,18 +21,33 @@ from ygo74.agent_runtime.domains.streaming.stream_state import StreamState
 
 
 class AnthropicStreamProjector:
+    """Translate typed runtime values into the framework stream events representation using protocol-specific mapping rules.
+    """
     done_marker = False
 
     def __init__(self) -> None:
+        """Initialize the instance framework stream events with supplied collaborators and configuration.
+        """
         self._indices: dict[str, int] = {}
         self._has_tools = False
         self._started = False
 
     @staticmethod
     def _event(name: str, payload: dict[str, JsonValue]) -> WireEvent:
+        """Build one Anthropic server-sent event with the supplied event name and payload.
+
+        Args:
+            name (str): The name used to locate or label the value.
+            payload (dict[str, JsonValue]): The payload being translated at the protocol boundary.
+        """
         return WireEvent({"type": name, **payload}, name)
 
     def start(self, state: StreamState) -> list[WireEvent]:
+        """Start framework stream events the current content or operation in the target protocol.
+
+        Args:
+            state (StreamState): The state that tracks the current operation lifecycle.
+        """
         if self._started or state.usage is None:
             return []
         usage = OutputWireValues.anthropic_usage(state.usage, state.context)
@@ -56,6 +71,12 @@ class AnthropicStreamProjector:
         ]
 
     def project(self, event: AgentStreamEvent, state: StreamState) -> list[WireEvent]:
+        """Project framework stream events into the response shape required by the selected protocol.
+
+        Args:
+            event (AgentStreamEvent): The typed event whose content or lifecycle effect is processed.
+            state (StreamState): The state that tracks the current operation lifecycle.
+        """
         if isinstance(event, UsageEvent):
             return self.start(state)
         if not isinstance(event, (ContentStart, ContentEnd, TextDelta)):
@@ -72,6 +93,12 @@ class AnthropicStreamProjector:
     def _content(
         self, event: ContentStart | ContentEnd | TextDelta, state: StreamState
     ) -> list[WireEvent]:
+        """Map neutral content to an Anthropic block and its start/stop lifecycle events.
+
+        Args:
+            event (ContentStart | ContentEnd | TextDelta): The typed event whose content or lifecycle effect is processed.
+            state (StreamState): The state that tracks the current operation lifecycle.
+        """
         entry = state.contents[event.content_id]
         content = entry.content
         if isinstance(content, ToolCallContent):
@@ -129,12 +156,24 @@ class AnthropicStreamProjector:
         return [self._event("content_block_stop", {"index": index})]
 
     def _text_delta(self, index: int, text: str) -> WireEvent:
+        """Encode one text delta in the Anthropic content-block delta shape.
+
+        Args:
+            index (int): Position used to correlate an item within its message or stream.
+            text (str): Text value or fragment carried by this content item.
+        """
         return self._event(
             "content_block_delta",
             {"index": index, "delta": {"type": "text_delta", "text": text}},
         )
 
     def finish(self, termination: Termination, state: StreamState) -> list[WireEvent]:
+        """Finalize framework stream events the operation and emit its terminal representation.
+
+        Args:
+            termination (Termination): Terminal outcome used to complete the result or stream.
+            state (StreamState): The state that tracks the current operation lifecycle.
+        """
         if termination.status == TerminationStatus.FAILED:
             error = termination.error
             return [

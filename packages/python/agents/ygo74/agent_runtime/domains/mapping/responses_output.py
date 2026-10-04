@@ -17,9 +17,18 @@ from ygo74.agent_runtime.domains.mapping.output_projector import (
 
 
 class ResponsesOutputProjector:
+    """Translate typed runtime values into the OpenAI Responses output representation using protocol-specific mapping rules.
+    """
     def item(
         self, content: AgentContent, item_id: str, *, in_progress: bool = False
     ) -> dict[str, JsonValue]:
+        """Build one typed OpenAI Responses output item with its stable provider item identity.
+
+        Args:
+            content (AgentContent): The content item being interpreted or projected.
+            item_id (str): Stable provider item ID correlated across stream events.
+            in_progress (bool): Whether the response is still being generated.
+        """
         status = "in_progress" if in_progress else "completed"
         if isinstance(content, ToolCallContent):
             return {
@@ -55,6 +64,12 @@ class ResponsesOutputProjector:
     def project(
         self, output: AgentOutput, context: ProjectionContext
     ) -> dict[str, JsonValue]:
+        """Project OpenAI Responses output into the response shape required by the selected protocol.
+
+        Args:
+            output (AgentOutput): Typed agent output being validated, filtered, or projected.
+            context (ProjectionContext): The execution context carrying identity and correlated metadata.
+        """
         error = OutputWireValues.error(output, context)
         if error is not None:
             return error

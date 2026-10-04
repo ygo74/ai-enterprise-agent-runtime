@@ -24,12 +24,22 @@ from .conversion import (
 
 
 class LangChainResultAdapter:
-    """Choose one generation explicitly; do not expose prompts or tool artifacts."""
+    """Choose one generation explicitly; do not expose prompts or tool artifacts.
 
+    Args:
+        expose_reasoning (bool): Whether reasoning content may be included in client-visible output.
+        tool_execution (ToolExecution): Whether tool calls are internal or delegated to the client.
+    """
     def __init__(
         self, *, expose_reasoning: bool = False,
         tool_execution: ToolExecution = ToolExecution.INTERNAL,
     ) -> None:
+        """Initialize the instance framework results with supplied collaborators and configuration.
+
+        Args:
+            expose_reasoning (bool): Whether reasoning content may be included in client-visible output.
+            tool_execution (ToolExecution): Whether tool calls are internal or delegated to the client.
+        """
         self.content_adapter = LangChainContentAdapter(
             expose_reasoning=expose_reasoning, tool_execution=tool_execution,
         )
@@ -38,6 +48,12 @@ class LangChainResultAdapter:
         self, value: BaseMessage | ChatGeneration | ChatResult | LLMResult,
         *, generation_index: int = 0,
     ) -> ConversionOutcome:
+        """Convert framework results into the typed representation consumed by the runtime.
+
+        Args:
+            value (BaseMessage | ChatGeneration | ChatResult | LLMResult): The value being converted, checked, or serialized.
+            generation_index (int): Index selecting the generation returned to the caller.
+        """
         if isinstance(value, AIMessageChunk):
             return self.unsupported("chunk_not_final", "Use the stream adapter for incremental SDK chunks.")
         if isinstance(value, ToolMessage):
@@ -67,6 +83,12 @@ class LangChainResultAdapter:
         return self.unsupported("unsupported_result", "Expected an SDK message or chat result, not an agent state snapshot.")
 
     def _generation(self, generations: Sequence[Generation], index: int) -> ConversionOutcome:
+        """Select the requested generation explicitly and convert only its assistant output.
+
+        Args:
+            generations (Sequence[Generation]): Framework generations converted into a single agent result.
+            index (int): Position used to correlate an item within its message or stream.
+        """
         if not generations:
             return ConversionOutcome(ConversionStatus.CONVERTED, output=AgentOutput())
         if index < 0 or index >= len(generations):
@@ -77,6 +99,12 @@ class LangChainResultAdapter:
         return self.convert(generation)
 
     def _assistant(self, message: AIMessage) -> ConversionOutcome:
+        """Convert assistant message blocks in order and retain diagnostics for unsupported content.
+
+        Args:
+            message (AIMessage): Framework message or protocol message being converted.
+        """
+        # Convert blocks in their original order and retain diagnostics for unsupported blocks and invalid tool calls in the overall outcome.
         contents: list[AgentContent] = []
         diagnostics: list[ConversionDiagnostic] = []
         unsupported = False
@@ -102,6 +130,11 @@ class LangChainResultAdapter:
         )
 
     def _tool(self, message: ToolMessage) -> ConversionOutcome:
+        """Convert a tool message result with its original call identity.
+
+        Args:
+            message (ToolMessage): Framework message or protocol message being converted.
+        """
         if message.name is None or not message.name.strip():
             return self.unsupported("missing_tool_name", "A standalone SDK tool result requires its genuine nonempty name.")
         if not message.tool_call_id.strip():
@@ -117,6 +150,11 @@ class LangChainResultAdapter:
 
     @staticmethod
     def usage(message: AIMessage) -> TokenUsage | None:
+        """Project usage information framework results into the typed usage contract or provider-specific counters.
+
+        Args:
+            message (AIMessage): Framework message or protocol message being converted.
+        """
         usage = message.usage_metadata
         if usage is None:
             return None
@@ -131,9 +169,20 @@ class LangChainResultAdapter:
 
     @staticmethod
     def termination(reason: str | None = None) -> Termination:
+        """Project termination status framework results into the provider or framework representation.
+
+        Args:
+            reason (str | None): Reason code or message associated with this decision or failure.
+        """
         incomplete = reason in ("length", "max_tokens", "content_filter")
         return Termination(TerminationStatus.INCOMPLETE if incomplete else TerminationStatus.SUCCESS, reason)
 
     @staticmethod
     def unsupported(code: str, reason: str) -> ConversionOutcome:
+        """Return the conversion outcome for a native value the neutral contract cannot represent.
+
+        Args:
+            code (str): Stable error or diagnostic code returned to the caller.
+            reason (str): Reason code or message associated with this decision or failure.
+        """
         return ConversionOutcome(ConversionStatus.UNSUPPORTED, diagnostics=(ConversionDiagnostic(code, reason),))

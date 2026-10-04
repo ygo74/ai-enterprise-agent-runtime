@@ -34,7 +34,6 @@ _UNKNOWN_TICKET = (
 
 class AgentRuntimePort(Protocol):
     """The application runtime resources a conversation container needs."""
-
     @property
     def user(self) -> UserContext:
         """Identity associated with this conversation."""
@@ -47,23 +46,28 @@ class AgentRuntimePort(Protocol):
 
 class AgentSessionPort(Protocol):
     """The framework adapter operation used to answer a turn."""
-
     async def ask(self, message: str) -> str:
-        """Answer one user message."""
+        """Answer one user message.
+
+        Args:
+            message (str): Framework message or protocol message being converted.
+        """
         ...
 
 
 class ConfirmationRunnerPort(Protocol):
     """Executes a confirmation ticket claimed from the conversation."""
-
     async def run(self, command: ConfirmationCommand) -> str:
-        """Execute the operation represented by a confirmed ticket."""
+        """Execute the operation represented by a confirmed ticket.
+
+        Args:
+            command (ConfirmationCommand): Requested operation that must pass the authorization gate.
+        """
         ...
 
 
 class ConversationPort(Protocol):
     """Operations the generic HTTP engine needs from a conversation."""
-
     @property
     def runtime(self) -> AgentRuntimePort:
         """Application runtime associated with this conversation."""
@@ -104,8 +108,16 @@ ConversationT = TypeVar("ConversationT", bound=ConversationPort)
 
 @dataclass(frozen=True, slots=True)
 class AgentConversation(Generic[RuntimeT, SessionT]):
-    """Framework-neutral state and resources for one caller's conversation."""
+    """Framework-neutral state and resources for one caller's conversation.
 
+    Args:
+        runtime (RuntimeT): Agent runtime instance used to handle the conversation.
+        session (SessionT): Conversation session associated with the runtime instance.
+        store (PendingConfirmationStore): Persistence service used to retain state across requests.
+        runner (ConfirmationRunnerPort): Port that resumes a framework run after an approval decision.
+        conversation_id (str): Conversation identity used to select session state for this caller.
+        renderer (PendingConfirmationRenderer): Component that formats approval state for the user.
+    """
     runtime: RuntimeT
     session: SessionT
     store: PendingConfirmationStore
@@ -134,8 +146,13 @@ class AgentConversation(Generic[RuntimeT, SessionT]):
 
 
 class HttpConversationEngine(Generic[ConversationT]):
-    """Run a conversation turn with shared confirmation and reply handling."""
+    """Run a conversation turn with shared confirmation and reply handling.
 
+    Args:
+        conversations (ConversationRuntimeCache[ConversationT]): Cache of conversation runtimes indexed by caller and conversation ID.
+        parser (ConfirmationCommandParser | None): Optional parser for approval commands in user messages.
+        unknown_ticket_message (str): Text returned when the requested approval ticket is unknown.
+    """
     def __init__(
         self,
         conversations: ConversationRuntimeCache[ConversationT],
@@ -143,12 +160,23 @@ class HttpConversationEngine(Generic[ConversationT]):
         *,
         unknown_ticket_message: str = _UNKNOWN_TICKET,
     ) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            conversations (ConversationRuntimeCache[ConversationT]): Cache of conversation runtimes indexed by caller and conversation ID.
+            parser (ConfirmationCommandParser | None): Optional parser for approval commands in user messages.
+            unknown_ticket_message (str): Text returned when the requested approval ticket is unknown.
+        """
         self._conversations = conversations
         self._parser = parser or ConfirmationCommandParser()
         self._unknown_ticket_message = unknown_ticket_message
 
     async def respond(self, turn: ConversationTurn) -> AgentReply:
-        """Answer one turn, handling confirmation commands before the agent."""
+        """Answer one turn, handling confirmation commands before the agent.
+
+        Args:
+            turn (ConversationTurn): Conversation turn whose request and response are added to session history.
+        """
         async with self._conversations.lease(turn.principal, turn.conversation_id) as conversation:
             command = self._parser.parse(turn.message)
             if command is not None:
@@ -157,7 +185,12 @@ class HttpConversationEngine(Generic[ConversationT]):
             return self._reply(conversation, await conversation.session.ask(turn.message))
 
     async def _honour(self, conversation: ConversationT, command: ConfirmationCommand) -> AgentReply:
-        """Run a claimed ticket or safely report that it is no longer pending."""
+        """Run a claimed ticket or safely report that it is no longer pending.
+
+        Args:
+            conversation (ConversationT): Conversation instance whose state is being updated.
+            command (ConfirmationCommand): Requested operation that must pass the authorization gate.
+        """
         try:
             text = await conversation.runner.run(command)
         except UnknownTicketError:
@@ -166,7 +199,12 @@ class HttpConversationEngine(Generic[ConversationT]):
 
     @staticmethod
     def _reply(conversation: ConversationPort, text: str) -> AgentReply:
-        """Attach the pending confirmations to the agent's answer."""
+        """Attach the pending confirmations to the agent's answer.
+
+        Args:
+            conversation (ConversationPort): Conversation instance whose state is being updated.
+            text (str): Text value or fragment carried by this content item.
+        """
         return AgentReply(
             text=text + conversation.describe_pending(),
             pending_confirmations=conversation.waiting(),

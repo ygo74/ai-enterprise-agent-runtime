@@ -27,8 +27,12 @@ class DescriptorDefaults:
     The derived descriptor is deliberately conservative: it advertises only the
     identity that can be inferred from the route key plus whatever capabilities
     the caller states explicitly, so discovery never over-promises.
-    """
 
+    Args:
+        owner (str): Component responsible for creating or releasing the resource.
+        version (str): Agent or API version reported through discovery.
+        created_at_utc (datetime | None): UTC creation timestamp used by provider model listings.
+    """
     owner: str = DEFAULT_OWNER
     version: str = DEFAULT_VERSION
     created_at_utc: datetime | None = None
@@ -39,8 +43,12 @@ class DescriptorDefaults:
         *,
         capabilities: AgentCapabilitySet | None = None,
     ) -> AgentDescriptor:
-        """Build a minimal descriptor for ``route_key``."""
+        """Build a minimal descriptor for ``route_key``.
 
+        Args:
+            route_key (str): The registered route key that identifies the target agent or handler.
+            capabilities (AgentCapabilitySet | None): Declared agent capabilities checked against exposed endpoints.
+        """
         agent_id = self.agent_id_for(route_key)
         return AgentDescriptor(
             agent_id=agent_id,
@@ -55,8 +63,11 @@ class DescriptorDefaults:
 
     @staticmethod
     def agent_id_for(route_key: str) -> str:
-        """Project a route key onto an identifier safe for a path segment and a model field."""
+        """Project a route key onto an identifier safe for a path segment and a model field.
 
+        Args:
+            route_key (str): The registered route key that identifies the target agent or handler.
+        """
         candidate = _UNSAFE_AGENT_ID_CHARS.sub("-", route_key.strip())
         candidate = _LEADING_UNSAFE.sub("", candidate)[:AGENT_ID_MAX_LENGTH]
         if not candidate:
@@ -71,6 +82,8 @@ class DescriptorDefaults:
 
         Kept as the single defaulting entry point so callers never branch on
         whether a descriptor was declared or derived.
-        """
 
+        Args:
+            descriptor (AgentDescriptor): The canonical agent descriptor whose identity and capabilities are used.
+        """
         return descriptor

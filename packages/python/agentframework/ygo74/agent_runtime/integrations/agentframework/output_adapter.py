@@ -42,6 +42,8 @@ from .conversion import (
 
 
 class NativeContentType(StrEnum):
+    """Names Agent Framework content variants understood by the neutral output adapter.
+    """
     TEXT = "text"
     REASONING = "text_reasoning"
     DATA = "data"
@@ -53,6 +55,8 @@ class NativeContentType(StrEnum):
 
 
 class NativeFinishReason(StrEnum):
+    """Maps supported Agent Framework finish reasons to neutral termination states.
+    """
     STOP = "stop"
     LENGTH = "length"
     TOOL_CALLS = "tool_calls"
@@ -61,6 +65,14 @@ class NativeFinishReason(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class _MappedContent:
+    """Carries the converted content, conversion decision, usage, and termination extracted from one framework item.
+
+    Args:
+        decision (ConversionDecision): Support or conversion decision produced for the current item.
+        content (AgentContent | None): The content item being interpreted or projected.
+        usage (TokenUsage | None): Token counters supplied by the framework or provider.
+        termination (Termination | None): Terminal outcome used to complete the result or stream.
+    """
     decision: ConversionDecision
     content: AgentContent | None = None
     usage: TokenUsage | None = None
@@ -68,6 +80,12 @@ class _MappedContent:
 
 
 class _ContentMapper:
+    """Maps Agent Framework content and metadata into typed provider-neutral values and validates JSON-compatible arguments.
+
+    Args:
+        expose_reasoning (bool): Whether reasoning content may be included in client-visible output.
+        tool_execution (ToolExecution): Whether tool calls are internal or delegated to the client.
+    """
     _USAGE_KEYS: tuple[str, ...] = (
         "input_token_count", "output_token_count", "total_token_count",
         "cache_read_input_token_count", "reasoning_output_token_count",
@@ -87,6 +105,12 @@ class _ContentMapper:
     }
 
     def __init__(self, *, expose_reasoning: bool, tool_execution: ToolExecution) -> None:
+        """Initialize the instance framework output with supplied collaborators and configuration.
+
+        Args:
+            expose_reasoning (bool): Whether reasoning content may be included in client-visible output.
+            tool_execution (ToolExecution): Whether tool calls are internal or delegated to the client.
+        """
         self.expose_reasoning = expose_reasoning
         self.tool_execution = tool_execution
         self.tool_names: dict[str, str] = {}
@@ -98,10 +122,24 @@ class _ContentMapper:
         content: Content, identity: str, reason: ConversionReason,
         status: ConversionStatus = ConversionStatus.UNSUPPORTED,
     ) -> _MappedContent:
+        """Create a conversion decision for the native content type and its support outcome.
+
+        Args:
+            content (Content): The content item being interpreted or projected.
+            identity (str): Identifier required to correlate a route, content item, tool call, or user.
+            reason (ConversionReason): Reason code or message associated with this decision or failure.
+            status (ConversionStatus): Success, incomplete, or failed outcome for the operation.
+        """
         return _MappedContent(ConversionDecision(identity, content.type, status, reason))
 
     @staticmethod
     def annotation_decision(content: Content, identity: str) -> ConversionDecision | None:
+        """Report whether native annotations can be represented as neutral citations.
+
+        Args:
+            content (Content): The content item being interpreted or projected.
+            identity (str): Identifier required to correlate a route, content item, tool call, or user.
+        """
         if not content.annotations:
             return None
         return ConversionDecision(
@@ -111,6 +149,12 @@ class _ContentMapper:
 
     @staticmethod
     def json_value(value: object) -> JsonValue:
+        """Convert recursive framework values to JSON-compatible scalars, objects, and arrays or reject them.
+
+        Args:
+            value (object): The value being converted, checked, or serialized.
+        """
+        # Accept JSON scalars, finite numbers, string-keyed objects, and arrays recursively; reject values that cannot be represented faithfully as JSON.
         if value is None or isinstance(value, (str, bool, int)):
             return value
         if isinstance(value, float) and math.isfinite(value):
@@ -128,6 +172,11 @@ class _ContentMapper:
 
     @staticmethod
     def usage(details: Mapping[str, object] | None) -> TokenUsage | None:
+        """Project usage information framework output into the typed usage contract or provider-specific counters.
+
+        Args:
+            details (Mapping[str, object] | None): Framework-provided token counters to validate and aggregate.
+        """
         if details is None:
             return None
         incoming = details.get("input_token_count")
@@ -153,6 +202,11 @@ class _ContentMapper:
 
     @staticmethod
     def termination(reason: str | None) -> Termination:
+        """Project termination status framework output into the provider or framework representation.
+
+        Args:
+            reason (str | None): Reason code or message associated with this decision or failure.
+        """
         if reason in (NativeFinishReason.LENGTH, NativeFinishReason.FILTER):
             return Termination(TerminationStatus.INCOMPLETE, reason=reason)
         if reason is None or reason in (NativeFinishReason.STOP, NativeFinishReason.TOOL_CALLS):
@@ -160,6 +214,12 @@ class _ContentMapper:
         return Termination(TerminationStatus.INCOMPLETE, reason="unknown_sdk_finish_reason")
 
     def _consume_usage(self, details: UsageDetails | None) -> TokenUsage | None:
+        """Accumulate valid framework token counters while preserving unknown optional totals.
+
+        Args:
+            details (UsageDetails | None): Framework-provided token counters to validate and aggregate.
+        """
+        # Validate counters before accumulating them, and remember missing optional counters so the combined usage never presents an unknown total as complete.
         if details is None:
             return None
         for key in self._USAGE_KEYS:
@@ -179,6 +239,12 @@ class _ContentMapper:
                            if key not in self._unknown_usage})
 
     def map(self, content: Content, identity: str) -> _MappedContent:
+        """Map framework output between the source representation and the target contract.
+
+        Args:
+            content (Content): The content item being interpreted or projected.
+            identity (str): Identifier required to correlate a route, content item, tool call, or user.
+        """
         decision = ConversionDecision(identity, content.type, ConversionStatus.CONVERTED, ConversionReason.SUPPORTED)
         if content.type == NativeContentType.TEXT.value:
             return _MappedContent(decision, TextContent(content.text or ""))
@@ -210,6 +276,13 @@ class _ContentMapper:
         return self._decision(content, identity, ConversionReason.UNKNOWN_CONTENT)
 
     def _call(self, content: Content, identity: str, decision: ConversionDecision) -> _MappedContent:
+        """Convert a framework function call to typed tool-call content with its execution ownership.
+
+        Args:
+            content (Content): The content item being interpreted or projected.
+            identity (str): Identifier required to correlate a route, content item, tool call, or user.
+            decision (ConversionDecision): Support or conversion decision produced for the current item.
+        """
         if not content.call_id or not content.name:
             return self._decision(content, identity, ConversionReason.MISSING_TOOL_IDENTITY)
         if content.exception:
@@ -225,6 +298,13 @@ class _ContentMapper:
         ))
 
     def _result(self, content: Content, identity: str, decision: ConversionDecision) -> _MappedContent:
+        """Convert a framework function result and correlate it with the original tool call.
+
+        Args:
+            content (Content): The content item being interpreted or projected.
+            identity (str): Identifier required to correlate a route, content item, tool call, or user.
+            decision (ConversionDecision): Support or conversion decision produced for the current item.
+        """
         name = content.name or self.tool_names.get(content.call_id or "")
         if not content.call_id or not name:
             return self._decision(content, identity, ConversionReason.MISSING_TOOL_IDENTITY)
@@ -244,6 +324,13 @@ class _ContentMapper:
         ))
 
     def _media(self, content: Content, identity: str, decision: ConversionDecision) -> _MappedContent:
+        """Convert native media references or encoded data while preserving MIME and format metadata.
+
+        Args:
+            content (Content): The content item being interpreted or projected.
+            identity (str): Identifier required to correlate a route, content item, tool call, or user.
+            decision (ConversionDecision): Support or conversion decision produced for the current item.
+        """
         uri, mime = content.uri, content.media_type
         if not uri or not mime:
             return self._decision(content, identity, ConversionReason.UNSUPPORTED_MEDIA)
@@ -268,16 +355,32 @@ class _ContentMapper:
 
 
 class AgentFrameworkOutputAdapter:
-    """Convert final SDK messages; reasoning exposure and client tools are opt-in."""
+    """Convert final SDK messages; reasoning exposure and client tools are opt-in.
 
+    Args:
+        expose_reasoning (bool): Whether reasoning content may be included in client-visible output.
+        tool_execution (ToolExecution): Whether tool calls are internal or delegated to the client.
+    """
     def __init__(
         self, *, expose_reasoning: bool = False,
         tool_execution: ToolExecution = ToolExecution.INTERNAL,
     ) -> None:
+        """Initialize the instance framework output with supplied collaborators and configuration.
+
+        Args:
+            expose_reasoning (bool): Whether reasoning content may be included in client-visible output.
+            tool_execution (ToolExecution): Whether tool calls are internal or delegated to the client.
+        """
         self._expose_reasoning = expose_reasoning
         self._tool_execution = tool_execution
 
     def convert(self, response: AgentResponse) -> OutputConversion:
+        """Convert assistant and tool messages into the provider-neutral result contract in source order.
+
+        Args:
+            response (AgentResponse): The response value to validate, transform, or return.
+        """
+        # Preserve message and content order while excluding non-output roles; collect conversion diagnostics alongside typed content and prefer the response-level usage snapshot.
         if not isinstance(response, AgentResponse):
             raise TypeError("response must be an AgentResponse")
         mapper = _ContentMapper(expose_reasoning=self._expose_reasoning, tool_execution=self._tool_execution)

@@ -52,13 +52,26 @@ __all__ = ["AgentInvocation", "AgentResult", "StreamProcessor"]
 
 
 class AsyncCloseable(Protocol):
-    def aclose(self) -> Awaitable[None]: ...
+    """Protocol for asynchronous event sources that must be closed on completion, cancellation, or failure.
+    """
+    def aclose(self) -> Awaitable[None]:
+        """Close asynchronously typed stream events and release resources owned by the operation.
+        """
+        ...
 
 
 class StreamProcessor:
+    """Validates a neutral event sequence, projects events for the selected protocol, and closes its producer on every terminal path.
+    """
     async def stream(
         self, result: object, context: ProjectionContext
     ) -> AsyncIterator[str]:
+        """Stream typed stream events validated events while preserving lifecycle and cleanup guarantees.
+
+        Args:
+            result (object): The operation result to validate, project, or return.
+            context (ProjectionContext): The execution context carrying identity and correlated metadata.
+        """
         state = StreamState(context)
         projector = self._projector(context.protocol)
         encoder = SseEncoder()
@@ -147,6 +160,12 @@ class StreamProcessor:
     async def _events(
         output: AgentOutput, protocol: OutputProtocol
     ) -> AsyncIterator[AgentStreamEvent]:
+        """Validate and project source events while guaranteeing producer closure on every exit path.
+
+        Args:
+            output (AgentOutput): Typed agent output being validated, filtered, or projected.
+            protocol (OutputProtocol): Target provider protocol used to select projection rules.
+        """
         if (
             protocol == OutputProtocol.ANTHROPIC_MESSAGES
             and output.usage is None
@@ -162,6 +181,12 @@ class StreamProcessor:
 
     @staticmethod
     async def _close(source: object, context: ProjectionContext) -> None:
+        """Close an async producer when it supports explicit cleanup, suppressing cleanup errors only after preserving the primary outcome.
+
+        Args:
+            source (object): The source value being read, validated, or converted.
+            context (ProjectionContext): The execution context carrying identity and correlated metadata.
+        """
         if inspect.iscoroutine(source):
             source.close()
             return
@@ -178,6 +203,11 @@ class StreamProcessor:
 
     @staticmethod
     def _projector(protocol: OutputProtocol) -> StreamProjector:
+        """Select the provider projector matching the response protocol.
+
+        Args:
+            protocol (OutputProtocol): Target provider protocol used to select projection rules.
+        """
         projectors: dict[OutputProtocol, Callable[[], StreamProjector]] = {
             OutputProtocol.CHAT_COMPLETIONS: ChatCompletionsStreamProjector,
             OutputProtocol.RESPONSES: ResponsesStreamProjector,
