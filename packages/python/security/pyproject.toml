@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ygo74-agent-runtime-security"
-version = "0.6.0"
+version = "0.7.0"
 description = "Security and authentication foundation of the ygo74 agent runtime"
 # 3.12 is the floor the shipped code needs.
 requires-python = ">=3.12"

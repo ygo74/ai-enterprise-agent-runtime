@@ -19,7 +19,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import AsyncExitStack
 from datetime import timedelta
 from enum import StrEnum
@@ -51,11 +51,34 @@ except Exception as exc:  # noqa: BLE001  # pragma: no cover - the extra is opti
     _MCP_IMPORT_ERROR = exc
 
 CapabilityT = TypeVar("CapabilityT", bound=StrEnum)
+ErrorFactory = Callable[[str], Exception]
 
 DEFAULT_DIALECT = "native"
 _PYTHON = "python"
 
 _logger = logging.getLogger(__name__)
+
+
+class _RedactedMapping(Mapping[str, str]):
+    """Read-only sensitive string values whose representation contains keys only."""
+
+    def __init__(self, values: Mapping[str, str]) -> None:
+        self._values = dict(values)
+
+    def __getitem__(self, key: str) -> str:
+        return self._values[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._values)
+
+    def __len__(self) -> int:
+        return len(self._values)
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}(keys={tuple(sorted(self._values))!r})"
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Mapping) and self._values == dict(other)
 
 
 class McpTransport(StrEnum):
@@ -81,6 +104,7 @@ class McpServerBinding(Generic[CapabilityT]):
         args: Iterable[str] = (),
         env: Mapping[str, str] | None = None,
         read_only_variable: str = "",
+        error_factory: ErrorFactory = McpBindingError,
     ) -> None:
         self._server = server
         self._transport = transport
@@ -90,8 +114,9 @@ class McpServerBinding(Generic[CapabilityT]):
         self._url = url
         self._command = command
         self._args = tuple(args)
-        self._env = dict(env or {})
+        self._env = _RedactedMapping(env or {})
         self._read_only_variable = read_only_variable
+        self._error_factory = error_factory
 
     @property
     def server(self) -> str:
@@ -130,7 +155,12 @@ class McpServerBinding(Generic[CapabilityT]):
     @property
     def env(self) -> Mapping[str, str]:
         """Extra environment handed to a stdio server."""
-        return dict(self._env)
+        return self._env
+
+    @property
+    def tools(self) -> Mapping[str, str]:
+        """Application aliases and the remote names a server assigns them."""
+        return dict(self._tools)
 
     @property
     def capabilities(self) -> frozenset[CapabilityT]:
@@ -155,14 +185,14 @@ class McpServerBinding(Generic[CapabilityT]):
         """Return the name this server gives to a tool the dialect needs."""
         remote = self._tools.get(alias)
         if remote is None:
-            raise McpBindingError(f"server {self._server!r} declares no tool named {alias!r}")
+            raise self._error_factory(f"server {self._server!r} declares no tool named {alias!r}")
         return remote
 
     def require_aliases(self, aliases: Iterable[str]) -> None:
         """Fail now when the dialect needs a tool the binding never named."""
         missing = sorted(alias for alias in aliases if alias not in self._tools)
         if missing:
-            raise McpBindingError(f"server {self._server!r} is missing tool names {missing}")
+            raise self._error_factory(f"server {self._server!r} is missing tool names {missing}")
 
     def require_declared_capabilities(self) -> None:
         """Fail now when a declared capability has no tool behind it.
@@ -175,7 +205,7 @@ class McpServerBinding(Generic[CapabilityT]):
             str(capability.value) for capability in self._capabilities if str(capability.value) not in self._tools
         )
         if undeclared:
-            raise McpBindingError(
+            raise self._error_factory(
                 f"server {self._server!r} declares capabilities {undeclared} but names no tool for them"
             )
 
@@ -191,9 +221,15 @@ class McpServerBindingLoader(Generic[CapabilityT]):
     package resource, a bucket - so a path is passed in rather than resolved here.
     """
 
-    def __init__(self, capabilities: type[CapabilityT]) -> None:
+    def __init__(
+        self,
+        capabilities: type[CapabilityT],
+        *,
+        error_factory: ErrorFactory = McpBindingError,
+    ) -> None:
         _require_mcp()
         self._capabilities = capabilities
+        self._error_factory = error_factory
 
     def load(self, path: Path, *, name: str = "") -> McpServerBinding[CapabilityT]:
         """Read the binding at ``path``."""
@@ -209,73 +245,68 @@ class McpServerBindingLoader(Generic[CapabilityT]):
             args=tuple(str(item) for item in self._list(document, "args", path)),
             env=self._env(document, path),
             read_only_variable=str(document.get("read_only_variable", "")).strip(),
+            error_factory=self._error_factory,
         )
         self._require_endpoint(binding, path)
         return binding
 
-    @staticmethod
-    def _document(path: Path) -> dict[str, Any]:
+    def _document(self, path: Path) -> dict[str, Any]:
         """Parse the binding file, refusing anything but a mapping."""
         try:
             document = yaml.safe_load(path.read_text(encoding="utf-8"))
         except (OSError, yaml.YAMLError) as error:
-            raise McpBindingError(f"could not read {path}: {error}") from error
+            raise self._error_factory(f"could not read {path}: {error}") from error
         if not isinstance(document, dict):
-            raise McpBindingError(f"{path} must contain a mapping")
+            raise self._error_factory(f"{path} must contain a mapping")
         return document
 
-    @staticmethod
-    def _transport(document: dict[str, Any], path: Path) -> McpTransport:
+    def _transport(self, document: dict[str, Any], path: Path) -> McpTransport:
         """Return the declared transport."""
         declared = str(document.get("transport", "")).strip().lower()
         try:
             return McpTransport(declared)
         except ValueError as error:
             accepted = ", ".join(member.value for member in McpTransport)
-            raise McpBindingError(f"{path}: 'transport' must be one of {accepted}, got {declared!r}") from error
+            raise self._error_factory(f"{path}: 'transport' must be one of {accepted}, got {declared!r}") from error
 
-    @staticmethod
-    def _list(document: dict[str, Any], key: str, path: Path) -> list[Any]:
+    def _list(self, document: dict[str, Any], key: str, path: Path) -> list[Any]:
         """Return an optional list field."""
         value = document.get(key, [])
         if not isinstance(value, list):
-            raise McpBindingError(f"{path}: field {key!r} must be a list")
+            raise self._error_factory(f"{path}: field {key!r} must be a list")
         return value
 
     def _declared(self, document: dict[str, Any], path: Path) -> frozenset[CapabilityT]:
         """Return the catalogued capabilities the server declares."""
         declared = self._list(document, "capabilities", path)
         if not declared:
-            raise McpBindingError(f"{path}: 'capabilities' must list at least one capability")
+            raise self._error_factory(f"{path}: 'capabilities' must list at least one capability")
         known = {str(name.value): name for name in self._capabilities}
         unknown = sorted(str(item) for item in declared if str(item) not in known)
         if unknown:
-            raise McpBindingError(f"{path}: unknown capabilities {unknown}")
+            raise self._error_factory(f"{path}: unknown capabilities {unknown}")
         return frozenset(known[str(item)] for item in declared)
 
-    @staticmethod
-    def _tools(document: dict[str, Any], path: Path) -> dict[str, str]:
+    def _tools(self, document: dict[str, Any], path: Path) -> dict[str, str]:
         """Return the alias-to-remote-name table."""
         tools = document.get("tools", {})
         if not isinstance(tools, dict):
-            raise McpBindingError(f"{path}: field 'tools' must be a mapping")
+            raise self._error_factory(f"{path}: field 'tools' must be a mapping")
         return {str(alias): str(remote) for alias, remote in tools.items()}
 
-    @staticmethod
-    def _env(document: dict[str, Any], path: Path) -> dict[str, str]:
+    def _env(self, document: dict[str, Any], path: Path) -> dict[str, str]:
         """Return the extra environment of a stdio server."""
         env = document.get("env", {})
         if not isinstance(env, dict):
-            raise McpBindingError(f"{path}: field 'env' must be a mapping")
+            raise self._error_factory(f"{path}: field 'env' must be a mapping")
         return {str(key): str(value) for key, value in env.items()}
 
-    @staticmethod
-    def _require_endpoint(binding: McpServerBinding[CapabilityT], path: Path) -> None:
+    def _require_endpoint(self, binding: McpServerBinding[CapabilityT], path: Path) -> None:
         """Refuse a binding that names no way to reach its server."""
         if binding.transport is McpTransport.HTTP and not binding.url:
-            raise McpBindingError(f"{path}: an http binding needs a 'url'")
+            raise self._error_factory(f"{path}: an http server requires 'url'")
         if binding.transport is McpTransport.STDIO and not binding.command:
-            raise McpBindingError(f"{path}: a stdio binding needs a 'command'")
+            raise self._error_factory(f"{path}: a stdio server requires 'command'")
 
 
 class McpConnection:
@@ -298,12 +329,14 @@ class McpConnection:
         *,
         timeout_seconds: int = 30,
         auth: Any | None = None,
-        unavailable: type[McpToolUnavailableError] = McpToolUnavailableError,
+        headers: Mapping[str, str] | None = None,
+        unavailable: ErrorFactory = McpToolUnavailableError,
     ) -> None:
         _require_mcp()
         self._binding = binding
         self._timeout = timeout_seconds
         self._auth = auth
+        self._headers = _RedactedMapping(headers or {})
         self._unavailable = unavailable
         self._stack: AsyncExitStack | None = None
         self._session: ClientSession | None = None
@@ -329,7 +362,9 @@ class McpConnection:
             return
         try:
             await stack.aclose()
-        except (OSError, RuntimeError, *_http_errors()) as error:
+        except Exception as error:
+            if not _is_connection_close_error(error):
+                raise
             # The conversation is over; a server that already went away must not
             # turn a clean exit into a crash.
             _logger.debug("connection was already unavailable while closing: %s", type(error).__name__)
@@ -359,7 +394,12 @@ class McpConnection:
         """Open the transport the binding asks for."""
         if self._binding.transport is McpTransport.HTTP:
             read, write, _ = await stack.enter_async_context(
-                streamablehttp_client(self._binding.url, timeout=self._timeout, auth=self._auth)
+                streamablehttp_client(
+                    self._binding.url,
+                    headers=dict(self._headers) or None,
+                    timeout=self._timeout,
+                    auth=self._auth,
+                )
             )
         else:
             read, write = await stack.enter_async_context(stdio_client(self._stdio_parameters()))
@@ -382,9 +422,11 @@ class McpConnection:
         )
 
 
-def _http_errors() -> tuple[type[BaseException], ...]:
-    """The transport errors worth tolerating while closing."""
-    return (httpx.HTTPError,) if httpx is not None else ()
+def _is_connection_close_error(error: Exception) -> bool:
+    """Whether an error means the remote transport was already unavailable."""
+    if isinstance(error, (OSError, RuntimeError)):
+        return True
+    return httpx is not None and isinstance(error, httpx.HTTPError)
 
 
 def _require_mcp() -> None:

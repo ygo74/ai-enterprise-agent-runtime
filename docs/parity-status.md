@@ -8,6 +8,24 @@ This file is that written record. It lists capabilities that currently ship in
 one language only, why, and what the other implementations must provide to reach
 parity. An entry here is a debt with a name, not a waiver.
 
+## 2026-09-27 — issue #6 conversation approval and MCP client APIs
+
+Accepted constraint: the new conversation and MCP client APIs are **Python-first**.
+`domains.sessions.agent_conversation` provides the generic conversation
+container and HTTP turn engine; `domains.humanapproval.approval_loop` provides
+the framework-neutral bounded approval coordinator; and `domains.mcp` provides
+generic bindings, connections and dialect dispatch. Mail and Wiki adopt these
+APIs while keeping their composition roots, framework adapters, capabilities,
+credential policy and concrete dialects in `ai_agents`.
+
+The MCP client continues to require the optional
+`ygo74-agent-runtime-agents[mcp]` extra. These APIs have no .NET or Java
+implementation yet. Equivalent implementations must preserve the Python
+behavior contracts documented in [`agent-runtime.md`](python/agent-runtime.md),
+[`human-in-the-loop.md`](python/human-in-the-loop.md), and
+[`mcp.md`](python/mcp.md), including confirmation ordering, bounded fail-closed
+cleanup, connection lifecycle, header secrecy and application-owned policy.
+
 ## 2026-09-12 — capabilities adopted from the AI Agent Lab
 
 Origin: these components were written and proven in the `ai_agents` laboratory,

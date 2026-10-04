@@ -56,12 +56,13 @@ from ygo74.agent_runtime.domains.security.security_errors import SecurityError
 from ygo74.agent_runtime.domains.security.user_context import UserContext
 
 ToolT = TypeVar("ToolT")
+ToolNameT_contra = TypeVar("ToolNameT_contra", contravariant=True)
 ResultT = TypeVar("ResultT")
 
 _logger = logging.getLogger(__name__)
 
 
-class OperationCatalogue(Protocol[ToolT]):
+class OperationCatalogue(Protocol[ToolNameT_contra]):
     """Where the security posture of an operation is read from.
 
     There must be exactly one answer per deployment. A framework decides whether
@@ -71,7 +72,7 @@ class OperationCatalogue(Protocol[ToolT]):
     perform, and the model would report that the system had refused.
     """
 
-    def descriptor(self, name: ToolT) -> ToolOperationDescriptor:
+    def descriptor(self, name: ToolNameT_contra) -> ToolOperationDescriptor:
         """Return the security metadata of a tool."""
         ...
 

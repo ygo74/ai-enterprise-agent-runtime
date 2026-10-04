@@ -28,23 +28,40 @@ Applications compose the pipeline in their handler or dispatcher. The endpoint
 adapter handles transport mapping and authentication before calling the
 configured entrypoint.
 
-## Conversation contracts and cache
+## Conversation contracts, HTTP turns, and cache
 
-Python provides a `ConversationEngine` protocol and turn/reply values as a
-framework-neutral boundary. `ConversationRuntimeCache` is an optional
-process-local building block for keeping an application runtime per authenticated
-subject and conversation ID. It builds each entry once under concurrent access,
-leases entries while a request uses them, closes expired or evicted idle
-runtimes, bounds idle state by a maximum size, and exposes explicit release and
-shutdown operations. Defaults are a 30-minute idle lifetime and 200
-conversations. When every entry is leased, the cache can temporarily exceed the
-configured size rather than closing a runtime that is in use.
+Python provides the framework-neutral `ConversationTurn`, `AgentReply`, and
+`ConversationEngine` contracts. These values keep request identity, conversation
+identity, message text, reply text, and pending-confirmation identifiers
+independent of a particular agent framework.
 
-The cache does not define a transport-level conversation protocol or persist
-state across process restarts. The application supplies the runtime factory and
-closer, chooses how request IDs map to conversations, and owns durable or shared
-storage when multi-process state is required. An authenticated principal is
-required to partition cached conversations safely.
+`AgentConversation[RuntimeT, SessionT]` is a typed container for the application
+runtime, framework session, pending-confirmation store, confirmation runner,
+conversation ID, and pending-action renderer. Its structural ports describe
+only what the shared HTTP flow needs; an application can use its own typed
+runtime and framework session without inheriting from a runtime base class.
+`HttpConversationEngine` leases the container from `ConversationRuntimeCache`,
+recognizes confirmation commands before invoking the model, runs a claimed
+confirmation through the application-supplied runner, and returns an
+`AgentReply` that includes the remaining pending actions. This consolidates
+repeated HTTP conversation plumbing while leaving framework state and
+application composition local.
+
+`ConversationRuntimeCache` is an optional process-local building block for
+keeping an application runtime per authenticated subject and conversation ID. It
+builds each entry once under concurrent access, leases entries while a request
+uses them, closes expired or evicted idle runtimes, bounds idle state by a
+maximum size, and exposes explicit release and shutdown operations. Defaults
+are a 30-minute idle lifetime and 200 conversations. When every entry is
+leased, the cache can temporarily exceed the configured size rather than
+closing a runtime that is in use.
+
+These APIs do not define a transport-level conversation protocol, persist state
+across process restarts, or select how application request IDs map to
+conversations. The application supplies the runtime and session factories and
+closers, confirmation store and runner, and any durable or shared storage needed
+for multi-process state. An authenticated principal must partition cached
+conversations safely. The engine and cache are Python-only.
 
 ## Language limits
 

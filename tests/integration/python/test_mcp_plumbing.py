@@ -12,11 +12,13 @@ quietly holding far broader access than it asked for.
 from __future__ import annotations
 
 import inspect
+from contextlib import asynccontextmanager
 from enum import StrEnum
 from pathlib import Path
 
 import pytest
 from ygo74.agent_runtime.domains.mcp.binding import (
+    McpConnection,
     McpServerBinding,
     McpServerBindingLoader,
     McpTransport,
@@ -124,6 +126,28 @@ def test_a_binding_declaring_no_capability_is_refused(tmp_path: Path) -> None:
         loader().load(write(tmp_path, body))
 
 
+def test_binding_errors_can_be_preserved_by_an_application(tmp_path: Path) -> None:
+    class ApplicationBindingError(Exception):
+        pass
+
+    application_loader = McpServerBindingLoader(Capability, error_factory=ApplicationBindingError)
+    body = HTTP_BINDING.replace("transport: http", "transport: unknown")
+
+    with pytest.raises(ApplicationBindingError, match="must be one of"):
+        application_loader.load(write(tmp_path, body))
+
+    binding = McpServerBinding(
+        server="reference",
+        transport=McpTransport.HTTP,
+        capabilities=[Capability.SEARCH],
+        tools={},
+        url="https://example.test/mcp",
+        error_factory=ApplicationBindingError,
+    )
+    with pytest.raises(ApplicationBindingError, match="declares no tool"):
+        binding.remote("search_items")
+
+
 def test_an_unknown_transport_names_the_accepted_ones(tmp_path: Path) -> None:
     body = HTTP_BINDING.replace("transport: http", "transport: carrier-pigeon")
 
@@ -134,7 +158,7 @@ def test_an_unknown_transport_names_the_accepted_ones(tmp_path: Path) -> None:
 def test_an_http_binding_without_an_endpoint_is_refused(tmp_path: Path) -> None:
     body = HTTP_BINDING.replace("url: https://example.test/mcp\n", "")
 
-    with pytest.raises(McpBindingError, match="needs a 'url'"):
+    with pytest.raises(McpBindingError, match="requires 'url'"):
         loader().load(write(tmp_path, body))
 
 
@@ -143,7 +167,7 @@ def test_a_stdio_binding_without_a_command_is_refused(tmp_path: Path) -> None:
         "url: https://example.test/mcp\n", ""
     )
 
-    with pytest.raises(McpBindingError, match="needs a 'command'"):
+    with pytest.raises(McpBindingError, match="requires 'command'"):
         loader().load(write(tmp_path, body))
 
 
@@ -178,13 +202,13 @@ def _binding(dialect: str = "native") -> McpServerBinding[Capability]:
 
 
 def test_a_registry_builds_the_dialect_a_binding_asks_for() -> None:
-    registry: DialectRegistry[str] = DialectRegistry({"native": lambda binding: f"native:{binding.server}"})
+    registry: DialectRegistry[str, []] = DialectRegistry({"native": lambda binding: f"native:{binding.server}"})
 
     assert registry.build(_binding()) == "native:reference"
 
 
 def test_a_registry_names_the_alternatives_when_a_dialect_is_unknown() -> None:
-    registry: DialectRegistry[str] = DialectRegistry({"native": lambda binding: "x", "gmail": lambda binding: "y"})
+    registry: DialectRegistry[str, []] = DialectRegistry({"native": lambda binding: "x", "gmail": lambda binding: "y"})
 
     with pytest.raises(McpToolUnavailableError, match="gmail, native"):
         registry.build(_binding("imap"))
@@ -192,18 +216,70 @@ def test_a_registry_names_the_alternatives_when_a_dialect_is_unknown() -> None:
 
 def test_a_registry_refuses_to_replace_a_dialect_silently() -> None:
     """Replacing quietly is how a deployment talks to a server nobody chose."""
-    registry: DialectRegistry[str] = DialectRegistry({"native": lambda binding: "x"})
+    registry: DialectRegistry[str, []] = DialectRegistry({"native": lambda binding: "x"})
 
     with pytest.raises(McpToolUnavailableError, match="already registered"):
         registry.register("native", lambda binding: "y")
 
 
 def test_a_registry_passes_what_a_dialect_needs_through() -> None:
-    registry: DialectRegistry[str] = DialectRegistry(
+    registry: DialectRegistry[str, [str]] = DialectRegistry(
         {"native": lambda binding, owner: f"{binding.server}:{owner}"}
     )
 
     assert registry.build(_binding(), "ada") == "reference:ada"
+
+
+def test_a_registry_can_raise_an_application_error() -> None:
+    class ApplicationUnavailableError(Exception):
+        pass
+
+    registry: DialectRegistry[str, []] = DialectRegistry(
+        {"native": lambda binding: "x"},
+        unavailable=ApplicationUnavailableError,
+    )
+
+    with pytest.raises(ApplicationUnavailableError, match="already registered"):
+        registry.register("native", lambda binding: "y")
+
+
+def test_http_headers_reach_only_the_http_transport(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    from ygo74.agent_runtime.domains.mcp import binding as binding_module
+
+    received: dict[str, object] = {}
+
+    @asynccontextmanager
+    async def fake_transport(url: str, **kwargs: object):
+        received["url"] = url
+        received.update(kwargs)
+        yield object(), object(), None
+
+    class FakeSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        async def initialize(self) -> None:
+            return None
+
+    monkeypatch.setattr(binding_module, "streamablehttp_client", fake_transport)
+    monkeypatch.setattr(binding_module, "ClientSession", lambda *args, **kwargs: FakeSession())
+    headers = {"Authorization": "Bearer secret-value"}
+    connection = McpConnection(_binding(), headers=headers)
+
+    async def scenario() -> None:
+        await connection.session()
+        await connection.aclose()
+
+    import asyncio
+
+    asyncio.run(scenario())
+
+    assert received["headers"] == headers
+    assert "secret-value" not in repr(connection)
+    assert "secret-value" not in caplog.text
 
 
 def test_the_redirect_stays_on_the_loopback_interface() -> None:
