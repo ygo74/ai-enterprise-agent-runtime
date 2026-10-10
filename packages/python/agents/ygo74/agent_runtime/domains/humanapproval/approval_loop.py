@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Generic, Protocol, TypeVar
 
 _MAX_APPROVAL_ROUNDS = 25
 _MAX_TOTAL_ROUNDS = 200
 _MAX_DECLINE_ROUNDS = 25
 
-_INTERRUPTED = (
+DEFAULT_INTERRUPTED_MESSAGE = (
     "The request asked for too many approvals in a row, so it was interrupted. "
     "Everything still pending was declined and nothing was changed."
 )
-_EXHAUSTED = (
+DEFAULT_EXHAUSTED_MESSAGE = (
     "The request needed more tool calls than one turn allows, so it was interrupted. "
     "Everything still pending was declined and nothing was changed. Ask for a smaller batch."
 )
@@ -22,6 +23,32 @@ _logger = logging.getLogger(__name__)
 
 StateT = TypeVar("StateT")
 PendingT = TypeVar("PendingT")
+
+
+@dataclass(slots=True)
+class ApprovalBudget:
+    """Per-invocation counters shared by normal and streaming execution.
+
+    Args:
+        asked: Number of batches that actually question a person.
+        total: Number of approval batches processed so far.
+    """
+
+    asked: int = 0
+    total: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class ApprovalStep(Generic[PendingT]):
+    """Next approval batch or an interrupted invocation.
+
+    Args:
+        pending: Suspended calls to resolve; empty when complete.
+        interruption: Safe explanation after bounded fail-closed cleanup.
+    """
+
+    pending: tuple[PendingT, ...] = ()
+    interruption: str | None = None
 
 
 class ApprovalTurnAdapter(Protocol[StateT, PendingT]):
@@ -89,8 +116,8 @@ class ApprovalLoop(Generic[StateT, PendingT]):
         max_approval_rounds: int = _MAX_APPROVAL_ROUNDS,
         max_total_rounds: int = _MAX_TOTAL_ROUNDS,
         max_decline_rounds: int = _MAX_DECLINE_ROUNDS,
-        interrupted_message: str = _INTERRUPTED,
-        exhausted_message: str = _EXHAUSTED,
+        interrupted_message: str = DEFAULT_INTERRUPTED_MESSAGE,
+        exhausted_message: str = DEFAULT_EXHAUSTED_MESSAGE,
     ) -> None:
         """Initialize the instance runtime data with supplied collaborators and configuration.
 
@@ -118,20 +145,33 @@ class ApprovalLoop(Generic[StateT, PendingT]):
             state (StateT): The state that tracks the current operation lifecycle.
         """
         # Bound both total resume attempts and approval questions so repeated framework handoffs cannot keep the invocation open indefinitely.
-        asked = 0
-        for _ in range(self._max_total_rounds):
-            pending = self._adapter.pending(state)
-            if not pending:
+        budget = ApprovalBudget()
+        while True:
+            step = await self.advance(state, budget)
+            if step.interruption is not None:
+                return step.interruption
+            if not step.pending:
                 return self._adapter.final_text(state)
+            state = await self._adapter.resume(step.pending)
 
-            if self._adapter.will_question(pending):
-                asked += 1
-                if asked > self._max_approval_rounds:
-                    return await self._abandon(state, self._interrupted_message)
+    async def advance(self, state: StateT, budget: ApprovalBudget) -> ApprovalStep[PendingT]:
+        """Apply the same budgets before either native execution mode resumes.
 
-            state = await self._adapter.resume(pending)
-
-        return await self._abandon(state, self._exhausted_message)
+        Args:
+            state: Last completed native sub-run.
+            budget: Mutable counters owned by this invocation only.
+        """
+        pending = self._adapter.pending(state)
+        if not pending:
+            return ApprovalStep()
+        if budget.total >= self._max_total_rounds:
+            return ApprovalStep(interruption=await self._abandon(state, self._exhausted_message))
+        budget.total += 1
+        if self._adapter.will_question(pending):
+            budget.asked += 1
+            if budget.asked > self._max_approval_rounds:
+                return ApprovalStep(interruption=await self._abandon(state, self._interrupted_message))
+        return ApprovalStep(pending)
 
     async def _abandon(self, state: StateT, message: str) -> str:
         """Purge grants before best-effort bounded refusal of suspended calls.

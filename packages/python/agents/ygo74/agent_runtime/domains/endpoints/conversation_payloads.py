@@ -138,7 +138,7 @@ class AgentReplyRenderer:
         return StandardExchangeResponse(
             request_id=str(payload.get(_REQUEST_ID, "")),
             status="success",
-            output=AgentOutput((TextContent(reply.text),)),
+            output=reply.output or AgentOutput((TextContent(reply.text),)),
             metadata={
                 _ROUTE_KEY: str(payload.get(_ROUTE_KEY, "")),
                 "pending_confirmations": list(reply.pending_confirmations),
@@ -180,7 +180,16 @@ def _content_text(content: object) -> str:
     if isinstance(content, str):
         return content.strip()
     if not isinstance(content, list):
-        return ""
+        if content is None:
+            return ""
+        raise ValueError("latest-user-text profile requires text or text parts")
+    if any(
+        not isinstance(part, Mapping)
+        or part.get("type") not in (None, "text", "input_text")
+        or not isinstance(part.get(_TEXT), str)
+        for part in content
+    ):
+        raise ValueError("latest-user-text profile does not support non-text content")
     parts = [
         str(part.get(_TEXT, "")).strip()
         for part in content

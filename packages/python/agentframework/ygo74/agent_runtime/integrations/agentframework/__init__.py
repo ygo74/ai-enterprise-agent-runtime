@@ -1,5 +1,6 @@
-"""Microsoft Agent Framework 1.18 output integration."""
+"""Microsoft Agent Framework 1.18 native execution and output integration."""
 
+from .binding import AgentFrameworkSession
 from .conversion import (
     ConversionDecision,
     ConversionReason,
@@ -12,6 +13,7 @@ from .stream_adapter import AgentFrameworkStreamAdapter
 
 __all__ = [
     "AgentFrameworkOutputAdapter",
+    "AgentFrameworkSession",
     "AgentFrameworkStreamAdapter",
     "ConversionDecision",
     "ConversionReason",

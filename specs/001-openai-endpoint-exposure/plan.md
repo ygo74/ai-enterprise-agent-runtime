@@ -12,6 +12,11 @@ listing surfaces, and the A2A agent card projection.
 
 ## Summary
 
+The 2026-10-10 native-hosting work is a Python implementation pilot governed by
+[its contract](contracts/byoa-python-pilot.md), not a claim that the historical
+parity gates below pass for invocation, lifecycle, approvals or managed workers.
+Separate .NET/Java delivery and release-exception approval remain required.
+
 Expose OpenAI-compatible endpoint surfaces (Chat Completions and Responses)
 and Anthropic-compatible Messages endpoint surfaces,
 through Python, .NET, and Java libraries with a clean, decoupled request-dispatch

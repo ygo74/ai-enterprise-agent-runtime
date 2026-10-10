@@ -1,51 +1,29 @@
-# Microsoft Agent Framework + FastAPI (offline)
+# Native MAF reference worker (offline)
 
-Python 3.12+. This example constructs **real** `AgentResponse`,
-`AgentResponseUpdate`, `Message`, and `Content` objects from Microsoft Agent
-Framework 1.18. It does not perform inference or require credentials. The
-`HostingFactory` exposes all three runtime surfaces plus model discovery.
-Anonymous access is intentional for local demonstration only.
+`native.py` supplies a native Agent factory plus the existing discovery descriptor
+inside a typed definition. `app.py` is platform glue (combined <=30 nonblank lines).
+`echo_client.py` is domain/model code, with genuine zero inference token usage.
+`deployment.py` belongs to the operator. No proprietary registry/skills or
+agent-owned HTTP/SSE code is required.
 
-This no-model producer truthfully reports zero input/output/total model tokens
-through the SDK fixture: it never performs inference. Final responses carry SDK
-`usage_details`; streams emit usage before answer content. This is producer-owned
-knowledge, not a runtime default or a tokenization estimate. Missing optional
-usage breakdowns remain unknown.
-
-From this directory, after installing the released distributions:
+From this directory, with the runtime's optional integration installed:
 
 ```powershell
-python -m pip install -r requirements.txt
-python -m uvicorn app:app --host 127.0.0.1 --port 8000
+$env:NATIVE_WORKER_API_KEY = "<your-local-test-key>"
+python -m uvicorn app:app --host 127.0.0.1 --port 8099
 ```
 
-For development, from the repository root:
+Send `x-api-key` with your configured key to `/v1/chat/completions`,
+`/v1/responses`, `/v1/messages` or `/v1/models`. Model: `agentframework-echo`.
+Set `stream=true` to invoke real native streaming. `/health/ready` is public,
+read-only and contains only readiness. Use normal operator logging configuration.
 
-```powershell
-python -m pip install -e ".\packages\python\security" -e ".\packages\python\agents[http]" -e ".\packages\python\agentframework"
-python -m uvicorn app:app --app-dir ".\docs\examples\python-agentframework-fastapi" --host 127.0.0.1 --port 8000
-```
+The same native agent works independently: construct it with `create_agent`
+and use `await agent.run("hello")`. There is no network/model credential needed.
+Only the local HTTP authentication key is operator-supplied.
 
-Invoke without streaming:
-
-```powershell
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/v1/responses -ContentType application/json -Body '{"model":"agentframework-echo","input":"hello"}'
-```
-
-Streaming (use `curl.exe`, not the PowerShell alias):
-
-```powershell
-curl.exe -N http://127.0.0.1:8000/v1/responses -H "Content-Type: application/json" -d '{\"model\":\"agentframework-echo\",\"input\":\"hello\",\"stream\":true}'
-```
-
-Expected answer: `Echo: hello`. Also available: `/v1/chat/completions`,
-`/v1/messages`, and `/v1/models`.
-
-Offline tests from the root (pytest and httpx must be installed):
-
-```powershell
-python -m pytest ".\tests\integration\python\test_agentframework_output_adapter.py" ".\docs\examples\python-agentframework-fastapi\test_agentframework_fastapi_example.py" -q
-```
-
-See the [integration guide](../../python/agentframework.md) for actual configured
-SDK agent loops, developer-controlled conversion outcomes, and limitations.
+This is a **single-instance Python pilot**, not a production sandbox or
+cross-language release. Keep one deployment per worker. Container/workload
+identity, network and secret/MCP restrictions are platform responsibilities.
+See [native agents](../../python/native-agents.md) for admission, input-profile,
+usage, lifecycle and parity limits.

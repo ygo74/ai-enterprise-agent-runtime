@@ -6,6 +6,11 @@
 
 **Status**: Draft
 
+**Native-hosting pilot (2026-10-10)**: consumer-requested Python/MAF implementation
+of [native factory, lifecycle and managed-worker semantics](contracts/byoa-python-pilot.md).
+This is not an extension of the output-only parity exception. .NET/Java parity
+and maintainer approval of any production release exception remain outstanding.
+
 **Output amendment (2026-10-04)**: Approved Python-first typed output pivot.
 This is a breaking output API change, not a change to incoming handler payloads.
 The user explicitly approved deferring implementation parity to a separate

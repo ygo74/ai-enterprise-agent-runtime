@@ -606,7 +606,33 @@ can proceed independently once the models stabilize.
 
 T199 is intentionally not claimed as delivered by this Python amendment.
 
-Validation: 932 Python contract/integration/performance/example tests passed;
+## Native-hosting Python pilot (2026-10-10)
+
+See [the neutral pilot contract](contracts/byoa-python-pilot.md). The prior
+output-only parity exception does not cover this increment.
+
+- [X] BYOA-1 Define native deployment/factory context using existing descriptor and tool security contracts; demonstrate <=30 delivered glue lines.
+- [X] BYOA-2 Add native MAF execution/session binding, safe progress, diagnostics, final response consumption and producer closing.
+- [X] BYOA-3 Share streaming/normal approval budgets and conversation routing, serialized leases and fail-closed lifecycle.
+- [X] BYOA-4 Compose an authenticated managed local reference worker using existing hosting/cache/discovery APIs.
+- [X] BYOA-5 Migrate Mail's execution, translation, tickets, conversation/HTTP and host orchestration; preserve native domain composition and CLI.
+- [X] BYOA-6 Add native non-Mail adoption, protocol/security/lifecycle tests, independent wheel and local worker validation, strict typing and documentation.
+- [ ] BYOA-PARITY Implement .NET/Java invocation/lifecycle/approval/worker parity and obtain maintainer release-exception approval before production rollout.
+
+Pilot local budget evidence (40 controlled no-inference turns): authenticated
+worker dispatch p95 2.331ms (<50ms), input normalization p95 0.051ms (<10ms),
+native first update p95 0.511ms (<300ms). Installed-wheel imports verified the
+neutral package remains MAF-free and the native binding/worker came from built
+wheels. An isolated local worker served readiness, authenticated discovery,
+normal output and an actual SSE stream ending in `response.completed`.
+
+Pilot validation: 202 targeted runtime tests and 140 Mail/lab tests passed.
+Ruff passed on changed production/test/example surfaces. Strict mypy passed
+17 changed runtime source files and 82 Mail/MAF source files (namespace source
+paths supplied; imported unchanged modules followed silently). `pip check`
+reported no broken requirements. The simple delivered glue is 29 nonblank lines.
+
+Historical typed-output amendment validation (2026-10-04): 932 Python contract/integration/performance/example tests passed;
 Ruff and whitespace checks passed. All six distributions built as wheels and
 sdists and passed Twine. Four isolated installed-wheel scenarios (core, each
 framework alone, both together) passed dependency, namespace, typing-marker,

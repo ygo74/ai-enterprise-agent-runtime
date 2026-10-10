@@ -6,6 +6,8 @@ to serve a local endpoint.
 
 ## Guides
 
+- [Native agents and managed workers (Python pilot)](native-agents.md): native
+  factories, declarative definitions, shared streaming/approvals and local hosting
 - [Installation and package selection](installation.md)
 - [Quickstart: serve an agent with FastAPI](quickstart.md)
 - [Agent runtime](agent-runtime.md): endpoint setup, handler payloads, routing,

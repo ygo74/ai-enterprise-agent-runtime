@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
+from ygo74.agent_runtime.domains.contracts.agent_output import AgentOutput
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,9 +57,11 @@ class AgentReply:
         pending_confirmations: Identifiers of operations described but *not*
             performed, awaiting an explicit answer. Empty means nothing is
             waiting - never that everything succeeded.
+        output: Optional typed native result preserving usage and termination.
     """
     text: str
     pending_confirmations: tuple[str, ...] = ()
+    output: AgentOutput | None = None
 
     @property
     def awaits_confirmation(self) -> bool:

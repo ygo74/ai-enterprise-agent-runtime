@@ -8,12 +8,14 @@ implementation of this output amendment is deferred; Python tests do not establi
 cross-language parity.
 
 **Anthropic streaming prerequisite:** the developer-owned producer supplies a
-genuinely observed UsageEvent before visible content. Before **any** backend/model
+genuinely observed UsageEvent. The Python native-hosting pilot can buffer
+converted content frames until late usage arrives; this delays visibility while
+preserving order. No usage at completion still fails explicitly. Before **any** backend/model
 execution, an observed empty invocation may be declared as
 `UsageEvent(TokenUsage(0, 0, 0))`; subsequent native cumulative snapshots replace
 that baseline. This is not a guessed final count. Offline/no-LLM echo producers can
 truthfully report zero consumption. The runtime never supplies this baseline
-itself; unseeded producers fail explicitly rather than emit a malformed
+itself; producers with no usage fail explicitly rather than emit a malformed
 message_start. Both later input and output counts are retained in message_delta.
 
 ## Public API and schema scope
@@ -132,8 +134,8 @@ optionally awaited. The FastAPI entrypoint continues to receive its existing
 normalized request dictionary.
 
 The existing `domains.endpoints.conversation_payloads.AgentReplyRenderer.to_payload`
-now returns a typed StandardExchangeResponse containing
-`AgentOutput((TextContent(reply.text),))`, not a dictionary. Its request_id,
+returns a typed StandardExchangeResponse preserving `AgentReply.output` when
+provided, otherwise `AgentOutput((TextContent(reply.text),))`. Its request_id,
 route_key and pending_confirmations metadata are preserved. Conversation request
 reading, principal resolution and approval/session behavior are unchanged.
 

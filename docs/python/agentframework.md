@@ -1,5 +1,9 @@
 # Microsoft Agent Framework output integration
 
+For native Agent factories, automatic execution/stream conversion and managed
+hosting, start with [native agents](native-agents.md). The manual adapters below
+remain available for advanced producers.
+
 Install explicitly; the agents library and meta base do not depend on an agent SDK:
 
 ```powershell
@@ -13,7 +17,8 @@ core distribution supplies `agent_framework`; provider integrations may be
 installed separately by your application.
 
 The package owns only `ygo74.agent_runtime.integrations.agentframework` and its
-`py.typed` marker. It neither imports FastAPI nor chooses a caller protocol.
+`py.typed` marker. Base adapters/session imports do not require FastAPI or choose
+a caller protocol; the optional worker module uses the `[http]` extra.
 The runtime remains responsible for projections and unsupported pivot filtering.
 
 ## Final SDK output
@@ -49,14 +54,14 @@ runtime handler's asynchronous iterator:
 
 ```python
 from collections.abc import AsyncIterator
-from agent_framework import BaseAgent
+from agent_framework import SupportsAgentRun
 from ygo74.agent_runtime.domains.contracts.stream_events import AgentStreamEvent
 from ygo74.agent_runtime.integrations.agentframework import (
     AgentFrameworkStreamAdapter,
     ConversionStatus,
 )
 
-async def stream_agent(agent: BaseAgent, prompt: str) -> AsyncIterator[AgentStreamEvent]:
+async def stream_agent(agent: SupportsAgentRun, prompt: str) -> AsyncIterator[AgentStreamEvent]:
     adapter = AgentFrameworkStreamAdapter()
     async with agent.run(prompt, stream=True) as updates:
         async for update in updates:

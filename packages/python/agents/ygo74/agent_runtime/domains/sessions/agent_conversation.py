@@ -2,12 +2,25 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Generic, Protocol, TypeVar
+from collections.abc import AsyncGenerator
+from contextlib import aclosing
+from dataclasses import dataclass, replace
+from typing import Generic, Protocol, TypeVar, runtime_checkable
+from uuid import uuid4
 
+from ygo74.agent_runtime.domains.contracts.agent_output import (
+    AgentOutput,
+    TerminationStatus,
+    TextContent,
+)
 from ygo74.agent_runtime.domains.contracts.conversation import (
     AgentReply,
     ConversationTurn,
+)
+from ygo74.agent_runtime.domains.contracts.stream_events import (
+    AgentStreamEvent,
+    ContentEvent,
+    TerminalEvent,
 )
 from ygo74.agent_runtime.domains.humanapproval.commands import (
     ConfirmationCommand,
@@ -62,6 +75,32 @@ class ConfirmationRunnerPort(Protocol):
 
         Args:
             command (ConfirmationCommand): Requested operation that must pass the authorization gate.
+        """
+        ...
+
+
+@runtime_checkable
+class StreamingSessionPort(Protocol):
+    """Optional native streaming capability of a conversation session."""
+
+    def ask_stream(self, message: str) -> AsyncGenerator[AgentStreamEvent]:
+        """Start a native streamed invocation.
+
+        Args:
+            message: Latest user text.
+        """
+        ...
+
+
+@runtime_checkable
+class OutputSessionPort(Protocol):
+    """Optional typed output capability preserving usage and termination."""
+
+    async def ask_output(self, message: str) -> AgentOutput:
+        """Start a native non-stream invocation.
+
+        Args:
+            message: Latest user text.
         """
         ...
 
@@ -177,12 +216,79 @@ class HttpConversationEngine(Generic[ConversationT]):
         Args:
             turn (ConversationTurn): Conversation turn whose request and response are added to session history.
         """
-        async with self._conversations.lease(turn.principal, turn.conversation_id) as conversation:
+        async with self._conversations.turn(turn.principal, turn.conversation_id) as conversation:
             command = self._parser.parse(turn.message)
             if command is not None:
                 return await self._honour(conversation, command)
 
+            if isinstance(conversation.session, OutputSessionPort):
+                output = await conversation.session.ask_output(turn.message)
+                if output.termination.status is TerminationStatus.FAILED:
+                    await self._conversations.invalidate(turn.principal, turn.conversation_id)
+                text = "".join(item.text for item in output.contents if isinstance(item, TextContent))
+                reply = self._reply(conversation, text)
+                suffix = conversation.describe_pending()
+                contents = output.contents + ((TextContent(suffix),) if suffix else ())
+                return replace(reply, output=replace(output, contents=contents))
             return self._reply(conversation, await conversation.session.ask(turn.message))
+
+    async def stream(self, turn: ConversationTurn) -> AsyncGenerator[AgentStreamEvent]:
+        """Release a completed turn before exposing its terminal to the transport.
+
+        Args:
+            turn: Typed verified caller, conversation and latest text.
+        """
+        terminal: TerminalEvent | None = None
+        async with (
+            self._conversations.turn(turn.principal, turn.conversation_id) as conversation,
+            aclosing(self._stream_turn(conversation, turn)) as stream,
+        ):
+            async for event in stream:
+                if isinstance(event, TerminalEvent):
+                    terminal = event
+                else:
+                    yield event
+        if terminal is None:
+            raise ValueError("session stream ended without a terminal")
+        # Transports close their source immediately after a terminal. Yielding
+        # inside cache.turn would inject GeneratorExit and invalidate valid history.
+        yield terminal
+
+    async def _stream_turn(self, conversation: ConversationT, turn: ConversationTurn) -> AsyncGenerator[AgentStreamEvent]:
+        """Finish native execution and pending rendering while the turn is leased.
+
+        Args:
+            conversation: Pinned caller-scoped resources.
+            turn: Verified latest-user turn.
+        """
+        command = self._parser.parse(turn.message)
+        if command is not None:
+            reply = await self._honour(conversation, command)
+            if reply.text:
+                yield ContentEvent(uuid4().hex, TextContent(reply.text))
+            yield TerminalEvent()
+            return
+        if not isinstance(conversation.session, StreamingSessionPort):
+            raise TypeError("conversation session does not support native streaming")
+        terminal: TerminalEvent | None = None
+        async with aclosing(conversation.session.ask_stream(turn.message)) as stream:
+            async for event in stream:
+                if isinstance(event, TerminalEvent):
+                    if terminal is not None:
+                        raise ValueError("session emitted multiple terminals")
+                    terminal = event
+                else:
+                    if terminal is not None:
+                        raise ValueError("session emitted content after terminal")
+                    yield event
+        if terminal is None:
+            raise ValueError("session stream ended without a terminal")
+        pending = conversation.describe_pending()
+        if pending:
+            yield ContentEvent(uuid4().hex, TextContent(pending))
+        if terminal.termination.status is TerminationStatus.FAILED:
+            await self._conversations.invalidate(turn.principal, turn.conversation_id)
+        yield terminal
 
     async def _honour(self, conversation: ConversationT, command: ConfirmationCommand) -> AgentReply:
         """Run a claimed ticket or safely report that it is no longer pending.

@@ -31,6 +31,7 @@ class AnthropicStreamProjector:
         self._indices: dict[str, int] = {}
         self._has_tools = False
         self._started = False
+        self._pending: list[WireEvent] = []
 
     @staticmethod
     def _event(name: str, payload: dict[str, JsonValue]) -> WireEvent:
@@ -78,7 +79,9 @@ class AnthropicStreamProjector:
             state (StreamState): The state that tracks the current operation lifecycle.
         """
         if isinstance(event, UsageEvent):
-            return self.start(state)
+            frames = self.start(state) + self._pending
+            self._pending = []
+            return frames
         if not isinstance(event, (ContentStart, ContentEnd, TextDelta)):
             return []
         entry = state.contents[event.content_id]
@@ -87,7 +90,11 @@ class AnthropicStreamProjector:
         frames = self._content(event, state)
         if not frames:
             return []
-        OutputWireValues.anthropic_usage(state.usage, state.context)
+        if state.usage is None:
+            # Native SDKs may report real usage late. Preserve ordered frames
+            # until then; never invent zero counters to start the message.
+            self._pending.extend(frames)
+            return []
         return self.start(state) + frames
 
     def _content(
