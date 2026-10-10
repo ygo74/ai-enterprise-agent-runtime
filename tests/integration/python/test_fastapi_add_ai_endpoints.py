@@ -1,22 +1,29 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 import httpx
+import pytest
 from fastapi import FastAPI
+from ygo74.agent_runtime.domains.contracts import AgentOutput, TextContent
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 
 
-async def _entrypoint(payload: dict) -> dict:
-    return {
-        "request_id": payload["request_id"],
-        "status": "success",
-        "output": {
-            "echo": payload["input"],
-            "endpoint_type": payload["endpoint_type"],
-            "route_key": payload["route_key"],
-        },
-    }
+async def _entrypoint(payload: dict) -> AgentOutput:
+    return AgentOutput(
+        (
+            TextContent(
+                json.dumps(
+                    {
+                        "echo": payload["input"],
+                        "endpoint_type": payload["endpoint_type"],
+                        "route_key": payload["route_key"],
+                    }
+                )
+            ),
+        )
+    )
 
 
 def test_add_ai_endpoints_registers_and_uniformizes_responses() -> None:
@@ -79,6 +86,13 @@ def test_add_ai_endpoints_registers_chat_completions_without_custom_models() -> 
     assert body["object"] == "chat.completion"
     assert body["choices"][0]["message"]["role"] == "assistant"
     assert "hello" in body["choices"][0]["message"]["content"]
+
+
+def test_add_ai_endpoints_warns_that_hosting_factory_is_preferred() -> None:
+    app = FastAPI()
+
+    with pytest.warns(DeprecationWarning, match="HostingFactory"):
+        add_ai_endpoints(app, _entrypoint, default_route_key="demo-route")
 
 
 async def _post_json(app: FastAPI, url: str, payload: dict) -> httpx.Response:

@@ -54,7 +54,10 @@ def _modules_loaded_by(imports: tuple[str, ...], watched: tuple[str, ...]) -> st
         watched = {watched!r}
         print(",".join(sorted(name for name in sys.modules if name in watched)))
         """
-    ).format(imports=NEWLINE.join(f"import {module}" for module in imports), watched=set(watched))
+    ).format(
+        imports=NEWLINE.join(f"import {module}" for module in imports),
+        watched=set(watched),
+    )
 
     finished = subprocess.run(
         [sys.executable, "-c", body],
@@ -80,7 +83,9 @@ def test_the_namespace_is_contributed_by_more_than_one_distribution() -> None:
     """
     from ygo74.agent_runtime import domains
 
-    assert len(list(domains.__path__)) >= 2, f"namespace collapsed to {list(domains.__path__)}"
+    assert len(list(domains.__path__)) >= 2, (
+        f"namespace collapsed to {list(domains.__path__)}"
+    )
 
 
 def test_the_security_foundation_loads_no_web_stack() -> None:
@@ -100,3 +105,22 @@ def test_a_domain_import_does_not_load_the_transport() -> None:
     loaded = _modules_loaded_by(AGENT_MODULES, ("fastapi", "starlette"))
 
     assert loaded == "", f"a domain import pulled in a web stack: {loaded}"
+
+
+def test_neutral_output_contracts_import_no_agent_framework_or_transport() -> None:
+    loaded = _modules_loaded_by(
+        (
+            "ygo74.agent_runtime.domains.contracts",
+            "ygo74.agent_runtime.domains.streaming.stream_processor",
+        ),
+        (
+            "fastapi",
+            "starlette",
+            "langchain",
+            "langchain_core",
+            "agent_framework",
+            "openai",
+            "anthropic",
+        ),
+    )
+    assert loaded == "", f"the core output API pulled in {loaded}"

@@ -30,7 +30,6 @@ class SkillManifest(BaseModel):
         mcp_tools: Logical tools the capability is allowed to use.
         prompt: Reasoning instructions. Empty for a deterministic capability.
     """
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     tool_name: str = Field(min_length=1)
@@ -59,7 +58,6 @@ class AgentManifest(BaseModel):
     ``skills`` lists the capabilities the agent exposes, in the order they are
     offered to the model.
     """
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     name: str = Field(min_length=1)
@@ -68,7 +66,12 @@ class AgentManifest(BaseModel):
     skills: tuple[SkillManifest, ...] = ()
 
     def skill(self, tool_name: str) -> SkillManifest:
-        """Return one declared capability by name."""
+        """Return one declared capability by name.
+
+        Args:
+            tool_name (str): Name of the tool whose declaration or invocation is being resolved.
+        """
+        # Return the matching declared skill and raise KeyError when the manifest has no skill with the requested tool name.
         for manifest in self.skills:
             if manifest.tool_name == tool_name:
                 return manifest

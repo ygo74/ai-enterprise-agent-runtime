@@ -36,7 +36,8 @@ parity limits.
 
 ## Python packaging
 
-The Python runtime ships as three distributions plus a meta-package. They are split
+The Python runtime ships as three core distributions, a meta-package and two
+optional framework integration distributions. They are split
 so that a host installs the machinery it actually runs: an MCP server has no agent,
 no conversation and no discovery descriptor, but it has exactly the same question to
 answer about who is calling.
@@ -47,6 +48,14 @@ answer about who is calling.
 | `ygo74-agent-runtime-agents` | Host an agent and load its delivered configuration | security; `configuration`, `http`, and `mcp` extras |
 | `ygo74-agent-runtime-mcp` | Host a Model Context Protocol server | security |
 | `ygo74-agent-runtime` | Everything, as before | the three |
+| `ygo74-agent-runtime-langchain` | Adapt LangChain results/events | agents and LangChain |
+| `ygo74-agent-runtime-agentframework` | Adapt Microsoft Agent Framework Python results/updates | agents and Agent Framework |
+
+The core and base meta-package have no dependency on an agent framework.
+Version 1.0 of the Python agents output API uses a typed neutral pivot and
+removes raw outputs/native OpenAI Responses passthrough. See
+[typed outputs and migration](docs/python/typed-outputs.md). This output contract
+is Python-first; .NET/Java implementation follows separately.
 
 They all contribute to the same namespace, so the import path does not say which
 distribution a name came from:

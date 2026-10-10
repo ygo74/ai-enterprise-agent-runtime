@@ -1,22 +1,32 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator, Awaitable
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator
+from typing import Any
 
-from fastapi import FastAPI
-
-from agent_solution_architect import run_solution_architect_agent, run_solution_architect_agent_stream
+from agent_solution_architect import (
+    run_solution_architect_agent,
+    run_solution_architect_agent_stream,
+)
 from env_loader import ensure_env_loaded
+from fastapi import FastAPI
+from ygo74.agent_runtime.domains.auth.authentication_policy import AuthenticationPolicy
+from ygo74.agent_runtime.domains.contracts.agent_output import AgentOutput
+from ygo74.agent_runtime.domains.contracts.stream_events import AgentStreamEvent
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
     AgentCapabilitySet,
     AgentDescriptor,
     AgentSkill,
     Modality,
 )
-from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
-from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
-from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
+    DiscoveryConfiguration,
+)
+from ygo74.agent_runtime.domains.endpoints.hosting_factory import (
+    EndpointSurface,
+    HostingFactory,
+)
 
 ensure_env_loaded()
 
@@ -38,29 +48,23 @@ def _extract_user_input(payload: dict[str, Any]) -> str:
     return str(incoming)
 
 
-async def _solution_architect_once(payload: dict[str, Any]) -> dict[str, Any]:
+async def _solution_architect_once(payload: dict[str, Any]) -> AgentOutput:
     user_input = _extract_user_input(payload)
-    architect_output = await run_solution_architect_agent(user_input)
-    return {
-        "request_id": payload["request_id"],
-        "status": "success",
-        "output": architect_output,
-        "metadata": {"route_key": payload["route_key"]},
-    }
+    return await run_solution_architect_agent(user_input)
 
 
-async def _solution_architect_stream(payload: dict[str, Any]) -> AsyncIterator[str]:
+def _solution_architect_stream(payload: dict[str, Any]) -> AsyncIterator[AgentStreamEvent]:
     user_input = _extract_user_input(payload)
-    async for delta in run_solution_architect_agent_stream(user_input):
-        yield delta
+    return run_solution_architect_agent_stream(user_input)
 
 
-def solution_architect_entrypoint(payload: dict[str, Any]) -> Any:
+def solution_architect_entrypoint(
+    payload: dict[str, Any],
+) -> Awaitable[AgentOutput] | AsyncIterator[AgentStreamEvent]:
     """Return either a single-shot coroutine or a real streaming async generator.
 
-    add_ai_endpoints detects which one was returned (a coroutine is awaited for a single
-    JSON response, an async generator is iterated for token-by-token Server-Sent Events)
-    based on payload["stream"], which reflects the client's requested `stream` flag.
+    The runtime awaits the returned coroutine for a single response or iterates the async
+    generator for token-by-token Server-Sent Events based on the client's `stream` flag.
     """
 
     if payload.get("stream"):
@@ -101,13 +105,14 @@ agent_descriptor = AgentDescriptor(
     ),
 )
 
-add_ai_endpoints(
-    app,
-    solution_architect_entrypoint,
-    default_route_key=AGENT_ID,
-    enable_openai_responses=True,
-    enable_openai_chat_completions=True,
-    enable_anthropic_messages=False,
-    descriptor_registry=DescriptorRegistry([agent_descriptor]),
-    discovery=DiscoveryConfiguration(enable_openai_models=True, enable_anthropic_models=True),
+(
+    HostingFactory(app)
+    .add_agent(solution_architect_entrypoint, agent_descriptor)
+    .add_ai_endpoints(
+        EndpointSurface.OPENAI_RESPONSES,
+        EndpointSurface.OPENAI_CHAT_COMPLETIONS,
+    )
+    .add_security(AuthenticationPolicy.anonymous())
+    .add_discovery(DiscoveryConfiguration(enable_openai_models=True, enable_anthropic_models=True))
+    .register()
 )

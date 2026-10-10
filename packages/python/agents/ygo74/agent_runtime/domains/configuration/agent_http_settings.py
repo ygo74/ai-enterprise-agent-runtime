@@ -45,7 +45,6 @@ class AgentHttpSettings(BaseModel):
         max_conversations: Upper bound on conversations kept in memory.
         idle_minutes: How long an untouched conversation is kept.
     """
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     api_key: str = ""
@@ -69,13 +68,30 @@ class AgentHttpSettings(BaseModel):
         ``prefix`` is what distinguishes two agents served by the same process -
         ``MAIL_AGENT_HTTP_``, ``WIKI_AGENT_HTTP_``. The key-set override is also
         accepted as ``<prefix>JWKS_URL``, which is what an operator would guess.
+
+        Args:
+            prefix (str): Environment-variable prefix for one configured agent.
+            default_audience (str): Fallback JWT audience used when the agent-specific setting is absent.
+            environment (dict[str, str] | None): An optional environment mapping that overrides process environment lookup.
         """
         source = environment if environment is not None else dict(os.environ)
 
         def read(name: str, fallback: str = "") -> str:
+            """Read an agent-specific environment value using the configured prefix and fallback.
+
+            Args:
+                name (str): The name used to locate or label the value being processed.
+                fallback (str): The value returned when the configured source does not provide a usable value.
+            """
             return str(source.get(f"{prefix}{name}", fallback)).strip()
 
         def read_int(name: str, fallback: int) -> int:
+            """Read int and validate the requested value from its configured source.
+
+            Args:
+                name (str): The name used to locate or label the value being processed.
+                fallback (int): The value returned when the configured source does not provide a usable value.
+            """
             raw = read(name)
             return int(raw) if raw else fallback
 
@@ -110,6 +126,9 @@ class AgentHttpSettings(BaseModel):
 
         An explicit override wins. Otherwise the issuer is asked, through its
         OpenID configuration document.
+
+        Args:
+            discovery (OidcDiscovery | None): Discovery settings and registry used to expose agent metadata.
         """
         if self.jwks_url_override:
             return self.jwks_url_override

@@ -29,20 +29,28 @@ Run it with::
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable
 from datetime import datetime, timezone
 from typing import Any
 
+from env_loader import ensure_env_loaded
 from fastapi import FastAPI
 from langgraph_approval import LangGraphApprovalBridge
 from solution_architect_agent import OPERATIONS, answer_of, build_agent, interrupts_of
-
-from env_loader import ensure_env_loaded
-from ygo74.agent_runtime.domains.auth.apikey_authenticator import StaticApiKeyUserResolver
+from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
+    StaticApiKeyUserResolver,
+)
 from ygo74.agent_runtime.domains.auth.auth_context import ResolvedUser
+from ygo74.agent_runtime.domains.contracts.agent_output import AgentOutput, TextContent
 from ygo74.agent_runtime.domains.contracts.manifests import AgentManifest, SkillManifest
 from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
-from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
-from ygo74.agent_runtime.domains.discovery.manifest_descriptor import AdvertisedSecurity, AgentDescriptorFactory
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
+    DiscoveryConfiguration,
+)
+from ygo74.agent_runtime.domains.discovery.manifest_descriptor import (
+    AdvertisedSecurity,
+    AgentDescriptorFactory,
+)
 from ygo74.agent_runtime.domains.endpoints.conversation_payloads import latest_message
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 from ygo74.agent_runtime.domains.humanapproval.commands import ConfirmationCommandParser
@@ -52,7 +60,9 @@ from ygo74.agent_runtime.domains.humanapproval.confirmation import (
     ConfirmationRequest,
     InMemoryConfirmationPreferenceStore,
 )
-from ygo74.agent_runtime.domains.humanapproval.pending_renderer import PendingConfirmationRenderer
+from ygo74.agent_runtime.domains.humanapproval.pending_renderer import (
+    PendingConfirmationRenderer,
+)
 from ygo74.agent_runtime.domains.humanapproval.tickets import (
     ConfirmationTicket,
     InMemoryPendingConfirmationStore,
@@ -189,7 +199,7 @@ async def _start(user: UserContext, message: str) -> str:
     return "I need your approval before going further." + renderer.render(issued)
 
 
-async def _answer(payload: dict[str, Any]) -> dict[str, Any]:
+async def _answer(payload: dict[str, Any]) -> AgentOutput:
     user = _user_of(payload)
     message = latest_message(payload.get("input"))
 
@@ -201,12 +211,7 @@ async def _answer(payload: dict[str, Any]) -> dict[str, Any]:
     else:
         output = await _honour(user, command)
 
-    return {
-        "request_id": payload.get("request_id", ""),
-        "status": "success",
-        "output": output,
-        "metadata": {"route_key": payload.get("route_key", "")},
-    }
+    return AgentOutput((TextContent(output),))
 
 
 async def _honour(user: UserContext, command: Any) -> str:
@@ -269,7 +274,7 @@ def _forget(user: UserContext) -> None:
     tickets.discard(subject=user.user_id, conversation_id=user.session_id)
 
 
-def entrypoint(payload: dict[str, Any]) -> Any:
+def entrypoint(payload: dict[str, Any]) -> Awaitable[AgentOutput]:
     """Answer one request. Streaming is off: an approval is not a token stream."""
     return _answer(payload)
 

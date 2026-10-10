@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import warnings
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
@@ -24,6 +26,14 @@ from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
     RotatingKeyResolver,
     StaticPublicKeyResolver,
     StaticSymmetricKeyResolver,
+)
+from ygo74.agent_runtime.domains.contracts import (
+    AgentOutput,
+    AgentStreamEvent,
+    ContentEvent,
+    TerminalEvent,
+    TextContent,
+    TokenUsage,
 )
 from ygo74.agent_runtime.domains.discovery.agent_access_policy import (
     AgentAccessPolicy,
@@ -75,20 +85,29 @@ _SURFACE_REQUESTS: tuple[tuple[EndpointSurface, str, dict[str, Any]], ...] = (
     (
         EndpointSurface.ANTHROPIC_MESSAGES,
         "/v1/messages",
-        {"model": "demo-agent", "max_tokens": 32, "messages": [{"role": "user", "content": "hello"}]},
+        {
+            "model": "demo-agent",
+            "max_tokens": 32,
+            "messages": [{"role": "user", "content": "hello"}],
+        },
     ),
 )
 
 
-async def _entrypoint(payload: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "request_id": payload["request_id"],
-        "status": "success",
-        "output": {
-            "content": f"{payload['endpoint_type']}:{payload['route_key']}",
-            "auth_context": payload["auth_context"],
-        },
-    }
+async def _entrypoint(payload: dict[str, Any]) -> AgentOutput:
+    return AgentOutput(
+        (
+            TextContent(
+                json.dumps(
+                    {
+                        "content": f"{payload['endpoint_type']}:{payload['route_key']}",
+                        "auth_context": payload["auth_context"],
+                    }
+                )
+            ),
+        ),
+        TokenUsage(1, 2),
+    )
 
 
 def _configured_factory(
@@ -139,27 +158,38 @@ def test_factory_registers_only_selected_surfaces_and_routes_by_descriptor() -> 
     app = FastAPI()
     seen: list[dict[str, Any]] = []
 
-    async def entrypoint(payload: dict[str, Any]) -> dict[str, Any]:
+    async def entrypoint(payload: dict[str, Any]) -> AgentOutput:
         seen.append(payload)
         return await _entrypoint(payload)
 
     factory = (
         HostingFactory(app)
         .add_agent(entrypoint, make_descriptor("demo-agent"))
-        .add_ai_endpoints(EndpointSurface.OPENAI_RESPONSES, EndpointSurface.ANTHROPIC_MESSAGES)
+        .add_ai_endpoints(
+            EndpointSurface.OPENAI_RESPONSES, EndpointSurface.ANTHROPIC_MESSAGES
+        )
         .add_security(AuthenticationPolicy.anonymous())
     )
     factory.register()
 
-    responses = asyncio.run(_request(app, "POST", "/v1/responses", json=_SURFACE_REQUESTS[0][2]))
-    disabled_chat = asyncio.run(_request(app, "POST", "/v1/chat/completions", json=_SURFACE_REQUESTS[1][2]))
-    messages = asyncio.run(_request(app, "POST", "/v1/messages", json=_SURFACE_REQUESTS[2][2]))
+    responses = asyncio.run(
+        _request(app, "POST", "/v1/responses", json=_SURFACE_REQUESTS[0][2])
+    )
+    disabled_chat = asyncio.run(
+        _request(app, "POST", "/v1/chat/completions", json=_SURFACE_REQUESTS[1][2])
+    )
+    messages = asyncio.run(
+        _request(app, "POST", "/v1/messages", json=_SURFACE_REQUESTS[2][2])
+    )
 
     assert responses.status_code == 200
     assert "openai.responses:route-demo-agent" in responses.json()["output_text"]
     assert disabled_chat.status_code == 404
     assert messages.status_code == 200
-    assert [payload["route_key"] for payload in seen] == ["route-demo-agent", "route-demo-agent"]
+    assert [payload["route_key"] for payload in seen] == [
+        "route-demo-agent",
+        "route-demo-agent",
+    ]
 
 
 def test_factory_matches_direct_registration_for_routes_and_responses() -> None:
@@ -172,7 +202,9 @@ def test_factory_matches_direct_registration_for_routes_and_responses() -> None:
     (
         HostingFactory(factory_app)
         .add_agent(_entrypoint, descriptor)
-        .add_ai_endpoints(EndpointSurface.OPENAI_RESPONSES, EndpointSurface.ANTHROPIC_MESSAGES)
+        .add_ai_endpoints(
+            EndpointSurface.OPENAI_RESPONSES, EndpointSurface.ANTHROPIC_MESSAGES
+        )
         .add_security(authentication)
         .add_discovery(discovery)
         .register()
@@ -190,20 +222,39 @@ def test_factory_matches_direct_registration_for_routes_and_responses() -> None:
         discovery=discovery,
     )
 
-    factory_routes = {(route.path, tuple(sorted(route.methods or ()))) for route in factory_app.routes}
-    direct_routes = {(route.path, tuple(sorted(route.methods or ()))) for route in direct_app.routes}
+    factory_routes = {
+        (route.path, tuple(sorted(route.methods or ()))) for route in factory_app.routes
+    }
+    direct_routes = {
+        (route.path, tuple(sorted(route.methods or ()))) for route in direct_app.routes
+    }
     assert factory_routes == direct_routes
 
     response_body = _SURFACE_REQUESTS[0][2]
-    factory_response = asyncio.run(_request(factory_app, "POST", "/v1/responses", json=response_body))
-    direct_response = asyncio.run(_request(direct_app, "POST", "/v1/responses", json=response_body))
+    factory_response = asyncio.run(
+        _request(factory_app, "POST", "/v1/responses", json=response_body)
+    )
+    direct_response = asyncio.run(
+        _request(direct_app, "POST", "/v1/responses", json=response_body)
+    )
     assert factory_response.status_code == direct_response.status_code == 200
-    assert factory_response.json()["output_text"] == direct_response.json()["output_text"]
+    assert (
+        factory_response.json()["output_text"] == direct_response.json()["output_text"]
+    )
 
     factory_models = asyncio.run(_request(factory_app, "GET", "/v1/models"))
     direct_models = asyncio.run(_request(direct_app, "GET", "/v1/models"))
     assert factory_models.status_code == direct_models.status_code == 200
     assert factory_models.json() == direct_models.json()
+
+
+def test_factory_registration_does_not_emit_low_level_api_deprecation_warning() -> None:
+    app = FastAPI()
+    factory = _configured_factory(app, (EndpointSurface.OPENAI_RESPONSES,))
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        factory.register()
 
 
 def test_factory_preserves_streaming_response_behavior() -> None:
@@ -212,8 +263,9 @@ def test_factory_preserves_streaming_response_behavior() -> None:
     def streaming_entrypoint(payload: dict[str, Any]) -> Any:
         del payload
 
-        async def chunks() -> AsyncIterator[str]:
-            yield "hello"
+        async def chunks() -> AsyncIterator[AgentStreamEvent]:
+            yield ContentEvent("answer", TextContent("hello"))
+            yield TerminalEvent()
 
         return chunks()
 
@@ -230,7 +282,11 @@ def test_factory_preserves_streaming_response_behavior() -> None:
             app,
             "POST",
             "/v1/chat/completions",
-            json={"model": "demo-agent", "messages": [{"role": "user", "content": "hello"}], "stream": True},
+            json={
+                "model": "demo-agent",
+                "messages": [{"role": "user", "content": "hello"}],
+                "stream": True,
+            },
         )
     )
 
@@ -249,7 +305,9 @@ def test_discovery_is_opt_in_and_uses_its_own_authentication_requirement() -> No
         protected_app,
         (EndpointSurface.OPENAI_RESPONSES,),
         authentication=authentication,
-        discovery=DiscoveryConfiguration(enable_openai_models=True, require_authentication=True),
+        discovery=DiscoveryConfiguration(
+            enable_openai_models=True, require_authentication=True
+        ),
     ).register()
 
     unprotected_app = FastAPI()
@@ -257,26 +315,32 @@ def test_discovery_is_opt_in_and_uses_its_own_authentication_requirement() -> No
         unprotected_app,
         (EndpointSurface.OPENAI_RESPONSES,),
         authentication=authentication,
-        discovery=DiscoveryConfiguration(enable_openai_models=True, require_authentication=False),
+        discovery=DiscoveryConfiguration(
+            enable_openai_models=True, require_authentication=False
+        ),
     ).register()
 
     protected_without_key = asyncio.run(_request(protected_app, "GET", "/v1/models"))
     protected_with_key = asyncio.run(
         _request(protected_app, "GET", "/v1/models", headers={"x-api-key": "key-1"})
     )
-    unprotected_without_key = asyncio.run(_request(unprotected_app, "GET", "/v1/models"))
+    unprotected_without_key = asyncio.run(
+        _request(unprotected_app, "GET", "/v1/models")
+    )
 
     assert protected_without_key.status_code == 401
     assert protected_with_key.status_code == 200
     assert unprotected_without_key.status_code == 200
 
 
-def test_invocation_authentication_populates_context_and_blocks_missing_credentials() -> None:
+def test_invocation_authentication_populates_context_and_blocks_missing_credentials() -> (
+    None
+):
     resolver = StaticApiKeyUserResolver({"key-1": ResolvedUser(user_id="service-1")})
     app = FastAPI()
     seen: list[dict[str, Any]] = []
 
-    async def entrypoint(payload: dict[str, Any]) -> dict[str, Any]:
+    async def entrypoint(payload: dict[str, Any]) -> AgentOutput:
         seen.append(payload)
         return await _entrypoint(payload)
 
@@ -288,7 +352,9 @@ def test_invocation_authentication_populates_context_and_blocks_missing_credenti
         .register()
     )
 
-    missing_key = asyncio.run(_request(app, "POST", "/v1/responses", json=_SURFACE_REQUESTS[0][2]))
+    missing_key = asyncio.run(
+        _request(app, "POST", "/v1/responses", json=_SURFACE_REQUESTS[0][2])
+    )
     valid_key = asyncio.run(
         _request(
             app,
@@ -309,12 +375,16 @@ def test_invocation_authentication_populates_context_and_blocks_missing_credenti
     "configure",
     [
         lambda app: HostingFactory(app),
-        lambda app: HostingFactory(app)
-        .add_agent(_entrypoint, make_descriptor("demo-agent"))
-        .add_security(AuthenticationPolicy.anonymous()),
-        lambda app: HostingFactory(app)
-        .add_agent(_entrypoint, make_descriptor("demo-agent"))
-        .add_ai_endpoints(EndpointSurface.OPENAI_RESPONSES),
+        lambda app: (
+            HostingFactory(app)
+            .add_agent(_entrypoint, make_descriptor("demo-agent"))
+            .add_security(AuthenticationPolicy.anonymous())
+        ),
+        lambda app: (
+            HostingFactory(app)
+            .add_agent(_entrypoint, make_descriptor("demo-agent"))
+            .add_ai_endpoints(EndpointSurface.OPENAI_RESPONSES)
+        ),
     ],
 )
 def test_incomplete_factory_fails_without_mutating_fastapi_app(
@@ -335,7 +405,9 @@ def test_anonymous_factory_cannot_require_authentication_for_discovery() -> None
     factory = _configured_factory(
         app,
         (EndpointSurface.OPENAI_RESPONSES,),
-        discovery=DiscoveryConfiguration(enable_openai_models=True, require_authentication=True),
+        discovery=DiscoveryConfiguration(
+            enable_openai_models=True, require_authentication=True
+        ),
     )
     original_routes = tuple(app.routes)
 

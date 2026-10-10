@@ -21,9 +21,13 @@ class CapabilityExtensions:
     The route key is deliberately excluded: it is an internal dispatch detail and
     publishing it would leak routing topology to every discovery caller.
     """
-
     @staticmethod
     def build(descriptor: AgentDescriptor) -> dict[str, Any]:
+        """Build runtime data from the supplied inputs while preserving the relevant contract.
+
+        Args:
+            descriptor (AgentDescriptor): The canonical agent descriptor whose identity and capabilities are used.
+        """
         capabilities = descriptor.capabilities
         payload: dict[str, Any] = {
             "displayName": descriptor.display_name,
@@ -43,5 +47,11 @@ class CapabilityExtensions:
 
     @staticmethod
     def attach(target: dict[str, Any], descriptor: AgentDescriptor) -> dict[str, Any]:
+        """Attach documented capability extensions to a provider model entry without changing standard fields.
+
+        Args:
+            target (dict[str, Any]): Destination or resource affected by the operation.
+            descriptor (AgentDescriptor): The canonical agent descriptor whose identity and capabilities are used.
+        """
         target[EXTENSION_KEY] = CapabilityExtensions.build(descriptor)
         return target

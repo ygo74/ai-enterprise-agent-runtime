@@ -22,10 +22,14 @@ from collections.abc import Mapping
 from typing import Any
 
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
+from ygo74.agent_runtime.domains.contracts.agent_output import AgentOutput, TextContent
 from ygo74.agent_runtime.domains.contracts.contract_errors import EmptyRequestError
 from ygo74.agent_runtime.domains.contracts.conversation import (
     AgentReply,
     ConversationTurn,
+)
+from ygo74.agent_runtime.domains.contracts.exchange_models import (
+    StandardExchangeResponse,
 )
 from ygo74.agent_runtime.domains.endpoints.header_forwarding import (
     CONVERSATION_KEY,
@@ -57,13 +61,18 @@ class ConversationPayloadReader:
         default_conversation: Which conversation a request that names none
             continues.
     """
-
     def __init__(
         self,
         *,
         require_email: bool = True,
         default_conversation: str = DEFAULT_CONVERSATION,
     ) -> None:
+        """Initialize the instance runtime data with the supplied collaborators and configuration.
+
+        Args:
+            require_email (bool): Whether a verified email claim is required to identify the caller.
+            default_conversation (str): Stable conversation ID used when the request has no explicit ID.
+        """
         self._require_email = require_email
         self._default_conversation = default_conversation
 
@@ -73,6 +82,9 @@ class ConversationPayloadReader:
         The principal comes from ``auth_context``, which the endpoint populated
         from a verified token or an API key. It is never taken from the body: a
         caller must not be able to name themselves.
+
+        Args:
+            payload (Mapping[str, Any]): The input or output payload being translated at the protocol boundary.
         """
         return ConversationTurn(
             principal=AgentPrincipal.from_auth_context(
@@ -95,10 +107,17 @@ class ConversationPayloadReader:
         A stable default is used when neither is present. Falling back is safe:
         the identifier only selects state *within* an authenticated subject, so
         at worst one caller's turns share a conversation, never two callers'.
+
+        Args:
+            payload (Mapping[str, Any]): The input or output payload being translated at the protocol boundary.
         """
+        # Prefer the canonical metadata key, then the forwarded header for compatibility, and use the stable fallback only when neither carries a usable value.
         metadata = _mapping(payload.get(_METADATA))
         headers = _mapping(metadata.get(HEADERS_KEY))
-        for source, key in ((metadata, CONVERSATION_KEY), (headers, DEFAULT_CONVERSATION_HEADER)):
+        for source, key in (
+            (metadata, CONVERSATION_KEY),
+            (headers, DEFAULT_CONVERSATION_HEADER),
+        ):
             value = source.get(key)
             if isinstance(value, str) and value.strip():
                 return value.strip()
@@ -107,18 +126,24 @@ class ConversationPayloadReader:
 
 class AgentReplyRenderer:
     """Renders a reply in the exchange shape the endpoint maps to a protocol."""
+    def to_payload(
+        self, payload: Mapping[str, Any], reply: AgentReply
+    ) -> StandardExchangeResponse:
+        """Render one reply against the request it answers.
 
-    def to_payload(self, payload: Mapping[str, Any], reply: AgentReply) -> dict[str, Any]:
-        """Render one reply against the request it answers."""
-        return {
-            _REQUEST_ID: str(payload.get(_REQUEST_ID, "")),
-            "status": "success",
-            "output": reply.text,
-            _METADATA: {
+        Args:
+            payload (Mapping[str, Any]): The input or output payload being translated at the protocol boundary.
+            reply (AgentReply): Text returned to the caller after handling the current turn.
+        """
+        return StandardExchangeResponse(
+            request_id=str(payload.get(_REQUEST_ID, "")),
+            status="success",
+            output=reply.output or AgentOutput((TextContent(reply.text),)),
+            metadata={
                 _ROUTE_KEY: str(payload.get(_ROUTE_KEY, "")),
                 "pending_confirmations": list(reply.pending_confirmations),
             },
-        }
+        )
 
 
 def latest_message(value: object) -> str:
@@ -130,7 +155,11 @@ def latest_message(value: object) -> str:
 
     Raises:
         EmptyRequestError: the request carried no user message at all.
+
+    Args:
+        value (object): The value being converted, checked, or serialized.
     """
+    # Scan history from newest to oldest and return the latest nonempty user turn, since earlier turns have already been processed by the agent session.
     if isinstance(value, str) and value.strip():
         return value.strip()
     if isinstance(value, list):
@@ -143,15 +172,36 @@ def latest_message(value: object) -> str:
 
 
 def _content_text(content: object) -> str:
-    """Flatten a message content, string or content-part list."""
+    """Flatten a message content, string or content-part list.
+
+    Args:
+        content (object): The content item being interpreted or projected.
+    """
     if isinstance(content, str):
         return content.strip()
     if not isinstance(content, list):
-        return ""
-    parts = [str(part.get(_TEXT, "")).strip() for part in content if isinstance(part, Mapping) and part.get(_TEXT)]
+        if content is None:
+            return ""
+        raise ValueError("latest-user-text profile requires text or text parts")
+    if any(
+        not isinstance(part, Mapping)
+        or part.get("type") not in (None, "text", "input_text")
+        or not isinstance(part.get(_TEXT), str)
+        for part in content
+    ):
+        raise ValueError("latest-user-text profile does not support non-text content")
+    parts = [
+        str(part.get(_TEXT, "")).strip()
+        for part in content
+        if isinstance(part, Mapping) and part.get(_TEXT)
+    ]
     return "\n".join(part for part in parts if part)
 
 
 def _mapping(value: object) -> Mapping[str, Any]:
-    """Return a mapping, whatever the transport actually sent."""
+    """Return a mapping, whatever the transport actually sent.
+
+    Args:
+        value (object): The value being converted, checked, or serialized.
+    """
     return value if isinstance(value, Mapping) else {}

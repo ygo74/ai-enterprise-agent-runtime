@@ -17,6 +17,7 @@ class EmptyRequestError(AgentContractError):
     Reported rather than answered with silence: an agent replying to an empty
     message would look like a model failure instead of a malformed request.
     """
-
     def __init__(self) -> None:
+        """Initialize the instance runtime data with the supplied collaborators and configuration.
+        """
         super().__init__("the request carried no user message")

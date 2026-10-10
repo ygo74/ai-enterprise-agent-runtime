@@ -4,7 +4,7 @@ This example shows a real implementation of an **AI Solution Architect** agent t
 
 1. Uses a LangChain agent.
 2. Calls a remote MCP tool for Microsoft Learn (`https://learn.microsoft.com/api/mcp`).
-3. Exposes an **OpenAI Responses** compatible endpoint (`/v1/responses`) via the `ygo74` runtime mapping layer.
+3. Exposes OpenAI Responses (`/v1/responses`) and Chat Completions endpoints through the runtime's public `HostingFactory` API.
 
 ## Files
 
@@ -59,10 +59,12 @@ $env:MSLEARN_MCP_TOOL="microsoft_docs_search"
 # $env:MSLEARN_MCP_BEARER_TOKEN="..."
 ```
 
-`ygo74` package source is in this repo, so include it in `PYTHONPATH` while running the example:
+The requirements explicitly install agents 1.x and the independent LangChain
+integration, not the base meta package. For development against this repository,
+include both source distributions in `PYTHONPATH`:
 
 ```powershell
-$env:PYTHONPATH="../../../../packages/python/security;../../../../packages/python/agents"
+$env:PYTHONPATH="..\..\..\..\packages\python\security;..\..\..\..\packages\python\agents;..\..\..\..\packages\python\langchain"
 ```
 
 ## Run
@@ -131,6 +133,13 @@ python sdk_compat_client.py --base-url http://127.0.0.1:8001 --test-openai-respo
 
 - The MCP tool call is implemented in `mcp_mslearn_tool.py` with `streamable-http` transport.
 - If the MCP SDK is unavailable at runtime, the tool returns a deterministic fallback message that includes the intended MCP call details.
-- This example is intentionally scoped to the OpenAI Responses endpoint; Chat Completions can be added similarly.
+- Endpoint registration uses `HostingFactory`; the example allows anonymous requests, matching the low-level registrar's default.
 - `stream=True` requests are served as real Server-Sent Events (`text/event-stream`) with genuine token-by-token incremental deltas: `run_solution_architect_agent_stream` (in `agent_solution_architect.py`) consumes the LangChain agent via `astream_events(..., version="v2")` and forwards each `on_chat_model_stream` text delta as it is produced, including after any MCP tool call the agent makes along the way.
-- **Tool call visibility (e.g. in LibreChat)**: when the agent calls `mslearn_mcp_search`, a short Markdown notice (`> 🔧 _Calling tool ..._` / `> ✅ _Tool ... completed._`) is injected directly into the streamed `content`, so any OpenAI-compatible client — including LibreChat, which only sees standard chat completion chunks and has no visibility into server-side tool execution — displays that a tool was used. Set `AGENT_STREAM_TOOL_NOTICES=false` to disable these notices and stream only the final answer text.
+- **Tool call visibility (e.g. in LibreChat)**: the developer's `astream_events`
+  loop chooses tool starts/ends to expose as typed `Notification` contents.
+  The runtime renders these short Markdown notices in streaming only; they are
+  not assistant answer deltas and never contaminate non-streaming answers.
+  Set `AGENT_STREAM_TOOL_NOTICES=false` to suppress them. Other native events
+  are selected or ignored by developer code, not blindly forwarded.
+- Native LangChain answers/events are converted through the optional integration
+  to `AgentOutput`/`AgentStreamEvent`; no handler builds OpenAI wire output.

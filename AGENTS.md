@@ -36,6 +36,26 @@ to the change.
 
 ## Engineering conventions
 
+### Documentation and explanatory comments
+
+- Every class, function, and method MUST have a docstring directly at the
+  beginning of its definition. Describe its responsibility and behavior
+  precisely enough that a reader can understand its purpose without first
+  reading the implementation.
+- Function and method docstrings MUST document every argument, including
+  optional and keyword-only arguments. They SHOULD also document return values
+  and exceptions when these are meaningful to callers. Class docstrings MUST
+  explain the class responsibility and document constructor inputs (including
+  dataclass fields when they form the constructor); document `__init__`
+  separately when it has a non-trivial initialization contract.
+- Keep docstrings accurate to the actual behavior, including validation,
+  defaults, side effects, and error conditions. Do not use empty, generic, or
+  name-only descriptions as substitutes for useful documentation.
+- Add inline comments around non-obvious control flow, especially nested or
+  related `if` branches, loops, state transitions, and error/cleanup paths.
+  Explain why the steps are ordered or what invariant the logic preserves;
+  avoid comments that merely repeat the next line of code.
+
 - Prefer extending reusable code over adding duplicate types or modules; record
   the reuse decision as required by the constitution and active plan.
 - Preserve language-neutral contracts and equivalent behavior across Python,

@@ -21,9 +21,13 @@ MODEL_TYPE: Final[str] = "model"
 
 class AnthropicModelProjection:
     """Renders descriptors into the Anthropic model and paginated list wire shapes."""
-
     @staticmethod
     def project(descriptor: AgentDescriptor) -> dict[str, Any]:
+        """Project runtime data into the response shape required by the selected protocol.
+
+        Args:
+            descriptor (AgentDescriptor): The canonical agent descriptor whose identity and capabilities are used.
+        """
         entry: dict[str, Any] = {
             "type": MODEL_TYPE,
             "id": descriptor.agent_id,
@@ -34,6 +38,11 @@ class AnthropicModelProjection:
 
     @staticmethod
     def project_list(descriptors: Sequence[AgentDescriptor]) -> dict[str, Any]:
+        """Project all entries runtime data into the provider-compatible list envelope.
+
+        Args:
+            descriptors (Sequence[AgentDescriptor]): Agent descriptors to validate, order, or register.
+        """
         entries = [AnthropicModelProjection.project(descriptor) for descriptor in descriptors]
         return {
             "data": entries,
@@ -44,6 +53,11 @@ class AnthropicModelProjection:
 
     @staticmethod
     def project_page(page: PaginationResult[AgentDescriptor]) -> dict[str, Any]:
+        """Project the selected page runtime data into the provider-compatible paginated envelope.
+
+        Args:
+            page (PaginationResult[AgentDescriptor]): Requested page size and cursor values for discovery pagination.
+        """
         return {
             "data": [AnthropicModelProjection.project(descriptor) for descriptor in page.items],
             "first_id": page.first_id,
@@ -53,4 +67,9 @@ class AnthropicModelProjection:
 
 
 def _iso_utc(descriptor: AgentDescriptor) -> str:
+    """Format a creation timestamp in the UTC ISO-8601 form expected by Anthropic model listings.
+
+    Args:
+        descriptor (AgentDescriptor): The canonical agent descriptor whose identity and capabilities are used.
+    """
     return descriptor.to_dict()["createdAtUtc"]

@@ -39,10 +39,14 @@ The response's `output_text` is `Echo: hello`.
 The app registers `/v1/responses`, `/v1/chat/completions`, and `/v1/messages`. The
 `add_ai_endpoints` helper accepts a FastAPI app, a handler, and a default route
 key. Its handler receives a mapping with `request_id`, `route_key`, `endpoint_type`,
-`input`, `stream`, `metadata`, and `auth_context`; it returns a success envelope
-with an `output`. The runtime handles conversion between that exchange and the
+`input`, `stream`, `metadata`, and `auth_context`; it returns a typed `AgentOutput`
+or a stream of typed events. The runtime handles conversion between that pivot and the
 provider response shape. See the [agent runtime guide](agent-runtime.md) for
 streaming, authentication, discovery, and other configuration.
+
+Raw output strings/dictionaries and native OpenAI stream events were removed in
+agents 1.0. See [typed outputs and migration](typed-outputs.md) before adapting
+an older handler.
 
 This quickstart is deliberately minimal. See the [LangChain + FastAPI examples](../examples/python-langchain-fastapi/README.md)
 for a real agent with an external LLM and MCP tool, JWT and OIDC authentication,

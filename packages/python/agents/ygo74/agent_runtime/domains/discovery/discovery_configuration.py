@@ -34,7 +34,6 @@ from ygo74.agent_runtime.domains.discovery.pagination import (
 
 class DiscoverySurface(StrEnum):
     """Independently enablable discovery surfaces."""
-
     OPENAI_MODELS = "openai_models"
     ANTHROPIC_MODELS = "anthropic_models"
     AGENT_CARD = "agent_card"
@@ -50,8 +49,18 @@ class DiscoveryConfiguration:
     ``external_base_url`` is what the agent card advertises as its endpoint
     location, so values stay correct when the runtime runs behind a reverse proxy
     and cannot infer its public address from the request.
-    """
 
+    Args:
+        enable_openai_models (bool): Whether the OpenAI model discovery routes are exposed.
+        enable_anthropic_models (bool): Whether the Anthropic model discovery routes are exposed.
+        enable_agent_card (bool): Whether the A2A agent card route is exposed.
+        dialect_selection (DialectSelection): Rules for choosing a provider dialect on shared discovery paths.
+        require_authentication (bool): Whether absence of a recognized credential must reject the request.
+        default_page_size (int): Page size used when the client omits a limit.
+        max_page_size (int): Largest page size accepted from a discovery client.
+        external_base_url (str | None): Public base URL used to construct discovery links.
+        route_prefix (str): URL prefix under which endpoint routes are registered.
+    """
     enable_openai_models: bool = False
     enable_anthropic_models: bool = False
     enable_agent_card: bool = False
@@ -63,12 +72,19 @@ class DiscoveryConfiguration:
     route_prefix: str = ""
 
     def __post_init__(self) -> None:
+        """Validate and normalize the instance runtime data after its generated initializer has assigned the fields.
+        """
         if self.default_page_size < 1 or self.max_page_size < 1:
             raise DiscoveryErrors.invalid_pagination("page sizes must be positive")
         if self.default_page_size > self.max_page_size:
             raise DiscoveryErrors.invalid_pagination("defaultPageSize must not exceed maxPageSize")
 
     def is_enabled(self, surface: DiscoverySurface) -> bool:
+        """Report whether the feature is enabled runtime data under the current validated settings.
+
+        Args:
+            surface (DiscoverySurface): Endpoint or discovery surface whose configuration is being checked.
+        """
         return {
             DiscoverySurface.OPENAI_MODELS: self.enable_openai_models,
             DiscoverySurface.ANTHROPIC_MODELS: self.enable_anthropic_models,
@@ -76,15 +92,27 @@ class DiscoveryConfiguration:
         }[surface]
 
     def require_enabled(self, surface: DiscoverySurface) -> None:
+        """Require the feature to be enabled runtime data and raise a configuration error when it is disabled.
+
+        Args:
+            surface (DiscoverySurface): Endpoint or discovery surface whose configuration is being checked.
+        """
         if not self.is_enabled(surface):
             raise DiscoveryErrors.surface_disabled(str(surface))
 
     @property
     def any_model_surface_enabled(self) -> bool:
+        """Report whether a model discovery surface is enabled runtime data under the current settings.
+        """
         return self.enable_openai_models or self.enable_anthropic_models
 
     @classmethod
     def from_dict(cls, source: Mapping[str, Any]) -> DiscoveryConfiguration:
+        """Construct an instance runtime data from a mapping after validating its wire values.
+
+        Args:
+            source (Mapping[str, Any]): The source value being read, validated, or converted.
+        """
         raw_selection = source.get("dialectSelection")
         return cls(
             enable_openai_models=bool(source.get("enableOpenAiModels", False)),
@@ -107,8 +135,12 @@ class DiscoveryService:
     Identifier matching is exact and case-sensitive, and a padded identifier is
     rejected rather than trimmed: silently accepting ``" agent "`` would make the
     advertised identifier and the accepted identifier two different things.
-    """
 
+    Args:
+        registry (DescriptorRegistry): The registry that supplies the configured entries for this operation.
+        configuration (DiscoveryConfiguration | None): Validated endpoint or discovery settings controlling this operation.
+        access_policy (AgentAccessPolicy | None): Authorization policy applied to model discovery.
+    """
     def __init__(
         self,
         registry: DescriptorRegistry,
@@ -116,6 +148,13 @@ class DiscoveryService:
         *,
         access_policy: AgentAccessPolicy | None = None,
     ) -> None:
+        """Initialize the instance runtime data with the supplied collaborators and configuration.
+
+        Args:
+            registry (DescriptorRegistry): The registry that supplies the configured entries for this operation.
+            configuration (DiscoveryConfiguration | None): Validated endpoint or discovery settings controlling this operation.
+            access_policy (AgentAccessPolicy | None): Authorization policy applied to model discovery.
+        """
         self._registry = registry
         self._configuration = configuration or DiscoveryConfiguration()
         self._dialect_selector = DialectSelector(self._configuration.dialect_selection)
@@ -127,9 +166,16 @@ class DiscoveryService:
 
     @property
     def configuration(self) -> DiscoveryConfiguration:
+        """Return the validated discovery configuration used by the service.
+        """
         return self._configuration
 
     def select_dialect(self, headers: Mapping[str, Any] | None) -> ProviderDialect:
+        """Select dialect from the available candidates according to the configured rules.
+
+        Args:
+            headers (Mapping[str, Any] | None): The request headers used for protocol selection, forwarding, or authentication.
+        """
         return self._dialect_selector.select(headers)
 
     def list_models(
@@ -146,8 +192,14 @@ class DiscoveryService:
         An empty catalogue is a successful empty listing, never an error. When
         an access policy is configured, an agent the caller is not authorized
         to invoke is silently excluded rather than surfaced and then denied.
-        """
 
+        Args:
+            headers (Mapping[str, Any] | None): The request headers used for protocol selection, forwarding, or authentication.
+            dialect (ProviderDialect | None): Provider wire dialect selected for this discovery response.
+            pagination (PaginationRequest | None): Validated page limit and cursor state for this listing.
+            descriptors (Sequence[AgentDescriptor] | None): Agent descriptors to validate, order, or register.
+            auth_context (AuthenticatedUserContext | None): Authenticated identity context passed from the security layer.
+        """
         resolved = dialect or self.select_dialect(headers)
         self._require_dialect_enabled(resolved)
 
@@ -177,8 +229,14 @@ class DiscoveryService:
 
         An agent the caller is not authorized to invoke reports the same
         not-found error as a hidden or unknown identifier.
-        """
 
+        Args:
+            agent_id (str): Public identifier of the agent being registered or discovered.
+            headers (Mapping[str, Any] | None): The request headers used for protocol selection, forwarding, or authentication.
+            dialect (ProviderDialect | None): Provider wire dialect selected for this discovery response.
+            descriptors (Sequence[AgentDescriptor] | None): Agent descriptors to validate, order, or register.
+            auth_context (AuthenticatedUserContext | None): Authenticated identity context passed from the security layer.
+        """
         resolved = dialect or self.select_dialect(headers)
         self._require_dialect_enabled(resolved)
 
@@ -196,6 +254,13 @@ class DiscoveryService:
         descriptors: Sequence[AgentDescriptor] | None,
         auth_context: AuthenticatedUserContext | None,
     ) -> AgentDescriptor | None:
+        """Select descriptors visible to the current caller under the configured discovery policy.
+
+        Args:
+            agent_id (str): Public identifier of the agent being registered or discovered.
+            descriptors (Sequence[AgentDescriptor] | None): Agent descriptors to validate, order, or register.
+            auth_context (AuthenticatedUserContext | None): Authenticated identity context passed from the security layer.
+        """
         if agent_id != agent_id.strip():
             return None
 
@@ -215,6 +280,12 @@ class DiscoveryService:
         catalogue: tuple[AgentDescriptor, ...],
         auth_context: AuthenticatedUserContext | None,
     ) -> tuple[AgentDescriptor, ...]:
+        """Return only descriptors authorized for the supplied identity.
+
+        Args:
+            catalogue (tuple[AgentDescriptor, ...]): Source of agent descriptors exposed by discovery endpoints.
+            auth_context (AuthenticatedUserContext | None): Authenticated identity context passed from the security layer.
+        """
         if self._access_policy is None:
             return catalogue
         return tuple(descriptor for descriptor in catalogue if self._is_authorized(descriptor, auth_context))
@@ -224,6 +295,12 @@ class DiscoveryService:
         descriptor: AgentDescriptor,
         auth_context: AuthenticatedUserContext | None,
     ) -> bool:
+        """Evaluate whether the caller may discover the requested agent.
+
+        Args:
+            descriptor (AgentDescriptor): The canonical agent descriptor whose identity and capabilities are used.
+            auth_context (AuthenticatedUserContext | None): Authenticated identity context passed from the security layer.
+        """
         if self._access_policy is None:
             return True
 
@@ -240,6 +317,11 @@ class DiscoveryService:
             return False
 
     def _require_dialect_enabled(self, dialect: ProviderDialect) -> None:
+        """Reject a provider listing request when that discovery dialect is disabled.
+
+        Args:
+            dialect (ProviderDialect): Provider wire dialect selected for this discovery response.
+        """
         surface = (
             DiscoverySurface.OPENAI_MODELS
             if dialect is ProviderDialect.OPENAI
@@ -249,4 +331,9 @@ class DiscoveryService:
 
 
 def _optional_str(value: object) -> str | None:
+    """Read an optional nonempty string setting, treating blank values as absent.
+
+    Args:
+        value (object): The value being converted, checked, or serialized.
+    """
     return value if isinstance(value, str) and value.strip() else None

@@ -12,6 +12,11 @@ listing surfaces, and the A2A agent card projection.
 
 ## Summary
 
+The 2026-10-10 native-hosting work is a Python implementation pilot governed by
+[its contract](contracts/byoa-python-pilot.md), not a claim that the historical
+parity gates below pass for invocation, lifecycle, approvals or managed workers.
+Separate .NET/Java delivery and release-exception approval remain required.
+
 Expose OpenAI-compatible endpoint surfaces (Chat Completions and Responses)
 and Anthropic-compatible Messages endpoint surfaces,
 through Python, .NET, and Java libraries with a clean, decoupled request-dispatch
@@ -125,6 +130,42 @@ projections over a catalogue sized for up to 100 agents per runtime instance
 
 Post-design constitution check: PASS (no violations requiring justification).
 
+## Typed output amendment (2026-10-04)
+
+The approved amendment replaces the Python output contract with typed neutral
+results/events and removes raw output/native OpenAI Responses passthrough.
+Incoming request normalization, authentication, routing and discovery are not
+redesigned. See FR-047..FR-056 in [spec.md](spec.md).
+
+Contracts and media types remain in the agents distribution. Cohesive classes
+under `domains/mapping/` project final results; classes under `domains/streaming/`
+consume/validate streams, maintain per-request state, project protocol events
+and encode SSE. FastAPI only composes collaborators and handles HTTP.
+
+The pivot covers text, notifications, internal/client-delegated tools,
+explicitly exposable reasoning, usage, images and audio without transcoding.
+Valid unsupported content is filtered with safe correlated diagnostics;
+notifications are stream-visible but excluded from non-streaming output.
+Invalid sequences and handler failures are errors, not filtering decisions.
+
+Two independent distributions, `ygo74-agent-runtime-langchain` and
+`ygo74-agent-runtime-agentframework`, own disjoint namespaces below
+`ygo74.agent_runtime.integrations`. Each depends on agents and its own framework;
+the core/meta base dependency graph does not depend on integrations.
+
+Reuse decisions are recorded in [research.md](research.md). Test-first coverage
+includes both modes on three surfaces, tools/media correlation, filtering logs,
+failure/cancellation/closing, real SDK types and isolated wheel installations.
+Build and publication workflows include the two new distributions.
+
+### Approved parity exception
+
+The user approved implementation in Python first on 2026-10-04. .NET and Java
+implementation of the new versioned output contract is explicitly deferred.
+This is a delivery exception to the parity gate, not evidence of parity.
+Release notes must identify the limitation until the follow-up task is complete.
+The existing v1 contracts are preserved for those runtimes.
+
 ## Project Structure
 
 ### Documentation (this feature)
@@ -215,4 +256,4 @@ on the other's transport concerns.
 
 |Violation|Why Needed|Simpler Alternative Rejected Because|
 |---|---|---|
-|None|N/A|N/A|
+|Python-first typed output delivery (approved exception)|The user approved Python implementation before .NET/Java; T199 tracks their implementation and parity validation.|Deferring the Python output refactor would not satisfy the approved delivery scope.|

@@ -1,0 +1,150 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Debug structured Responses API",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "responses_structured_app:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8100"
+      ],
+      "cwd": "${workspaceFolder:ai-enterprise-agent-runtime}/docs/examples/python-fastapi-quickstart",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Python: 01-get-started API (Uvicorn)",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder:ai-enterprise-agent-runtime}/venv/agent_client_demo/Scripts/python.exe",
+      "module": "uvicorn",
+      "args": [
+        "openai_responses_app:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8001"
+      ],
+      "cwd": "${workspaceFolder:ai-enterprise-agent-runtime}/docs/examples/python-langchain-fastapi/01-get-started",
+      "envFile": "${workspaceFolder:ai-enterprise-agent-runtime}/docs/examples/python-langchain-fastapi/01-get-started/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder:ai-enterprise-agent-runtime}/packages/python/security;${workspaceFolder:ai-enterprise-agent-runtime}/packages/python/agents"
+      },
+      "justMyCode": true,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Python: 02-JWT Authentication API (Uvicorn)",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/venv/agent_client_demo/Scripts/python.exe",
+      "module": "uvicorn",
+      "args": [
+        "openai_responses_jwt_app:app",
+        "--reload",
+        "--reload-dir",
+        "${workspaceFolder}/docs/examples/python-langchain-fastapi/02-jwt-authentication",
+        "--reload-dir",
+        "${workspaceFolder}/packages/python",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8001"
+      ],
+      "cwd": "${workspaceFolder}/docs/examples/python-langchain-fastapi/02-jwt-authentication",
+      "envFile": "${workspaceFolder}/docs/examples/python-langchain-fastapi/02-jwt-authentication/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/packages/python"
+      },
+      "subProcess": true,
+      "justMyCode": true,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Python: 03-JWT OIDC Keycloak API (Uvicorn)",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/venv/agent_client_demo/Scripts/python.exe",
+      "module": "uvicorn",
+      "args": [
+        "openai_responses_jwt_app:app",
+        "--reload",
+        "--reload-dir",
+        "${workspaceFolder}/docs/examples/python-langchain-fastapi/03-jwt-oidc-keycloak",
+        "--reload-dir",
+        "${workspaceFolder}/packages/python",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8001"
+      ],
+      "cwd": "${workspaceFolder}/docs/examples/python-langchain-fastapi/03-jwt-oidc-keycloak",
+      "envFile": "${workspaceFolder}/docs/examples/python-langchain-fastapi/03-jwt-oidc-keycloak/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/packages/python"
+      },
+      "subProcess": true,
+      "justMyCode": true,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Python: 04-Human in the Loop API (Uvicorn)",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/venv/agent_client_demo/Scripts/python.exe",
+      "module": "uvicorn",
+      "args": [
+        "openai_responses_app:app",
+        "--reload",
+        "--reload-dir",
+        "${workspaceFolder}/docs/examples/python-langchain-fastapi/04-human-in-the-loop",
+        "--reload-dir",
+        "${workspaceFolder}/packages/python",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8001"
+      ],
+      "cwd": "${workspaceFolder}/docs/examples/python-langchain-fastapi/04-human-in-the-loop",
+      "envFile": "${workspaceFolder}/docs/examples/python-langchain-fastapi/04-human-in-the-loop/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/packages/python"
+      },
+      "subProcess": true,
+      "justMyCode": true,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Python: 05-RAG API (Uvicorn)",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/venv/agent_client_demo/Scripts/python.exe",
+      "module": "uvicorn",
+      "args": [
+        "openai_rag_app:app",
+        "--reload",
+        "--reload-dir",
+        "${workspaceFolder}/docs/examples/python-langchain-fastapi/05-rag",
+        "--reload-dir",
+        "${workspaceFolder}/packages/python",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8001"
+      ],
+      "cwd": "${workspaceFolder}/docs/examples/python-langchain-fastapi/05-rag",
+      "envFile": "${workspaceFolder}/docs/examples/python-langchain-fastapi/05-rag/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/packages/python/security;${workspaceFolder}/packages/python/agents"
+      },
+      "subProcess": true,
+      "justMyCode": true,
+      "console": "integratedTerminal"
+    }
+  ]
+}

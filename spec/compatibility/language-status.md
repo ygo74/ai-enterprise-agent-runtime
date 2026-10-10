@@ -7,6 +7,8 @@ features. This table records the repository's current implementation boundaries.
 | Capability | Python | .NET | Java |
 |---|---|---|---|
 | Exchange contracts, errors, stream events | Yes | Yes | Yes |
+| Typed output v2, media and notification projections | Python 1.0 output API | Pending; historical v1 only | Pending; historical v1 only |
+| Framework output integrations | Separate LangChain and Agent Framework distributions | Pending | Pending |
 | Provider request/response mapping | Yes | Yes | Yes |
 | HTTP route hosting | FastAPI adapter | No built-in ASP.NET Core adapter | No built-in Spring adapter |
 | Invocation surfaces | OpenAI Responses, OpenAI Chat Completions, Anthropic Messages | Shared endpoint identifiers and mapping/dispatch building blocks | Shared endpoint identifiers and mapping/dispatch building blocks |
@@ -46,6 +48,12 @@ use the lower-level registration helper and dispatcher.
 
 There is no A2A agent-card endpoint and no AG-UI adapter. The discovery
 configuration's `enable_agent_card` field currently does not register a route.
+
+The typed output amendment was approved as Python-first on 2026-10-04.
+It removes native OpenAI Responses passthrough and raw handler outputs, rather
+than changing the request boundary. The neutral versioned contract is the
+follow-up target for .NET/Java, not a claim that their existing v1 projections
+already support media, notifications or the new event lifecycle.
 
 ## .NET and Java
 

@@ -37,8 +37,8 @@ class OidcDiscovery:
             purpose: this runs while a service is starting, and a provider that
             cannot answer quickly is a configuration problem to report rather
             than a delay to absorb.
+        _cache (dict[str, str]): Cached discovery or token values keyed by their lookup identity.
     """
-
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS
     _cache: dict[str, str] = field(default_factory=dict, init=False, repr=False)
 
@@ -48,6 +48,9 @@ class OidcDiscovery:
         Raises:
             AuthenticationError: the issuer is empty, unreachable, or serves a
                 document that declares no key set.
+
+        Args:
+            issuer (str): Expected JWT or OIDC issuer.
         """
         trimmed = issuer.strip().rstrip("/")
         if not trimmed:
@@ -76,7 +79,11 @@ class OidcDiscovery:
         return jwks_uri
 
     def _fetch(self, url: str) -> dict[str, Any]:
-        """Read one discovery document."""
+        """Read one discovery document.
+
+        Args:
+            url (str): Absolute URL associated with a citation or remote resource.
+        """
         try:
             with urllib.request.urlopen(url, timeout=self.timeout_seconds) as response:
                 payload = json.loads(response.read())

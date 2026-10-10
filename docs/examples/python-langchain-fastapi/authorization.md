@@ -104,8 +104,9 @@ rather than just on identity (e.g. a field in the input):
 
 ```python
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthorizationError
+from ygo74.agent_runtime.domains.contracts.agent_output import AgentOutput
 
-async def entrypoint(payload: dict) -> dict:
+async def entrypoint(payload: dict) -> AgentOutput:
     auth = payload["auth_context"] or {}
 
     if "admin" not in auth.get("roles", []):
@@ -137,16 +138,16 @@ structured envelope:
 }
 ```
 
-### Option 2 - return an error envelope
+### Option 2 - return typed failed output
 
 ```python
-from ygo74.agent_runtime.domains.auth.auth_errors import auth_error
+from ygo74.agent_runtime.domains.contracts.agent_output import AgentOutput, Termination, TerminationStatus
+from ygo74.agent_runtime.domains.contracts.error_envelope import ErrorEnvelope
 
-return {
-    "request_id": payload["request_id"],
-    "status": "error",
-    "error": auth_error("forbidden", "access denied", "authorization"),
-}
+return AgentOutput(termination=Termination(
+    status=TerminationStatus.FAILED,
+    error=ErrorEnvelope("forbidden", "authorization", "access denied"),
+))
 ```
 
 ### Option 3 - raise a FastAPI `HTTPException`
@@ -156,7 +157,7 @@ keep full control over the status code and body.
 
 ## Error category to HTTP status mapping
 
-Any error envelope you return is mapped to a status code by `category`:
+Typed terminal errors are mapped to a status code by `category`:
 
 |`category`|HTTP status|
 |---|---|

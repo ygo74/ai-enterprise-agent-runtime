@@ -63,7 +63,7 @@ directly with a `DescriptorRegistry`. The Python runtime does not currently
 provide A2A or AG-UI route adapters.
 
 Streaming requests use Server-Sent Events. Set `stream` on the request and have
-the handler return an async iterator of text or supported delta chunks. Each
+the handler return an async iterator of typed output events. Each
 endpoint family has its own event envelope; the
 [endpoint surface specification](../../spec/endpoints/provider-surfaces.md)
 and [quickstart scenarios](../../specs/001-openai-endpoint-exposure/quickstart.md)
@@ -82,16 +82,42 @@ The handler input fields are:
 | `stream` | Whether the caller requested a streamed reply |
 | `metadata` | Request metadata, including explicitly forwarded allowlisted headers |
 | `auth_context` | Authenticated caller context or `None` |
+| `provider_options` | Provider-specific request options not represented by the common fields; for Responses, this retains the raw options from the create request |
 
-Return `{"status": "success", "output": ...}` or an error envelope. The
-standard typed models are `StandardExchangeRequest` and
-`StandardExchangeResponse`; their current fields are defined in
+Return a typed `AgentOutput`, a typed stream, or a typed
+`StandardExchangeResponse` carrying output/error. Raw result dictionaries and
+strings are not accepted as output contracts in agents 1.0. The exchange models
+are `StandardExchangeRequest` and `StandardExchangeResponse`; their fields are defined in
 [`exchange_models.py`](../../packages/python/agents/ygo74/agent_runtime/domains/contracts/exchange_models.py)
-and the [exchange specification](../../spec/contracts/exchange-contract.md) and
-[versioned schema](../../specs/001-openai-endpoint-exposure/contracts/standard-exchange-v1.schema.json).
+and the [exchange specification](../../spec/contracts/exchange-contract.md).
+The [typed output contract](../../specs/001-openai-endpoint-exposure/contracts/typed-output-contract.md)
+replaces the historical v1 Python output shape. See [migration](typed-outputs.md).
 For ordinary endpoint integration, the FastAPI adapter currently passes a
 normalized mapping to the configured entrypoint. Framework or agent adapters
 can convert that mapping to the typed contract used by their own code.
+
+For `POST /v1/responses`, `input` keeps the submitted JSON value, including
+arrays and multimodal content. Other Responses parameters such as `tools`,
+`tool_choice`, `instructions`, and generation settings are passed in
+`provider_options`; the request's `metadata` remains in the separate `metadata`
+field. A handler returns neutral typed contents rather than constructing
+Responses output items. The runtime projects the supported content into the
+Response envelope and filters unsupported content with a safe diagnostic.
+See the runnable
+[structured Responses example](../examples/python-fastapi-quickstart/responses_structured_app.py)
+for a complete example.
+
+When streaming, return neutral typed events for text, tools, notifications,
+reasoning, media, usage and termination. The core does not depend on an agent
+framework. Install [LangChain](langchain.md) or [Agent Framework](agentframework.md)
+integration independently to adapt SDK outputs.
+
+Separate protocol projection classes handle output formatting and streaming
+lifecycles outside the FastAPI transport. The runtime assigns protocol indices
+and sequence numbers, closes the producer after a terminal event, and does not
+add the Chat Completions `[DONE]` marker to Responses or Anthropic streams.
+Notifications are text-visible in streaming, but excluded from non-streaming
+results with diagnostics. Media is never automatically fetched or transcoded.
 
 ## Configuration and routing
 

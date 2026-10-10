@@ -71,9 +71,12 @@ class OperationCatalogue(Protocol[ToolNameT_contra]):
     asks about and the capability always refuses. It would then be impossible to
     perform, and the model would report that the system had refused.
     """
-
     def descriptor(self, name: ToolNameT_contra) -> ToolOperationDescriptor:
-        """Return the security metadata of a tool."""
+        """Return the security metadata of a tool.
+
+        Args:
+            name (ToolNameT_contra): The name used to locate or label the value.
+        """
         ...
 
 
@@ -88,7 +91,6 @@ class GatedOperationRunner(Generic[ToolT]):
             guarantee survives being called from a script or another framework.
         audit: Where the outcome is recorded, whatever it was.
     """
-
     def __init__(
         self,
         operations: OperationCatalogue[ToolT],
@@ -96,6 +98,14 @@ class GatedOperationRunner(Generic[ToolT]):
         gate: ConfirmationGate,
         audit: AuditTrail,
     ) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            operations (OperationCatalogue[ToolT]): Declared operations evaluated by the security policy.
+            policy (ConfirmationPolicy): Configured authentication or authorization policy.
+            gate (ConfirmationGate): Approval or authorization gate applied before the operation runs.
+            audit (AuditTrail): Audit sink receiving security-relevant operation records.
+        """
         _logger.info("Initializing gated operation runner")
         _logger.debug(
             "GatedOperationRunner.__init__ arguments: operations_type=%s, policy_type=%s, "
@@ -111,7 +121,12 @@ class GatedOperationRunner(Generic[ToolT]):
         self._audit = audit
 
     def requires_confirmation(self, tool: ToolT, user: UserContext) -> bool:
-        """Whether the caller must approve this operation before it runs."""
+        """Whether the caller must approve this operation before it runs.
+
+        Args:
+            tool (ToolT): Tool declaration or invocation associated with this content.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
+        """
         _logger.debug(
             "GatedOperationRunner.requires_confirmation arguments: tool=%s, user_id=%s",
             tool,
@@ -128,7 +143,15 @@ class GatedOperationRunner(Generic[ToolT]):
         target: str = "",
         details: Sequence[ConfirmationDetail] = (),
     ) -> ConfirmationRequest:
-        """Build the request shown to the caller before they decide."""
+        """Build the request shown to the caller before they decide.
+
+        Args:
+            tool (ToolT): Tool declaration or invocation associated with this content.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
+            title (str): Human-readable title attached to the request, citation, or approval.
+            target (str): Destination or resource affected by the operation.
+            details (Sequence[ConfirmationDetail]): Framework-provided token counters to validate and aggregate.
+        """
         _logger.debug(
             "GatedOperationRunner.build_confirmation_request arguments: tool=%s, user_id=%s, "
             "title_length=%d, target=%s, details=%d",
@@ -157,7 +180,16 @@ class GatedOperationRunner(Generic[ToolT]):
         request: ConfirmationRequest | None = None,
         decision: ConfirmationDecision | None = None,
     ) -> ResultT:
-        """Authorise, run and audit one state-changing operation."""
+        """Authorise, run and audit one state-changing operation.
+
+        Args:
+            tool (ToolT): Tool declaration or invocation associated with this content.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
+            operation (Callable[[], Awaitable[ResultT]]): Requested operation evaluated by the authorization or approval policy.
+            target_id (str | None): Optional identifier of the resource or entity affected by the operation, recorded in its audit entry.
+            request (ConfirmationRequest | None): The request received at this layer, with its protocol-specific or normalized fields.
+            decision (ConfirmationDecision | None): Support or conversion decision produced for the current item.
+        """
         _logger.info("Executing gated operation")
         _logger.debug(
             "GatedOperationRunner.execute arguments: tool=%s, user_id=%s, session_id=%s, "
@@ -203,6 +235,14 @@ class GatedOperationRunner(Generic[ToolT]):
 
         Only the type of an error is recorded, never its message: a message can
         carry the very content the audit trail is written to stay clear of.
+
+        Args:
+            descriptor (ToolOperationDescriptor): The canonical agent descriptor whose identity and capabilities are used.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
+            outcome (AuditOutcome): Typed result of framework conversion or runtime execution.
+            target_id (str | None): Optional identifier of the resource or entity affected by the operation, recorded in its audit entry.
+            request (ConfirmationRequest | None): The request received at this layer, with its protocol-specific or normalized fields.
+            error (Exception | None): Structured error associated with a failed operation.
         """
         _logger.debug(
             "GatedOperationRunner._write arguments: tool_name=%s, user_id=%s, session_id=%s, "

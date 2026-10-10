@@ -22,6 +22,7 @@ from ygo74.agent_runtime.domains.auth.auth_context import (
     ResolvedUser,
     UserIdentity,
 )
+from ygo74.agent_runtime.domains.contracts import AgentOutput, TextContent
 from ygo74.agent_runtime.domains.discovery.agent_access_policy import (
     AgentAccessPolicy,
     RoleRequiredAccessPolicy,
@@ -53,7 +54,9 @@ class _StaticResolver(ApiKeyUserResolver):
 class _RaisingPolicy(AgentAccessPolicy):
     """A policy that always raises, used to prove failures fail closed."""
 
-    def is_authorized(self, descriptor: AgentDescriptor, auth_context: AuthenticatedUserContext | None) -> bool:
+    def is_authorized(
+        self, descriptor: AgentDescriptor, auth_context: AuthenticatedUserContext | None
+    ) -> bool:
         raise RuntimeError("boom")
 
 
@@ -61,7 +64,9 @@ class _RaisingPolicy(AgentAccessPolicy):
 class _AdminOnlyTagPolicy(AgentAccessPolicy):
     """Denies access to any descriptor tagged ``admin-only`` unless the caller has the admin role."""
 
-    def is_authorized(self, descriptor: AgentDescriptor, auth_context: AuthenticatedUserContext | None) -> bool:
+    def is_authorized(
+        self, descriptor: AgentDescriptor, auth_context: AuthenticatedUserContext | None
+    ) -> bool:
         if "admin-only" not in descriptor.tags:
             return True
         return auth_context is not None and auth_context.has_role("admin")
@@ -78,7 +83,9 @@ def _admin_only_descriptor() -> AgentDescriptor:
         created_at_utc=FIXED_CREATED_AT,
         capabilities=AgentCapabilitySet(streaming=False),
         tags=("admin-only",),
-        skills=(AgentSkill(skill_id="faq", name="FAQ", description="Answers questions."),),
+        skills=(
+            AgentSkill(skill_id="faq", name="FAQ", description="Answers questions."),
+        ),
         security_schemes=("jwt",),
     )
 
@@ -90,7 +97,9 @@ def _headers(api_key: str | None) -> dict[str, str] | None:
 def _call(app: FastAPI, method: str, path: str, **kwargs: Any) -> httpx.Response:
     async def _do() -> httpx.Response:
         transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             return await client.request(method, path, **kwargs)
 
     return asyncio.run(_do())
@@ -100,9 +109,9 @@ def _call(app: FastAPI, method: str, path: str, **kwargs: Any) -> httpx.Response
 def app_and_seen() -> tuple[FastAPI, list[dict[str, Any]]]:
     seen: list[dict[str, Any]] = []
 
-    def entrypoint(payload: dict[str, Any]) -> dict[str, Any]:
+    def entrypoint(payload: dict[str, Any]) -> AgentOutput:
         seen.append(payload)
-        return {"output": f"handled by {payload['route_key']}"}
+        return AgentOutput((TextContent(f"handled by {payload['route_key']}"),))
 
     resolver = _StaticResolver(
         {
@@ -117,8 +126,12 @@ def app_and_seen() -> tuple[FastAPI, list[dict[str, Any]]]:
         entrypoint,
         default_route_key="fallback",
         api_key_resolver=resolver,
-        descriptor_registry=DescriptorRegistry([_admin_only_descriptor(), make_descriptor("support")]),
-        discovery=DiscoveryConfiguration(enable_openai_models=True, enable_anthropic_models=True),
+        descriptor_registry=DescriptorRegistry(
+            [_admin_only_descriptor(), make_descriptor("support")]
+        ),
+        discovery=DiscoveryConfiguration(
+            enable_openai_models=True, enable_anthropic_models=True
+        ),
         authorization_policy=_AdminOnlyTagPolicy(),
     )
     return app, seen
@@ -181,7 +194,8 @@ def test_invocation_of_a_denied_agent_is_forbidden_and_never_reaches_the_entrypo
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"]["error"]["code"] == "agent_access_denied"
+    assert response.json()["error"]["code"] == "agent_access_denied"
+    assert response.json()["error"]["type"] == "permission_error"
     assert seen == []
 
 
@@ -210,20 +224,30 @@ def test_role_required_access_policy_denies_callers_missing_the_role() -> None:
     assert (
         policy.is_authorized(
             descriptor,
-            AuthenticatedUserContext(auth_type="api_key", identity=UserIdentity(user_id="u1"), roles=["viewer"]),
+            AuthenticatedUserContext(
+                auth_type="api_key",
+                identity=UserIdentity(user_id="u1"),
+                roles=["viewer"],
+            ),
         )
         is False
     )
     assert (
         policy.is_authorized(
             descriptor,
-            AuthenticatedUserContext(auth_type="api_key", identity=UserIdentity(user_id="u1"), roles=["admin"]),
+            AuthenticatedUserContext(
+                auth_type="api_key",
+                identity=UserIdentity(user_id="u1"),
+                roles=["admin"],
+            ),
         )
         is True
     )
 
 
-def test_role_required_access_policy_allows_everyone_when_no_role_is_configured() -> None:
+def test_role_required_access_policy_allows_everyone_when_no_role_is_configured() -> (
+    None
+):
     policy: AgentAccessPolicy = RoleRequiredAccessPolicy(required_role="")
     descriptor = make_descriptor("any-agent")
 
@@ -235,8 +259,8 @@ def test_role_required_access_policy_allows_everyone_when_no_role_is_configured(
 
 
 def _raising_policy_app() -> FastAPI:
-    def entrypoint(payload: dict[str, Any]) -> dict[str, Any]:
-        return {"output": f"handled by {payload['route_key']}"}
+    def entrypoint(payload: dict[str, Any]) -> AgentOutput:
+        return AgentOutput((TextContent(f"handled by {payload['route_key']}"),))
 
     app = FastAPI()
     add_ai_endpoints(
@@ -244,7 +268,9 @@ def _raising_policy_app() -> FastAPI:
         entrypoint,
         default_route_key="fallback",
         descriptor_registry=DescriptorRegistry([make_descriptor("support")]),
-        discovery=DiscoveryConfiguration(enable_openai_models=True, enable_anthropic_models=True),
+        discovery=DiscoveryConfiguration(
+            enable_openai_models=True, enable_anthropic_models=True
+        ),
         authorization_policy=_RaisingPolicy(),
     )
     return app
@@ -269,7 +295,10 @@ def test_a_raising_policy_reports_direct_retrieval_as_not_found() -> None:
 def test_a_raising_policy_denies_invocation_with_403_not_500() -> None:
     app = _raising_policy_app()
 
-    response = _call(app, "POST", "/v1/responses", json={"model": "support", "input": "hello"})
+    response = _call(
+        app, "POST", "/v1/responses", json={"model": "support", "input": "hello"}
+    )
 
     assert response.status_code == 403
-    assert response.json()["detail"]["error"]["code"] == "agent_access_denied"
+    assert response.json()["error"]["code"] == "agent_access_denied"
+    assert response.json()["error"]["type"] == "permission_error"

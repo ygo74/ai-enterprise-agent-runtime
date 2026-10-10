@@ -3,10 +3,21 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
+from ygo74.agent_runtime.domains.contracts.agent_output import (
+    Termination,
+    TerminationStatus,
+    TextContent,
+)
 from ygo74.agent_runtime.domains.contracts.conversation import ConversationTurn
+from ygo74.agent_runtime.domains.contracts.stream_events import (
+    ContentEvent,
+    TerminalEvent,
+)
 from ygo74.agent_runtime.domains.humanapproval.commands import ConfirmationCommand
 from ygo74.agent_runtime.domains.humanapproval.confirmation import ConfirmationRequest
 from ygo74.agent_runtime.domains.humanapproval.pending_renderer import (
@@ -86,6 +97,131 @@ class ConversationFactory:
 
     async def close(self, conversation: AgentConversation[FakeRuntime, FakeSession]) -> None:
         await conversation.aclose()
+
+
+class StreamingSession(FakeSession):
+    """Script neutral stream validation and finalization.
+
+    Args:
+        mode: Controlled normal, malformed or failed scenario.
+    """
+
+    def __init__(self, mode):
+        """Retain the scenario.
+
+        Args:
+            mode: Controlled stream behavior.
+        """
+        super().__init__()
+        self.mode = mode
+
+    async def ask_stream(self, message):
+        """Offer controlled neutral events.
+
+        Args:
+            message: Controlled latest user input.
+        """
+        self.messages.append(message)
+        yield ContentEvent("text", TextContent("controlled"))
+        if self.mode == "missing":
+            return
+        status = TerminationStatus.FAILED if self.mode == "failed" else TerminationStatus.SUCCESS
+        yield TerminalEvent(Termination(status))
+        if self.mode == "duplicate":
+            yield TerminalEvent()
+        if self.mode == "after":
+            yield ContentEvent("late", TextContent("invalid late content"))
+
+
+class StreamingFactory(ConversationFactory):
+    """Compose the same neutral resources with a scripted stream session.
+
+    Args:
+        mode: Controlled stream scenario.
+    """
+
+    def __init__(self, mode):
+        """Initialize the scenario builder.
+
+        Args:
+            mode: Controlled stream behavior.
+        """
+        super().__init__()
+        self.mode = mode
+
+    async def build(self, principal, conversation_id):
+        """Replace only the neutral test session.
+
+        Args:
+            principal: Controlled verified caller.
+            conversation_id: Caller-scoped handle.
+        """
+        conversation = await super().build(principal, conversation_id)
+        conversation = replace(conversation, session=StreamingSession(self.mode))
+        self.built[-1] = conversation
+        return conversation
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("command", [False, True])
+async def test_closing_at_completed_terminal_keeps_cached_conversation(command):
+    """Transport-style close at terminal is normal, including confirmation commands.
+
+    Args:
+        command: Whether to exercise deterministic command routing.
+    """
+    factory = StreamingFactory("normal")
+    cache = ConversationRuntimeCache(factory.build, factory.close)
+    engine = HttpConversationEngine(cache)
+    message = "CONFIRM cfm-abcdef" if command else "controlled"
+    stream = engine.stream(ConversationTurn(ADA, "one", message))
+    async for event in stream:
+        if isinstance(event, TerminalEvent):
+            break
+    await stream.aclose()
+    assert cache.live_conversations == 1
+    async with cache.lease(ADA, "one") as conversation:
+        assert conversation is factory.built[0]
+        assert not conversation.runtime.closed
+    await cache.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["missing", "duplicate", "after"])
+async def test_malformed_stream_never_succeeds_or_keeps_state(mode):
+    """Malformed termination invalidates the lease, never emits a success terminal.
+
+    Args:
+        mode: Controlled malformed event sequence.
+    """
+    factory = StreamingFactory(mode)
+    cache = ConversationRuntimeCache(factory.build, factory.close)
+    engine = HttpConversationEngine(cache)
+    events = []
+    with pytest.raises(ValueError):
+        async for event in engine.stream(ConversationTurn(ADA, "one", "controlled")):
+            events.append(event)
+    assert not any(isinstance(event, TerminalEvent) for event in events)
+    assert cache.live_conversations == 0 and factory.built[0].runtime.closed
+    await cache.aclose()
+
+
+@pytest.mark.asyncio
+async def test_cancel_before_terminal_invalidates_but_native_failure_stays_failed():
+    """Early close and failed terminals still retire unsafe state."""
+    for mode in ("normal", "failed"):
+        factory = StreamingFactory(mode)
+        cache = ConversationRuntimeCache(factory.build, factory.close)
+        engine = HttpConversationEngine(cache)
+        stream = engine.stream(ConversationTurn(ADA, "one", "controlled"))
+        await anext(stream)
+        if mode == "failed":
+            terminal = await anext(stream)
+            assert isinstance(terminal, TerminalEvent)
+            assert terminal.termination.status is TerminationStatus.FAILED
+        await stream.aclose()
+        assert cache.live_conversations == 0 and factory.built[0].runtime.closed
+        await cache.aclose()
 
 
 def _engine(factory: ConversationFactory) -> HttpConversationEngine[AgentConversation[FakeRuntime, FakeSession]]:

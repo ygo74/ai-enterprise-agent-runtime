@@ -34,14 +34,24 @@ DialectFactory = Callable[Concatenate[McpServerBinding[Any], P], ToolsT]
 
 
 class DialectRegistry(Generic[ToolsT, P]):
-    """The dialects this build knows how to speak."""
+    """The dialects this build knows how to speak.
 
+    Args:
+        dialects (Mapping[str, DialectFactory[P, ToolsT]] | None): Provider response dialects available for the configured endpoint.
+        unavailable (ErrorFactory): Response or fallback used when the underlying service is unavailable.
+    """
     def __init__(
         self,
         dialects: Mapping[str, DialectFactory[P, ToolsT]] | None = None,
         *,
         unavailable: ErrorFactory = McpToolUnavailableError,
     ) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            dialects (Mapping[str, DialectFactory[P, ToolsT]] | None): Provider response dialects available for the configured endpoint.
+            unavailable (ErrorFactory): Response or fallback used when the underlying service is unavailable.
+        """
         self._dialects: dict[str, DialectFactory[P, ToolsT]] = dict(dialects or {})
         self._unavailable = unavailable
 
@@ -55,6 +65,10 @@ class DialectRegistry(Generic[ToolsT, P]):
 
         Replacing quietly is how a deployment ends up talking to a server it did
         not mean to, with nothing in the logs to say when it changed.
+
+        Args:
+            name (str): The name used to locate or label the value.
+            factory (DialectFactory[P, ToolsT]): Factory that creates or retrieves the requested runtime component.
         """
         if name in self._dialects:
             raise self._unavailable(f"dialect {name!r} is already registered")
@@ -66,6 +80,11 @@ class DialectRegistry(Generic[ToolsT, P]):
         The extra arguments are handed to the factory untouched: what a dialect
         needs to be constructed - a connection, an owner, a credential - is its
         own business.
+
+        Args:
+            binding (McpServerBinding[Any]): MCP transport binding and its authentication metadata.
+            args (P.args): Positional arguments forwarded to the wrapped function.
+            kwargs (P.kwargs): Keyword arguments forwarded to the wrapped function.
         """
         factory = self._dialects.get(binding.dialect)
         if factory is None:

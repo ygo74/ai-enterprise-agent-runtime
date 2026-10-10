@@ -33,9 +33,12 @@ class ResultRenderer(Protocol):
     asks for this and nothing more, which is what keeps it usable by the next
     agent without a change.
     """
-
     def render(self, result: BaseModel | Sequence[BaseModel]) -> str:
-        """Render a capability result as text."""
+        """Render a capability result as text.
+
+        Args:
+            result (BaseModel | Sequence[BaseModel]): The operation result to validate, project, or return.
+        """
         ...
 
 
@@ -51,7 +54,6 @@ class SkillDescriptor:
         operation: Security metadata driving the confirmation policy.
         invoke: Coroutine executing the capability.
     """
-
     tool_name: str
     description: str
     input_model: type[BaseModel]
@@ -70,7 +72,13 @@ class SkillDescriptor:
         input_model: type[BaseModel],
         invoke: SkillInvocation,
     ) -> SkillDescriptor:
-        """Bind a delivered manifest to the code that runs it."""
+        """Bind a delivered manifest to the code that runs it.
+
+        Args:
+            manifest (SkillManifest): Manifest being validated or projected into runtime contracts.
+            input_model (type[BaseModel]): Pydantic model used to validate structured tool input.
+            invoke (SkillInvocation): Application callback implementing this skill.
+        """
         return cls(
             tool_name=manifest.tool_name,
             description=manifest.description,
@@ -82,12 +90,20 @@ class SkillDescriptor:
 
 @dataclass(frozen=True, slots=True)
 class SkillRegistry:
-    """The capabilities available to one agent, in the order they are offered."""
+    """The capabilities available to one agent, in the order they are offered.
 
+    Args:
+        skills (Sequence[SkillDescriptor]): Declared agent skills checked against descriptor capabilities.
+    """
     skills: Sequence[SkillDescriptor]
 
     def skill(self, tool_name: str) -> SkillDescriptor:
-        """Return one capability by name."""
+        """Return one capability by name.
+
+        Args:
+            tool_name (str): Name of the tool whose declaration or invocation is being resolved.
+        """
+        # Return the registered skill descriptor by tool name and make an absent capability explicit with KeyError.
         for descriptor in self.skills:
             if descriptor.tool_name == tool_name:
                 return descriptor

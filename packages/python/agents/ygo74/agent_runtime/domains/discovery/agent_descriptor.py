@@ -22,14 +22,12 @@ AGENT_ID_MAX_LENGTH = 128
 
 class DiscoveryVisibility(StrEnum):
     """Whether an agent appears in discovery listings."""
-
     LISTED = "listed"
     HIDDEN = "hidden"
 
 
 class CapabilitySizeUnit(StrEnum):
     """Unit in which declared input and output size limits are expressed."""
-
     TOKENS = "tokens"
     CHARACTERS = "characters"
     BYTES = "bytes"
@@ -37,7 +35,6 @@ class CapabilitySizeUnit(StrEnum):
 
 class Modality(StrEnum):
     """Well-known modality names. Custom modalities remain expressible as plain strings."""
-
     TEXT = "text"
     IMAGE = "image"
     AUDIO = "audio"
@@ -50,8 +47,17 @@ DEFAULT_MODALITIES: tuple[str, ...] = (str(Modality.TEXT),)
 
 @dataclass(slots=True, frozen=True)
 class AgentSkill:
-    """Named unit of agent competence surfaced in the agent card and extension sections."""
+    """Named unit of agent competence surfaced in the agent card and extension sections.
 
+    Args:
+        skill_id (str): Stable public identifier for the declared skill.
+        name (str): The name used to locate or label the value being processed.
+        description (str): Human-readable description exposed through discovery metadata.
+        tags (tuple[str, ...]): Search labels associated with this skill.
+        examples (tuple[str, ...]): Example prompts or inputs that illustrate when to use this skill.
+        input_modalities (tuple[str, ...] | None): Input media types accepted by this skill.
+        output_modalities (tuple[str, ...] | None): Output media types this skill may produce.
+    """
     skill_id: str
     name: str
     description: str
@@ -61,11 +67,15 @@ class AgentSkill:
     output_modalities: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
+        """Validate and normalize the instance runtime data after its generated initializer has assigned the fields.
+        """
         _require_non_empty("skillId", self.skill_id)
         _require_non_empty("name", self.name)
         _require_non_empty("description", self.description)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the instance runtime data into its documented dictionary representation.
+        """
         payload: dict[str, Any] = {
             "skillId": self.skill_id,
             "name": self.name,
@@ -81,6 +91,11 @@ class AgentSkill:
 
     @classmethod
     def from_dict(cls, source: Mapping[str, Any]) -> AgentSkill:
+        """Construct an instance runtime data from a mapping after validating its wire values.
+
+        Args:
+            source (Mapping[str, Any]): The source value being read, validated, or converted.
+        """
         return cls(
             skill_id=_read_str(source, "skillId"),
             name=_read_str(source, "name"),
@@ -94,8 +109,19 @@ class AgentSkill:
 
 @dataclass(slots=True, frozen=True)
 class AgentCapabilitySet:
-    """Declared behavioral characteristics, validated at initialization against configuration."""
+    """Declared behavioral characteristics, validated at initialization against configuration.
 
+    Args:
+        streaming (bool): Whether the caller requested a streaming response.
+        input_modalities (tuple[str, ...]): Input media types accepted by this skill.
+        output_modalities (tuple[str, ...]): Output media types this skill may produce.
+        tool_invocation (bool): Whether the agent supports invoking tools.
+        structured_output (bool): Whether the agent supports constrained structured output.
+        size_unit (CapabilitySizeUnit): Unit used to interpret the declared input and output size limits.
+        max_input_size (int | None): Optional maximum input size in the declared size unit.
+        max_output_size (int | None): Optional maximum output size in the declared size unit.
+        extensions (Mapping[str, Any]): Provider-neutral capability extensions preserved for discovery clients.
+    """
     streaming: bool = False
     input_modalities: tuple[str, ...] = DEFAULT_MODALITIES
     output_modalities: tuple[str, ...] = DEFAULT_MODALITIES
@@ -107,6 +133,8 @@ class AgentCapabilitySet:
     extensions: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        """Validate and normalize the instance runtime data after its generated initializer has assigned the fields.
+        """
         if not self.input_modalities:
             raise DiscoveryErrors.invalid_descriptor("capabilities.inputModalities", "must not be empty")
         if not self.output_modalities:
@@ -117,6 +145,8 @@ class AgentCapabilitySet:
             raise DiscoveryErrors.invalid_descriptor("capabilities.maxOutputSize", "must be positive")
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the instance runtime data into its documented dictionary representation.
+        """
         payload: dict[str, Any] = {
             "streaming": self.streaming,
             "inputModalities": list(self.input_modalities),
@@ -135,6 +165,11 @@ class AgentCapabilitySet:
 
     @classmethod
     def from_dict(cls, source: Mapping[str, Any]) -> AgentCapabilitySet:
+        """Construct an instance runtime data from a mapping after validating its wire values.
+
+        Args:
+            source (Mapping[str, Any]): The source value being read, validated, or converted.
+        """
         raw_unit = source.get("sizeUnit")
         return cls(
             streaming=bool(source.get("streaming", False)),
@@ -151,8 +186,24 @@ class AgentCapabilitySet:
 
 @dataclass(slots=True, frozen=True)
 class AgentDescriptor:
-    """Provider-neutral description of one exposed agent. Immutable after initialization."""
+    """Provider-neutral description of one exposed agent. Immutable after initialization.
 
+    Args:
+        agent_id (str): Public identifier of the agent being registered or discovered.
+        route_key (str): The registered route key that identifies the target agent or handler.
+        display_name (str): Human-readable name shown to clients in model discovery.
+        description (str): Human-readable description exposed through discovery metadata.
+        version (str): Agent or API version reported through discovery.
+        owner (str): Component responsible for creating or releasing the resource.
+        created_at_utc (datetime): UTC creation timestamp used by provider model listings.
+        capabilities (AgentCapabilitySet): Declared agent capabilities checked against exposed endpoints.
+        documentation_url (str | None): Optional URL to the agent’s public documentation.
+        tags (tuple[str, ...]): Search labels associated with this skill.
+        skills (tuple[AgentSkill, ...]): Declared agent skills checked against descriptor capabilities.
+        security_schemes (tuple[str, ...]): Authentication schemes supported when invoking this agent.
+        discovery_visibility (DiscoveryVisibility): Policy controlling whether the agent appears in discovery results.
+        metadata (Mapping[str, Any]): Safe request or response metadata preserved across the exchange.
+    """
     agent_id: str
     route_key: str
     display_name: str
@@ -169,6 +220,8 @@ class AgentDescriptor:
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        """Validate and normalize the instance runtime data after its generated initializer has assigned the fields.
+        """
         self._validate_agent_id()
         _require_non_empty("routeKey", self.route_key)
         _require_non_empty("displayName", self.display_name)
@@ -179,9 +232,13 @@ class AgentDescriptor:
 
     @property
     def is_listed(self) -> bool:
+        """Return whether listed satisfies the condition represented by this predicate.
+        """
         return self.discovery_visibility is DiscoveryVisibility.LISTED
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the instance runtime data into its documented dictionary representation.
+        """
         payload: dict[str, Any] = {
             "agentId": self.agent_id,
             "routeKey": self.route_key,
@@ -203,6 +260,11 @@ class AgentDescriptor:
 
     @classmethod
     def from_dict(cls, source: Mapping[str, Any]) -> AgentDescriptor:
+        """Construct an instance runtime data from a mapping after validating its wire values.
+
+        Args:
+            source (Mapping[str, Any]): The source value being read, validated, or converted.
+        """
         raw_visibility = source.get("discoveryVisibility")
         raw_capabilities = source.get("capabilities")
         if not isinstance(raw_capabilities, Mapping):
@@ -228,6 +290,8 @@ class AgentDescriptor:
         )
 
     def _validate_agent_id(self) -> None:
+        """Validate the public agent identifier against the descriptor identity rules.
+        """
         _require_non_empty("agentId", self.agent_id)
         if len(self.agent_id) > AGENT_ID_MAX_LENGTH:
             raise DiscoveryErrors.invalid_descriptor(
@@ -241,6 +305,9 @@ class AgentDescriptor:
             )
 
     def _validate_skills(self) -> None:
+        """Reject duplicate skill IDs and ensure each skill narrows the descriptor modality capabilities.
+        """
+        # Track IDs to reject duplicate skills, then ensure each skill narrows rather than expands the modalities declared by its parent agent.
         seen: set[str] = set()
         allowed_input = set(self.capabilities.input_modalities)
         allowed_output = set(self.capabilities.output_modalities)
@@ -265,11 +332,23 @@ class AgentDescriptor:
 
 
 def _require_non_empty(field_name: str, value: str) -> None:
+    """Require a nonempty string field and report its descriptor path when validation fails.
+
+    Args:
+        field_name (str): Name of the configuration or descriptor field being validated.
+        value (str): The value being converted, checked, or serialized.
+    """
     if not value or not value.strip():
         raise DiscoveryErrors.invalid_descriptor(field_name, "must be a non-empty string")
 
 
 def _read_str(source: Mapping[str, Any], key: str) -> str:
+    """Read a required string field from a descriptor mapping and reject missing or wrongly typed values.
+
+    Args:
+        source (Mapping[str, Any]): The source value being read, validated, or converted.
+        key (str): The identifier or key used to locate the corresponding registered value.
+    """
     value = source.get(key)
     if not isinstance(value, str):
         raise DiscoveryErrors.invalid_descriptor(key, "is required and must be a string")
@@ -277,20 +356,44 @@ def _read_str(source: Mapping[str, Any], key: str) -> str:
 
 
 def _read_optional_str(source: Mapping[str, Any], key: str) -> str | None:
+    """Read an optional string field, preserving absence as None and rejecting other types.
+
+    Args:
+        source (Mapping[str, Any]): The source value being read, validated, or converted.
+        key (str): The identifier or key used to locate the corresponding registered value.
+    """
     value = source.get(key)
     return value if isinstance(value, str) else None
 
 
 def _read_optional_int(source: Mapping[str, Any], key: str) -> int | None:
+    """Read an optional integer field while rejecting booleans and non-integer values.
+
+    Args:
+        source (Mapping[str, Any]): The source value being read, validated, or converted.
+        key (str): The identifier or key used to locate the corresponding registered value.
+    """
     value = source.get(key)
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
 def _read_str_tuple(source: Mapping[str, Any], key: str) -> tuple[str, ...]:
+    """Convert a required sequence of strings into an immutable tuple.
+
+    Args:
+        source (Mapping[str, Any]): The source value being read, validated, or converted.
+        key (str): The identifier or key used to locate the corresponding registered value.
+    """
     return _read_optional_str_tuple(source, key) or ()
 
 
 def _read_optional_str_tuple(source: Mapping[str, Any], key: str) -> tuple[str, ...] | None:
+    """Convert an optional sequence of strings into a tuple, preserving absence as None.
+
+    Args:
+        source (Mapping[str, Any]): The source value being read, validated, or converted.
+        key (str): The identifier or key used to locate the corresponding registered value.
+    """
     value = source.get(key)
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         return None
@@ -298,6 +401,12 @@ def _read_optional_str_tuple(source: Mapping[str, Any], key: str) -> tuple[str, 
 
 
 def _read_mappings(source: Mapping[str, Any], key: str) -> tuple[Mapping[str, Any], ...]:
+    """Validate a sequence of mapping values and return the entries used for descriptor construction.
+
+    Args:
+        source (Mapping[str, Any]): The source value being read, validated, or converted.
+        key (str): The identifier or key used to locate the corresponding registered value.
+    """
     value = source.get(key)
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         return ()
@@ -305,11 +414,21 @@ def _read_mappings(source: Mapping[str, Any], key: str) -> tuple[Mapping[str, An
 
 
 def _format_timestamp(value: datetime) -> str:
+    """Format a timestamp as a stable UTC value for provider discovery responses.
+
+    Args:
+        value (datetime): The value being converted, checked, or serialized.
+    """
     normalized = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
     return normalized.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _parse_timestamp(value: str) -> datetime:
+    """Parse a descriptor timestamp and reject values that do not match the supported format.
+
+    Args:
+        value (str): The value being converted, checked, or serialized.
+    """
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:

@@ -1,5 +1,23 @@
 # Quickstart Validation Guide: OpenAI and Anthropic Endpoint Exposure
 
+## Typed output amendment validation
+
+For the Python output amendment, return a typed `AgentOutput` or an asynchronous
+stream of typed events, not legacy strings/dictionaries/native Responses events.
+Use the updated [Python documentation](../../docs/python/README.md) and runnable
+examples as the API reference.
+
+Exercise the same output through all three endpoints, with and without streaming.
+Include text, notification, interleaved tool calls, image/audio references,
+encoded media, usage and termination. Assert explicit diagnostics for unsupported
+projections and for notifications excluded from non-streaming results.
+Verify that invalid events fail, no terminal is duplicated, cancelled producers
+close, and core-only installation imports neither framework integration.
+Install each integration wheel independently and test both together.
+
+The new output contract is Python-first; the v1 .NET/Java scenarios below remain
+historical coverage and do not establish parity for the new contract.
+
 This guide validates feature behavior end-to-end after implementation.
 
 ## Prerequisites
