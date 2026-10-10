@@ -118,6 +118,7 @@ def test_neutral_output_contracts_import_no_agent_framework_or_transport() -> No
             "starlette",
             "langchain",
             "langchain_core",
+            "langgraph",
             "agent_framework",
             "openai",
             "anthropic",

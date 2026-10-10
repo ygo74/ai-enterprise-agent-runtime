@@ -1,4 +1,4 @@
-# LangChain output integration
+# LangChain and LangGraph integration
 
 Return to the [Python documentation entry point](README.md).
 
@@ -8,21 +8,84 @@ Return to the [Python documentation entry point](README.md).
 python -m pip install "ygo74-agent-runtime-langchain==1.0.0"
 ```
 
-Requires Python 3.12+, `ygo74-agent-runtime-agents>=1.0.0,<2`, and
-`langchain-core>=1.6.3,<1.7`. The integration is tested offline against
+Requires Python 3.12+, `ygo74-agent-runtime-agents>=1.0.0,<2`,
+`langchain-core>=1.6.3,<1.7`, and `langgraph>=1.2,<2`. These ranges match the
+Wiki application's framework floors. The integration is tested offline against
 **langchain-core 1.6.3 and 1.6.6** in dedicated validation virtual environments.
-Only `langchain-core` is needed for these adapters. Install `langchain` and your
-model/provider SDK separately if your application needs them.
+The output adapters need only `langchain-core`; native execution uses LangGraph's
+public `ainvoke`, `astream_events(version="v2")`, and `Command` APIs. Install the
+`langchain` package and model/provider SDK separately when your application needs
+them. HTTP hosting is available through the optional `http` extra.
 
 The wheel owns only `ygo74.agent_runtime.integrations.langchain`, including its
-`py.typed` marker. It does not own shared namespace files, depend on FastAPI or
-provider SDKs, or add LangChain dependencies to the agents distribution.
+`py.typed` marker. It does not own shared namespace files, require FastAPI for
+the native session, depend on provider SDKs, or add LangChain dependencies to
+the agents distribution.
 
 Reuse decision: the integration consumes the agents distribution's `AgentOutput`,
 contents, media sources, usage, termination and `AgentStreamEvent` types directly.
 It uses LangChain's standardized `content_blocks`, concrete message/result classes,
 and `StreamEvent` schema; it does not define a competing output contract or
 interpret endpoint protocols.
+
+## Native LangGraph conversation
+
+`LangGraphSession` binds an already-built graph; it does not recreate the agent
+or tools. The client supplies only the latest user text. The session adds it to
+LangGraph's server-managed `messages` state and uses the supplied `thread_id` for
+the checkpoint partition. The application must derive that identifier from its
+verified identity and conversation. `LangGraphWorker` does this automatically
+for its simple factory path using the deployment, identity namespace, principal
+and conversation.
+
+```python
+from langchain.agents import create_agent
+from langgraph.checkpoint.memory import InMemorySaver
+from ygo74.agent_runtime.integrations.langchain import LangGraphSession
+
+graph = create_agent(model=my_model, tools=my_tools, checkpointer=InMemorySaver())
+session = LangGraphSession(graph, thread_id=server_derived_thread_id, resolver=my_approval_resolver)
+answer = await session.ask("What changed on the architecture page?")
+```
+
+`ask_output()` returns the latest assistant message as `AgentOutput`, including
+reported usage and termination. It never treats a whole graph-state mapping as
+assistant content. `ask_stream()` consumes actual v2 graph events through
+`LangChainStreamAdapter`, closes the producer on completion, error or client
+cancellation, hides internal tool arguments/results, and emits one terminal for
+the complete invocation even if approvals resume the graph multiple times.
+Unsupported content produces safe conversion-code diagnostics; malformed state
+or failed native execution does not become a successful result. A failed or
+cancelled session is invalidated because its checkpoint may hold an unfinished
+turn.
+
+The session delegates question limits, total approval limits and bounded
+fail-closed rejection to the shared `ApprovalLoop`. A resolver translates
+Wiki/domain policy into ordered decisions. Supply `discard_authorizations` when
+the application stores grants that must be purged on abandonment. Without a
+resolver, the binding rejects interruptions automatically. Tool declarations
+describe a surface; they never authorize execution.
+
+## Managed LangGraph worker
+
+Install `ygo74-agent-runtime-langchain[http]` to use
+`ygo74.agent_runtime.integrations.langchain.worker.LangGraphWorker`. It composes
+`AgentDefinition`, `WorkerSettings` and the shared `ManagedAgentWorker`; it does
+not implement another cache, endpoint router, authentication stack or lifespan.
+Authentication is required, factory selection comes only from trusted
+configuration, and standard readiness, discovery, timeouts and conversation
+drain are retained.
+
+For simple agents, the trusted factory returns a compiled graph, an awaitable,
+or an async context manager yielding one. The binding checks an inspectable
+tool-node surface against declarations and requires an explicit admission hook
+when tools or dynamic surfaces cannot be proven safe. Applications with their
+own ticket store, renderer or resource composition may pass a typed
+`conversation_factory`; Wiki uses this path to retain its identity-derived
+thread, confirmation ledger, ticket runner and MCP lifecycle. That advanced
+factory remains responsible for its own domain admission policy.
+
+See the offline [native LangGraph worker example](../examples/python-langchain-fastapi/06-native-langgraph/README.md).
 
 ## Final results: runnable offline example
 

@@ -18,6 +18,13 @@ Install `ygo74-agent-runtime-agentframework[http]`. The integration supports
 The lab's OpenAI adapter is separately versioned (`>=1.14.2,<1.15`), compatible
 with that core range; do not assume provider packages share the core's version.
 
+For native LangChain/LangGraph agents, install
+`ygo74-agent-runtime-langchain[http]` and see the [LangChain integration
+guide](langchain.md). That binding accepts an existing compiled graph, uses the
+same neutral output contracts, and offers a `LangGraphWorker` facade over the
+same managed worker services. LangChain and MAF remain separate optional
+distributions; the core agents package imports neither framework.
+
 ## Native execution
 
 `AgentFrameworkSession(agent, session_id=...)` provides `ask`, `ask_output` and

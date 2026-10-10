@@ -13,6 +13,11 @@ def test_langchain_distribution_owns_only_its_namespace() -> None:
     assert project["dependencies"] == [
         "ygo74-agent-runtime-agents>=1.0.0,<2",
         "langchain-core>=1.6.3,<1.7",
+        "langgraph>=1.2,<2",
+    ]
+    assert project["optional-dependencies"]["http"] == [
+        "ygo74-agent-runtime-agents[http]>=1.0.0,<2",
+        "fastapi>=0.115",
     ]
     finder = configuration["tool"]["setuptools"]["packages"]["find"]
     assert finder["include"] == [

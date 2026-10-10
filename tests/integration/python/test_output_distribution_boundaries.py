@@ -9,9 +9,9 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parents[3]
 PYTHON_PACKAGES = ROOT / "packages" / "python"
-FRAMEWORK_MODULES = frozenset({"langchain", "langchain_core", "agent_framework", "crewai"})
+FRAMEWORK_MODULES = frozenset({"langchain", "langchain_core", "langgraph", "agent_framework", "crewai"})
 FRAMEWORK_DISTRIBUTIONS = frozenset(
-    {"langchain", "langchain-core", "agent-framework", "agent-framework-core", "crewai"}
+    {"langchain", "langchain-core", "langgraph", "agent-framework", "agent-framework-core", "crewai"}
 )
 
 
