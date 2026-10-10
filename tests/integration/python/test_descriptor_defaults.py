@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from ygo74.agent_runtime.domains.configuration.models import (
@@ -17,7 +17,7 @@ from ygo74.agent_runtime.domains.discovery.discovery_errors import DiscoveryErro
 
 
 def _defaults() -> DescriptorDefaults:
-    return DescriptorDefaults(created_at_utc=datetime(2026, 8, 16, tzinfo=timezone.utc))
+    return DescriptorDefaults(created_at_utc=datetime(2026, 8, 16, tzinfo=UTC))
 
 
 def test_handler_without_a_descriptor_receives_a_minimal_derived_descriptor() -> None:

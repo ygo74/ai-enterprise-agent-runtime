@@ -1,6 +1,5 @@
-from pathlib import Path
-
 import tomllib
+from pathlib import Path
 
 
 def test_langchain_distribution_owns_only_its_namespace() -> None:

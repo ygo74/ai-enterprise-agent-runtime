@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 from fastapi import FastAPI
@@ -23,7 +23,7 @@ from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import (
 )
 
 ANTHROPIC_HEADERS = {"anthropic-version": "2023-06-01"}
-FIXED_CREATED_AT = datetime(2026, 8, 16, tzinfo=timezone.utc)
+FIXED_CREATED_AT = datetime(2026, 8, 16, tzinfo=UTC)
 
 
 def make_descriptor(

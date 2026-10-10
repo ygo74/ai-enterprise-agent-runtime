@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -419,8 +419,8 @@ def _format_timestamp(value: datetime) -> str:
     Args:
         value (datetime): The value being converted, checked, or serialized.
     """
-    normalized = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
-    return normalized.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    normalized = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    return normalized.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _parse_timestamp(value: str) -> datetime:
@@ -430,7 +430,7 @@ def _parse_timestamp(value: str) -> datetime:
         value (str): The value being converted, checked, or serialized.
     """
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError as exc:
         raise DiscoveryErrors.invalid_descriptor("createdAtUtc", "must be an ISO-8601 date-time") from exc
-    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)

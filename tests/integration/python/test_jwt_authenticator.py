@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 import pytest
@@ -15,7 +15,7 @@ from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
 
 @pytest.fixture
 def now() -> datetime:
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(tz=UTC)
 
 
 def _base_claims(now: datetime) -> dict[str, object]:

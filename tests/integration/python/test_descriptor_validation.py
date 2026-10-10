@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from ygo74.agent_runtime.domains.configuration.models import EndpointConfiguration
@@ -35,7 +35,7 @@ def _descriptor(
         description="Answers support questions.",
         version="1.0.0",
         owner="platform-team",
-        created_at_utc=datetime(2026, 8, 16, tzinfo=timezone.utc),
+        created_at_utc=datetime(2026, 8, 16, tzinfo=UTC),
         capabilities=capabilities or AgentCapabilitySet(),
         skills=skills,
     )

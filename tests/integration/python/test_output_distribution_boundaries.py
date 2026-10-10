@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import ast
 import re
+import tomllib
 from pathlib import Path
 
 import pytest
-import tomllib
 
 ROOT = Path(__file__).resolve().parents[3]
 PYTHON_PACKAGES = ROOT / "packages" / "python"

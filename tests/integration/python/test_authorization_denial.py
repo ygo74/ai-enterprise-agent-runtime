@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import jwt
@@ -32,7 +32,7 @@ def _config() -> JwtValidationConfig:
 
 
 def _token(roles: list[str]) -> str:
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     claims = {
         "sub": "user-abc",
         "iss": "https://issuer.example.com",

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
@@ -26,7 +26,7 @@ def _descriptor(agent_id: str, *, visibility: DiscoveryVisibility = DiscoveryVis
         description=f"Agent {agent_id}.",
         version="1.0.0",
         owner="platform-team",
-        created_at_utc=datetime(2026, 8, 16, tzinfo=timezone.utc),
+        created_at_utc=datetime(2026, 8, 16, tzinfo=UTC),
         capabilities=AgentCapabilitySet(),
         discovery_visibility=visibility,
     )

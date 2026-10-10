@@ -21,9 +21,9 @@ from __future__ import annotations
 
 import os
 from datetime import timedelta
+from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field
-from typing_extensions import Self
 from ygo74.agent_runtime.domains.auth.oidc_discovery import OidcDiscovery
 
 DEFAULT_MAX_CONVERSATIONS = 200

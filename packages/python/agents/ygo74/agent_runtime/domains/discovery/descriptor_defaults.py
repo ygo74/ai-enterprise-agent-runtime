@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
     AGENT_ID_MAX_LENGTH,
@@ -57,7 +57,7 @@ class DescriptorDefaults:
             description=f"Agent exposed on route '{route_key}'.",
             version=self.version,
             owner=self.owner,
-            created_at_utc=self.created_at_utc or datetime.now(tz=timezone.utc),
+            created_at_utc=self.created_at_utc or datetime.now(tz=UTC),
             capabilities=capabilities or AgentCapabilitySet(),
         )
 

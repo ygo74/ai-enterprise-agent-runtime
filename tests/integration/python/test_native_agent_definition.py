@@ -1,6 +1,6 @@
 """Contract tests for framework-neutral native registration."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from ygo74.agent_runtime.domains.contracts.agent_definition import AgentDefinition
@@ -16,7 +16,7 @@ def descriptor():
     return AgentDescriptor(
         agent_id="native", route_key="native", display_name="Native",
         description="A native agent", version="1",
-        owner="lab", created_at_utc=datetime.now(timezone.utc), capabilities=AgentCapabilitySet(streaming=True),
+        owner="lab", created_at_utc=datetime.now(UTC), capabilities=AgentCapabilitySet(streaming=True),
     )
 
 
