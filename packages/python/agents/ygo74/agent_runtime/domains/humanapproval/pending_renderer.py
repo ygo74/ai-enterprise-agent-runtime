@@ -47,9 +47,12 @@ _REDACTED = "[reference removed]"
 
 class PendingConfirmationRenderer:
     """Renders the tickets of a conversation as text a person can act on."""
-
     def render(self, tickets: Sequence[ConfirmationTicket]) -> str:
-        """Return the block appended to a reply, or nothing when none is waiting."""
+        """Return the block appended to a reply, or nothing when none is waiting.
+
+        Args:
+            tickets (Sequence[ConfirmationTicket]): Pending approval tickets indexed by their stable IDs.
+        """
         if not tickets:
             return ""
 
@@ -59,7 +62,11 @@ class PendingConfirmationRenderer:
         return "\n".join(lines)
 
     def _entry(self, ticket: ConfirmationTicket) -> list[str]:
-        """Render one ticket: what it would do, to what, and how to answer."""
+        """Render one ticket: what it would do, to what, and how to answer.
+
+        Args:
+            ticket (ConfirmationTicket): Pending approval record being confirmed, declined, or expired.
+        """
         lines = ["", f"- **{ticket.request.title}**"]
         lines.extend(f"  - {self._detail(detail)}" for detail in ticket.request.details)
         lines.append(f"  - Reply `CONFIRM {ticket.ticket_id}` to approve, `CANCEL {ticket.ticket_id}` to decline.")
@@ -67,12 +74,20 @@ class PendingConfirmationRenderer:
 
     @staticmethod
     def _detail(detail: ConfirmationDetail) -> str:
-        """Render one labelled fact, on exactly one line."""
+        """Render one labelled fact, on exactly one line.
+
+        Args:
+            detail (ConfirmationDetail): Safe diagnostic detail associated with an approval or error.
+        """
         return f"{detail.label}: {_contained(detail.value)}"
 
 
 def _contained(value: str) -> str:
-    """Reduce untrusted text to a single bounded line, quoting no reference."""
+    """Reduce untrusted text to a single bounded line, quoting no reference.
+
+    Args:
+        value (str): The value being converted, checked, or serialized.
+    """
     flattened = _REFERENCE.sub(_REDACTED, " ".join(value.split()))
     if len(flattened) <= _MAX_VALUE:
         return flattened

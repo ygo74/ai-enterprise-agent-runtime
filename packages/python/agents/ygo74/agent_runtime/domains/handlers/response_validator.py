@@ -1,12 +1,13 @@
 from ygo74.agent_runtime.domains.contracts.exchange_models import (
     StandardExchangeResponse,
 )
+from ygo74.agent_runtime.domains.mapping.output_normalizer import OutputNormalizer
 
 
 def validate_response(response: StandardExchangeResponse) -> None:
-    if response.status not in {"success", "error"}:
-        raise ValueError("status must be success or error")
-    if response.status == "success" and response.output is None:
-        raise ValueError("success response must include output")
-    if response.status == "error" and response.error is None:
-        raise ValueError("error response must include error")
+    """Validate response and raise a domain-specific error when its constraints are not met.
+
+    Args:
+        response (StandardExchangeResponse): The response value to validate, transform, or return.
+    """
+    OutputNormalizer().normalize(response)

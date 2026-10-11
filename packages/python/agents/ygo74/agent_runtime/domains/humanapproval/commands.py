@@ -28,15 +28,18 @@ from ygo74.agent_runtime.domains.humanapproval.tickets import TICKET_PREFIX
 
 class ConfirmationVerb(StrEnum):
     """What the user asked to do with a pending confirmation."""
-
     CONFIRM = "confirm"
     CANCEL = "cancel"
 
 
 @dataclass(frozen=True, slots=True)
 class ConfirmationCommand:
-    """An answer to one pending confirmation."""
+    """An answer to one pending confirmation.
 
+    Args:
+        verb (ConfirmationVerb): HTTP method used when constructing or checking a route.
+        ticket_id (str): Identity of the pending approval ticket being resolved.
+    """
     verb: ConfirmationVerb
     ticket_id: str
 
@@ -59,7 +62,6 @@ _PATTERN = re.compile(
 
 class ConfirmationCommandParser:
     """Recognises an approval, and refuses to guess at anything else."""
-
     def parse(self, text: str) -> ConfirmationCommand | None:
         """Return the command the text carries, or nothing.
 
@@ -67,6 +69,9 @@ class ConfirmationCommandParser:
         a confirmation. Only an exact, unambiguous match is treated as one, so a
         message that merely mentions a ticket while asking something else can
         never approve it.
+
+        Args:
+            text (str): Text value or fragment carried by this content item.
         """
         match = _PATTERN.match(text)
         if match is None:

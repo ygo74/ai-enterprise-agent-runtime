@@ -44,14 +44,17 @@ _RISK_SEVERITY: Mapping[RiskLevel, int] = {
 
 class ConfirmationPreferences(BaseModel):
     """Per-user tuning of the confirmation policy."""
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     auto_approved_tools: frozenset[str] = frozenset()
     always_confirm_tools: frozenset[str] = frozenset()
 
     def decision_for(self, tool_name: str) -> bool | None:
-        """Return the user's explicit choice for a tool, if any."""
+        """Return the user's explicit choice for a tool, if any.
+
+        Args:
+            tool_name (str): Name of the tool whose declaration or invocation is being resolved.
+        """
         if tool_name in self.always_confirm_tools:
             return True
         if tool_name in self.auto_approved_tools:
@@ -65,39 +68,65 @@ DEFAULT_PREFERENCES = ConfirmationPreferences()
 @runtime_checkable
 class ConfirmationPreferenceStore(Protocol):
     """Source of per-user confirmation preferences."""
-
     def preferences_for(self, user_id: str) -> ConfirmationPreferences:
-        """Return the preferences of a user, defaults included."""
+        """Return the preferences of a user, defaults included.
+
+        Args:
+            user_id (str): Stable identifier of the authenticated user.
+        """
         ...
 
 
 class InMemoryConfirmationPreferenceStore(ConfirmationPreferenceStore):
-    """Preference store backed by a mapping, used for configuration and tests."""
+    """Preference store backed by a mapping, used for configuration and tests.
 
+    Args:
+        preferences_by_user (Mapping[str, ConfirmationPreferences] | None): Preference records indexed by authenticated user ID.
+        fallback (ConfirmationPreferences): The value returned when the configured source has no usable value.
+    """
     def __init__(
         self,
         preferences_by_user: Mapping[str, ConfirmationPreferences] | None = None,
         *,
         fallback: ConfirmationPreferences = DEFAULT_PREFERENCES,
     ) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            preferences_by_user (Mapping[str, ConfirmationPreferences] | None): Preference records indexed by authenticated user ID.
+            fallback (ConfirmationPreferences): The value returned when the configured source has no usable value.
+        """
         self._preferences_by_user = dict(preferences_by_user or {})
         self._fallback = fallback
 
     def preferences_for(self, user_id: str) -> ConfirmationPreferences:
-        """Return the preferences of a user, falling back to the default set."""
+        """Return the preferences of a user, falling back to the default set.
+
+        Args:
+            user_id (str): Stable identifier of the authenticated user.
+        """
         return self._preferences_by_user.get(user_id, self._fallback)
 
     def set_preferences(self, user_id: str, preferences: ConfirmationPreferences) -> None:
-        """Replace the preferences of a user."""
+        """Replace the preferences of a user.
+
+        Args:
+            user_id (str): Stable identifier of the authenticated user.
+            preferences (ConfirmationPreferences): User preferences read or updated by the operation.
+        """
         self._preferences_by_user[user_id] = preferences
 
 
 @runtime_checkable
 class ConfirmationPolicy(Protocol):
     """Decides whether an operation needs an explicit human approval."""
-
     def requires_confirmation(self, operation: ToolOperationDescriptor, user: UserContext) -> bool:
-        """Return ``True`` when the operation must be confirmed by the user."""
+        """Return ``True`` when the operation must be confirmed by the user.
+
+        Args:
+            operation (ToolOperationDescriptor): Requested operation evaluated by the authorization or approval policy.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
+        """
         ...
 
     def is_overridable(self, tool_name: str) -> bool:
@@ -105,13 +134,20 @@ class ConfirmationPolicy(Protocol):
 
         An interface offering a standing answer needs to know this before it
         offers one, and only the policy can answer it.
+
+        Args:
+            tool_name (str): Name of the tool whose declaration or invocation is being resolved.
         """
         ...
 
 
 class ConfiguredConfirmationPolicy(ConfirmationPolicy):
-    """Confirmation policy combining tool defaults and user preferences."""
+    """Confirmation policy combining tool defaults and user preferences.
 
+    Args:
+        preference_store (ConfirmationPreferenceStore): Persistence component used to read and write preferences.
+        floor (SecurityFloor): Configured approval or authorization threshold for the operation.
+    """
     def __init__(self, preference_store: ConfirmationPreferenceStore, floor: SecurityFloor) -> None:
         """Build the policy.
 
@@ -120,12 +156,21 @@ class ConfiguredConfirmationPolicy(ConfirmationPolicy):
         itself, and the omission would be invisible until an irreversible
         operation ran unannounced. Pass ``SecurityFloor(())`` to mean "nothing is
         protected", so that saying it is a decision somebody wrote down.
+
+        Args:
+            preference_store (ConfirmationPreferenceStore): Persistence component used to read and write preferences.
+            floor (SecurityFloor): Configured approval or authorization threshold for the operation.
         """
         self._preference_store = preference_store
         self._floor = floor
 
     def requires_confirmation(self, operation: ToolOperationDescriptor, user: UserContext) -> bool:
-        """Return ``True`` when the operation must be confirmed by the user."""
+        """Return ``True`` when the operation must be confirmed by the user.
+
+        Args:
+            operation (ToolOperationDescriptor): Requested operation evaluated by the authorization or approval policy.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
+        """
         if self._floor.confirmation_is_mandatory(operation.tool_name):
             return True
 
@@ -141,13 +186,15 @@ class ConfiguredConfirmationPolicy(ConfirmationPolicy):
 
         Offering somebody a choice they do not have would be worse than not
         offering it, so the interface asks before proposing one.
+
+        Args:
+            tool_name (str): Name of the tool whose declaration or invocation is being resolved.
         """
         return not self._floor.confirmation_is_mandatory(tool_name)
 
 
 class ConfirmationDetail(BaseModel):
     """One labelled fact shown to the user before they decide."""
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     label: str = Field(min_length=1)
@@ -162,7 +209,6 @@ class ConfirmationKey(BaseModel):
     user actually saw is the one that authorises the call and the one recorded
     in the audit trail.
     """
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     tool_name: str = Field(min_length=1)
@@ -178,7 +224,6 @@ class ConfirmationRequest(BaseModel):
     ``requested_for`` binds the request to the user it was built for, so an
     answer collected for one caller cannot authorise an operation for another.
     """
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     request_id: str = Field(min_length=1)
@@ -196,7 +241,6 @@ class ConfirmationRequest(BaseModel):
 
 class ConfirmationDecision(BaseModel):
     """The answer given by the user to a confirmation request."""
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     request_id: str = Field(min_length=1)
@@ -207,7 +251,6 @@ class ConfirmationDecision(BaseModel):
 
 class ConfirmationOutcome(BaseModel):
     """A confirmation request together with the answer it received."""
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     request: ConfirmationRequest
@@ -222,9 +265,13 @@ class ConfirmationAuthority(Protocol):
     console prompt, an agent framework approval flow, a chat card. The decision
     always comes from outside the language model.
     """
-
     async def obtain(self, request: ConfirmationRequest, user: UserContext) -> ConfirmationDecision:
-        """Return the user's answer to a confirmation request."""
+        """Return the user's answer to a confirmation request.
+
+        Args:
+            request (ConfirmationRequest): The request received at this layer, with its protocol-specific or normalized fields.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
+        """
         ...
 
 
@@ -236,9 +283,13 @@ class ConfirmationLedger(Protocol):
     function. The ledger carries that answer, and the exact request the user was
     shown, across to the moment the operation runs.
     """
-
     def record(self, outcome: ConfirmationOutcome, user: UserContext) -> None:
-        """Store one answered confirmation for a user."""
+        """Store one answered confirmation for a user.
+
+        Args:
+            outcome (ConfirmationOutcome): Typed result of framework conversion or runtime execution.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
+        """
         ...
 
     def take(self, key: ConfirmationKey, user: UserContext) -> ConfirmationOutcome | None:
@@ -246,11 +297,19 @@ class ConfirmationLedger(Protocol):
 
         An answer is consumed once, so a single approval can never authorise
         two executions.
+
+        Args:
+            key (ConfirmationKey): The identifier used to locate the corresponding registered value.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
         """
         ...
 
     def discard(self, user: UserContext) -> None:
-        """Drop every answer recorded for a user."""
+        """Drop every answer recorded for a user.
+
+        Args:
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
+        """
         ...
 
 
@@ -261,9 +320,16 @@ class ConfirmationGate:
     guarantee hold even when a skill is invoked directly - from another
     framework, from a script, or from a test - so the rule cannot be bypassed by
     changing the orchestration layer.
-    """
 
+    Args:
+        policy (ConfirmationPolicy): Configured authentication or authorization policy.
+    """
     def __init__(self, policy: ConfirmationPolicy) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            policy (ConfirmationPolicy): Configured authentication or authorization policy.
+        """
         self._policy = policy
 
     def ensure_approved(
@@ -281,6 +347,12 @@ class ConfirmationGate:
             ConfirmationRejectedError: the user declined the operation.
             ConfirmationMismatchError: the decision answers a different request,
                 or the approval was not granted by this user.
+
+        Args:
+            operation (ToolOperationDescriptor): Requested operation evaluated by the authorization or approval policy.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
+            request (ConfirmationRequest | None): The request received at this layer, with its protocol-specific or normalized fields.
+            decision (ConfirmationDecision | None): Support or conversion decision produced for the current item.
         """
         user.require_permission(operation.required_permission)
 
@@ -308,6 +380,11 @@ class ConfirmationGate:
 
         Without this check the last line of defence would let one user's answer
         authorise an operation carried out for another.
+
+        Args:
+            request (ConfirmationRequest): The request received at this layer, with its protocol-specific or normalized fields.
+            decision (ConfirmationDecision): Support or conversion decision produced for the current item.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
         """
         if request.requested_for != user.user_id:
             raise ConfirmationMismatchError(request.request_id, f"request issued for {request.requested_for!r}")

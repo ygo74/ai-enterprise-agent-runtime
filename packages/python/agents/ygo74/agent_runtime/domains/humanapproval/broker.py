@@ -31,9 +31,18 @@ class ConfirmationBroker:
 
     When nothing was collected beforehand the authority is asked directly, which
     is the path a script or a non-suspending framework takes.
-    """
 
+    Args:
+        authority (ConfirmationAuthority): Issuer or authority that provides the authenticated identity.
+        ledger (ConfirmationLedger): Approval ledger used to persist confirmation state.
+    """
     def __init__(self, authority: ConfirmationAuthority, ledger: ConfirmationLedger) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            authority (ConfirmationAuthority): Issuer or authority that provides the authenticated identity.
+            ledger (ConfirmationLedger): Approval ledger used to persist confirmation state.
+        """
         self._authority = authority
         self._ledger = ledger
 
@@ -48,6 +57,11 @@ class ConfirmationBroker:
 
         When the policy does not require a confirmation, nothing is asked and
         the pair is empty; the skill's own gate reaches the same conclusion.
+
+        Args:
+            required (bool): Whether this configuration or claim must be present.
+            build_request (Callable[[], ConfirmationRequest]): Callback constructing a framework request from the neutral input.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
         """
         if not required:
             return None, None

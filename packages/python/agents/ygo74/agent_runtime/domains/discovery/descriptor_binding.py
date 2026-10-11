@@ -17,16 +17,28 @@ class DescriptorBinding:
     This is what makes the discovery-to-invocation round trip a guarantee rather
     than a hope: an advertised identifier is rejected at startup unless its route
     is dispatchable.
-    """
 
+    Args:
+        route_registry (RouteRegistry): Registry used to resolve a route key to an application handler.
+    """
     route_registry: RouteRegistry
 
     def validate(self, descriptor: AgentDescriptor) -> None:
+        """Validate runtime data and raise a domain-specific error when its constraints are not met.
+
+        Args:
+            descriptor (AgentDescriptor): The canonical agent descriptor whose identity and capabilities are used.
+        """
         try:
             self.route_registry.resolve(descriptor.route_key)
         except KeyError as exc:
             raise DiscoveryErrors.unresolved_route_key(descriptor.agent_id, descriptor.route_key) from exc
 
     def validate_registry(self, descriptor_registry: DescriptorRegistry) -> None:
+        """Validate registry and raise a domain-specific error when its constraints are not met.
+
+        Args:
+            descriptor_registry (DescriptorRegistry): Registry of validated agent descriptors indexed by public ID and route key.
+        """
         for descriptor in descriptor_registry.list_all():
             self.validate(descriptor)

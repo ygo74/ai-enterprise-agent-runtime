@@ -65,7 +65,6 @@ class AgentPrincipal(BaseModel):
             caller, not permissions: mapping them to permissions is a decision of
             the application.
     """
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     subject: str = Field(min_length=1)
@@ -84,6 +83,10 @@ class AgentPrincipal(BaseModel):
 
         This is the typed path, and the one to prefer: it needs no dictionary and
         cannot misread a key.
+
+        Args:
+            context (AuthenticatedUserContext): The execution context carrying identity and correlated metadata.
+            require_email (bool): Whether a verified email claim is required to identify the caller.
         """
         identity = context.identity
         return cls._build(
@@ -145,7 +148,15 @@ class AgentPrincipal(BaseModel):
         roles: frozenset[str],
         require_email: bool,
     ) -> AgentPrincipal:
-        """Apply the two refusals both entry points share."""
+        """Apply the two refusals both entry points share.
+
+        Args:
+            subject (str): JWT subject claim identifying the authenticated principal.
+            email (str): Email claim associated with the authenticated principal.
+            display_name (str): Human-readable name shown to clients in model discovery.
+            roles (frozenset[str]): Role values projected from authenticated identity claims.
+            require_email (bool): Whether a verified email claim is required to identify the caller.
+        """
         if not subject:
             raise PrincipalError("the authenticated caller carries no subject")
         if require_email and not email:
@@ -153,19 +164,31 @@ class AgentPrincipal(BaseModel):
         return cls(subject=subject, email=email, display_name=display_name, roles=roles)
 
     def has_role(self, role: str) -> bool:
-        """Whether the identity provider asserted a role for this caller."""
+        """Whether the identity provider asserted a role for this caller.
+
+        Args:
+            role (str): Message role used to decide whether content is assistant output.
+        """
         return role in self.roles
 
 
 def _text(value: object) -> str:
-    """Return a non-empty stripped string, or nothing at all."""
+    """Return a non-empty stripped string, or nothing at all.
+
+    Args:
+        value (object): The value being converted, checked, or serialized.
+    """
     if not isinstance(value, str):
         return ""
     return value.strip()
 
 
 def _texts(value: object) -> frozenset[str]:
-    """Return the non-empty strings of a wire-shaped list, ignoring the rest."""
+    """Return the non-empty strings of a wire-shaped list, ignoring the rest.
+
+    Args:
+        value (object): The value being converted, checked, or serialized.
+    """
     if not isinstance(value, (list, tuple, set, frozenset)):
         return frozenset()
     return frozenset(text for item in value if (text := _text(item)))

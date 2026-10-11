@@ -57,8 +57,12 @@ CREDENTIAL_HEADERS: frozenset[str] = frozenset(
 
 @dataclass(frozen=True, slots=True)
 class RequestHeaderForwarder:
-    """Copies the headers a deployment declared safe into the uniform payload."""
+    """Copies the headers a deployment declared safe into the uniform payload.
 
+    Args:
+        forwarded (tuple[str, ...]): Headers approved for forwarding to application code.
+        conversation_header (str): Header carrying the client conversation identifier.
+    """
     forwarded: tuple[str, ...]
     conversation_header: str = DEFAULT_CONVERSATION_HEADER
 
@@ -75,6 +79,11 @@ class RequestHeaderForwarder:
         Raising here rather than redacting later makes a misconfiguration a
         startup failure: a deployment that would have leaked a token never
         serves a request.
+
+        Args:
+            forwarded (Iterable[str] | None): Headers approved for forwarding to application code.
+            conversation_header (str): Header carrying the client conversation identifier.
+            credential_headers (Iterable[str]): Authentication headers that must be withheld from application forwarding.
         """
         conversation = _name(conversation_header)
         names = _names(DEFAULT_FORWARDED_HEADERS if forwarded is None else forwarded)
@@ -89,7 +98,12 @@ class RequestHeaderForwarder:
         return cls(forwarded=names, conversation_header=conversation)
 
     def apply(self, metadata: Mapping[str, Any], headers: Mapping[str, Any] | None) -> dict[str, Any]:
-        """Return the metadata a handler receives, transport data included."""
+        """Return the metadata a handler receives, transport data included.
+
+        Args:
+            metadata (Mapping[str, Any]): Safe request or response metadata preserved across the exchange.
+            headers (Mapping[str, Any] | None): The request headers used for protocol selection, forwarding, or authentication.
+        """
         enriched = dict(metadata)
         forwarded = self._collect(headers)
         enriched[HEADERS_KEY] = forwarded
@@ -100,7 +114,11 @@ class RequestHeaderForwarder:
         return enriched
 
     def _collect(self, headers: Mapping[str, Any] | None) -> dict[str, str]:
-        """Read the allowlisted headers the request actually carried."""
+        """Read the allowlisted headers the request actually carried.
+
+        Args:
+            headers (Mapping[str, Any] | None): The request headers used for protocol selection, forwarding, or authentication.
+        """
         if headers is None:
             return {}
         return {name: value for name in self.forwarded if (value := _value(headers, name))}
@@ -110,6 +128,10 @@ class RequestHeaderForwarder:
 
         An explicit ``conversation_id`` in the body wins: a client that named a
         conversation in the payload meant that one, whatever a proxy added.
+
+        Args:
+            metadata (Mapping[str, Any]): Safe request or response metadata preserved across the exchange.
+            forwarded (Mapping[str, str]): Headers approved for forwarding to application code.
         """
         stated = metadata.get(CONVERSATION_KEY)
         if isinstance(stated, str) and stated.strip():
@@ -118,12 +140,20 @@ class RequestHeaderForwarder:
 
 
 def _names(values: Iterable[str]) -> tuple[str, ...]:
-    """Return lowercased header names, deduplicated and in order."""
+    """Return lowercased header names, deduplicated and in order.
+
+    Args:
+        values (Iterable[str]): Candidate values read from the source mapping.
+    """
     return tuple(dict.fromkeys(name for value in values if (name := _name(value))))
 
 
 def _name(value: str) -> str:
-    """Return a comparable header name, or nothing at all."""
+    """Return a comparable header name, or nothing at all.
+
+    Args:
+        value (str): The value being converted, checked, or serialized.
+    """
     if not isinstance(value, str):
         return ""
     return value.strip().lower()
@@ -135,6 +165,10 @@ def _value(headers: Mapping[str, Any], name: str) -> str:
     A framework hands over a case-insensitive mapping, a test often hands over a
     plain dict. Both are read the same way so behaviour does not depend on how
     the request was produced.
+
+    Args:
+        headers (Mapping[str, Any]): The request headers used for protocol selection, forwarding, or authentication.
+        name (str): The name used to locate or label the value.
     """
     getter = getattr(headers, "get", None)
     if callable(getter) and (value := _text(getter(name))):
@@ -143,7 +177,13 @@ def _value(headers: Mapping[str, Any], name: str) -> str:
 
 
 def _scan(headers: Mapping[str, Any], name: str) -> str:
-    """Find a header in a mapping whose keys are not lowercased."""
+    """Find a header in a mapping whose keys are not lowercased.
+
+    Args:
+        headers (Mapping[str, Any]): The request headers used for protocol selection, forwarding, or authentication.
+        name (str): The name used to locate or label the value.
+    """
+    # Compare names case-insensitively because caller-supplied mappings may not normalize headers, and return only a usable textual value.
     items = getattr(headers, "items", None)
     if not callable(items):
         return ""
@@ -154,7 +194,11 @@ def _scan(headers: Mapping[str, Any], name: str) -> str:
 
 
 def _text(value: object) -> str:
-    """Return a non-empty header value, trimmed."""
+    """Return a non-empty header value, trimmed.
+
+    Args:
+        value (object): The value being converted, checked, or serialized.
+    """
     if not isinstance(value, str):
         return ""
     return value.strip()

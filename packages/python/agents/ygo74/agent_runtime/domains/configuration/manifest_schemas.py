@@ -8,7 +8,6 @@ from typing import ClassVar
 
 class ManifestSchemas:
     """Read the stable Draft 2020-12 schemas for delivered YAML manifests."""
-
     _SCHEMAS: ClassVar[dict[str, str]] = {
         "agent": "agent.schema.json",
         "skill": "skill.schema.json",
@@ -16,7 +15,11 @@ class ManifestSchemas:
 
     @classmethod
     def read(cls, name: str) -> str:
-        """Return a schema document as UTF-8 JSON text."""
+        """Return a schema document as UTF-8 JSON text.
+
+        Args:
+            name (str): The name used to locate or label the value being processed.
+        """
         filename = cls._SCHEMAS.get(name)
         if filename is None:
             raise ValueError(f"unknown manifest schema {name!r}; expected 'agent' or 'skill'")

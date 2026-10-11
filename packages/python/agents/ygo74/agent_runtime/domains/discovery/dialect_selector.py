@@ -15,14 +15,12 @@ SUPPORTED_ANTHROPIC_VERSIONS: Final[frozenset[str]] = frozenset({"2023-06-01"})
 
 class ProviderDialect(StrEnum):
     """Wire dialect a discovery response is rendered in."""
-
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
 
 
 class DialectSelection(StrEnum):
     """How the runtime picks a dialect on the shared listing path."""
-
     HEADER = "header"
     OPENAI_ONLY = "openai_only"
     ANTHROPIC_ONLY = "anthropic_only"
@@ -36,11 +34,18 @@ class DialectSelector:
     discriminator, because it is the only signal an Anthropic client always sends
     and an OpenAI client never does. Absent the header the OpenAI dialect is the
     documented default. Configuration can pin a single dialect instead.
-    """
 
+    Args:
+        selection (DialectSelection): Selection policy used to choose the active response dialect.
+    """
     selection: DialectSelection = DialectSelection.HEADER
 
     def select(self, headers: Mapping[str, Any] | None) -> ProviderDialect:
+        """Select runtime data from the available candidates according to the configured rules.
+
+        Args:
+            headers (Mapping[str, Any] | None): The request headers used for protocol selection, forwarding, or authentication.
+        """
         if self.selection is DialectSelection.OPENAI_ONLY:
             return ProviderDialect.OPENAI
         if self.selection is DialectSelection.ANTHROPIC_ONLY:
@@ -57,6 +62,11 @@ class DialectSelector:
 
     @staticmethod
     def _anthropic_version(headers: Mapping[str, Any] | None) -> str | None:
+        """Read the Anthropic version header and determine whether the shared model path uses Anthropic response shape.
+
+        Args:
+            headers (Mapping[str, Any] | None): The request headers used for protocol selection, forwarding, or authentication.
+        """
         if headers is None:
             return None
 

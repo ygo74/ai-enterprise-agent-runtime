@@ -43,10 +43,14 @@ same paths so cross-language parity is observable.
 
 - Incoming endpoint payloads MUST be normalized to `StandardExchangeRequest`.
 - Developer handlers MUST receive only normalized exchange requests.
-- Handler outputs MUST be expressed as `StandardExchangeResponse` and mapped back
-  to endpoint-compatible response payloads.
-- Streaming mode MUST be supported for all supported endpoint types and mapped
-  through `StandardStreamingExchangeEvent` semantics.
+- Historical v1 handler outputs use `StandardExchangeResponse` and generic
+  streaming exchange semantics in the .NET/Java implementations.
+- Python agents 1.0 outputs MUST use the
+  [typed output v2 contract](typed-output-contract.md), directly or inside a typed
+  exchange response, and MUST be projected to the invoking protocol.
+- Native Responses output/event passthrough and raw Python outputs are removed.
+- Valid unsupported pivot content MUST be filtered with safe correlated logs;
+  invalid values and execution failures remain explicit errors.
 - Error responses MUST use the standardized `ErrorEnvelope` categories.
 
 ## Routing Contract

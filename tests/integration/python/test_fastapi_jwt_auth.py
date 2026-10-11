@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import jwt
@@ -11,17 +11,14 @@ from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
     JwtValidationConfig,
     StaticSymmetricKeyResolver,
 )
+from ygo74.agent_runtime.domains.contracts import AgentOutput, TextContent
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
 
 
-async def _entrypoint(payload: dict) -> dict:
-    return {
-        "request_id": payload["request_id"],
-        "status": "success",
-        "output": {
-            "auth_context": payload["auth_context"],
-        },
-    }
+async def _entrypoint(payload: dict) -> AgentOutput:
+    return AgentOutput(
+        (TextContent(json.dumps({"auth_context": payload["auth_context"]})),)
+    )
 
 
 def _config() -> JwtValidationConfig:
@@ -35,7 +32,7 @@ def _config() -> JwtValidationConfig:
 
 
 def _valid_token() -> str:
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     claims = {
         "sub": "user-abc",
         "iss": "https://issuer.example.com",
@@ -65,9 +62,9 @@ def test_fastapi_rejects_missing_authorization_header_when_required() -> None:
     )
 
     assert response.status_code == 401
-    detail = response.json()["detail"]
-    assert detail["status"] == "error"
-    assert detail["error"]["code"] == "authorization_header_missing"
+    error = response.json()["error"]
+    assert error["type"] == "authentication_error"
+    assert error["code"] == "authorization_header_missing"
 
 
 def test_fastapi_rejects_non_bearer_authorization_header() -> None:
@@ -89,8 +86,9 @@ def test_fastapi_rejects_non_bearer_authorization_header() -> None:
     )
 
     assert response.status_code == 401
-    detail = response.json()["detail"]
-    assert detail["error"]["code"] == "authorization_scheme_invalid"
+    error = response.json()["error"]
+    assert error["type"] == "authentication_error"
+    assert error["code"] == "authorization_scheme_invalid"
 
 
 def test_fastapi_authenticates_bearer_and_normalizes_auth_context() -> None:

@@ -1,0 +1,382 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ygo74.github.io/ai-enterprise-agent-runtime/contracts/agent-output-v2.schema.json",
+  "title": "Provider-neutral agent output v2",
+  "description": "Explicitly tagged neutral output snapshots produced by AgentOutputSerializer, not handler input dictionaries or provider wire payloads. Every content, media-source and event union carries a distinct type tag and its exact fields under value. Lifecycle ordering remains runtime-validated.",
+  "$ref": "#/$defs/TaggedAgentOutput",
+  "$defs": {
+    "OutputValueType": {
+      "type": "string",
+      "enum": ["agent_output", "exchange_response", "text", "notification", "reasoning", "tool_call", "tool_result", "image", "audio", "media_uri", "encoded_media", "content_event", "content_start", "text_delta", "tool_arguments_delta", "audio_delta", "audio_transcript_delta", "content_end", "usage_event", "terminal_event"]
+    },
+    "JsonValue": {
+      "anyOf": [
+        {"type": "null"},
+        {"type": "boolean"},
+        {"type": "number"},
+        {"type": "string"},
+        {"type": "array", "items": {"$ref": "#/$defs/JsonValue"}},
+        {"type": "object", "additionalProperties": {"$ref": "#/$defs/JsonValue"}}
+      ]
+    },
+    "Identifier": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "ToolExecution": {"type": "string", "enum": ["internal", "client"]},
+    "TerminationStatus": {"type": "string", "enum": ["success", "incomplete", "failed"]},
+    "AudioFormat": {"type": "string", "enum": ["wav", "mp3", "pcm16", "flac", "opus", "aac"]},
+    "MediaUri": {
+      "type": "object",
+      "properties": {
+        "uri": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z][A-Za-z0-9+.-]*:"},
+        "mime_type": {"$ref": "#/$defs/Identifier"}
+      },
+      "required": ["uri", "mime_type"],
+      "additionalProperties": false
+    },
+    "EncodedMedia": {
+      "type": "object",
+      "properties": {
+        "data": {"type": "string", "contentEncoding": "base64"},
+        "mime_type": {"$ref": "#/$defs/Identifier"}
+      },
+      "required": ["data", "mime_type"],
+      "additionalProperties": false
+    },
+    "MediaSource": {
+      "oneOf": [{"$ref": "#/$defs/TaggedMediaUri"}, {"$ref": "#/$defs/TaggedEncodedMedia"}]
+    },
+    "UrlCitation": {
+      "type": "object",
+      "properties": {
+        "url": {"type": "string", "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://[^\\s/]+"},
+        "title": {"type": "string"},
+        "start_index": {"type": "integer", "minimum": 0},
+        "end_index": {"type": "integer", "minimum": 0}
+      },
+      "required": ["url", "title", "start_index", "end_index"],
+      "additionalProperties": false
+    },
+    "TextContent": {
+      "type": "object",
+      "properties": {
+        "text": {"type": "string"},
+        "annotations": {"type": "array", "items": {"$ref": "#/$defs/UrlCitation"}}
+      },
+      "required": ["text", "annotations"],
+      "additionalProperties": false
+    },
+    "Notification": {
+      "type": "object",
+      "properties": {"text": {"type": "string"}},
+      "required": ["text"],
+      "additionalProperties": false
+    },
+    "ReasoningContent": {
+      "type": "object",
+      "properties": {"text": {"type": "string"}, "exposable": {"type": "boolean"}},
+      "required": ["text", "exposable"],
+      "additionalProperties": false
+    },
+    "ToolCallContent": {
+      "type": "object",
+      "properties": {
+        "call_id": {"$ref": "#/$defs/Identifier"},
+        "name": {"$ref": "#/$defs/Identifier"},
+        "arguments": {"$ref": "#/$defs/JsonValue"},
+        "execution": {"$ref": "#/$defs/ToolExecution"}
+      },
+      "required": ["call_id", "name", "arguments", "execution"],
+      "additionalProperties": false
+    },
+    "ToolResultContent": {
+      "type": "object",
+      "properties": {
+        "call_id": {"$ref": "#/$defs/Identifier"},
+        "name": {"$ref": "#/$defs/Identifier"},
+        "result": {"$ref": "#/$defs/JsonValue"},
+        "execution": {"$ref": "#/$defs/ToolExecution"}
+      },
+      "required": ["call_id", "name", "result", "execution"],
+      "additionalProperties": false
+    },
+    "ImageContent": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "allOf": [
+            {"$ref": "#/$defs/MediaSource"},
+            {"properties": {"value": {"properties": {"mime_type": {"type": "string", "pattern": "^image/.+"}}}}}
+          ]
+        }
+      },
+      "required": ["source"],
+      "additionalProperties": false
+    },
+    "AudioContent": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "allOf": [
+            {"$ref": "#/$defs/MediaSource"},
+            {"properties": {"value": {"properties": {"mime_type": {"type": "string", "pattern": "^audio/.+"}}}}}
+          ]
+        },
+        "audio_id": {"$ref": "#/$defs/Identifier"},
+        "transcript": {"type": ["string", "null"]},
+        "format": {"$ref": "#/$defs/AudioFormat"},
+        "expires_at": {"type": ["integer", "null"], "minimum": 0}
+      },
+      "required": ["source", "audio_id", "transcript", "format", "expires_at"],
+      "additionalProperties": false
+    },
+    "AgentContent": {
+      "oneOf": [
+        {"$ref": "#/$defs/TaggedTextContent"},
+        {"$ref": "#/$defs/TaggedNotification"},
+        {"$ref": "#/$defs/TaggedReasoningContent"},
+        {"$ref": "#/$defs/TaggedToolCallContent"},
+        {"$ref": "#/$defs/TaggedToolResultContent"},
+        {"$ref": "#/$defs/TaggedImageContent"},
+        {"$ref": "#/$defs/TaggedAudioContent"}
+      ]
+    },
+    "TokenUsage": {
+      "type": "object",
+      "properties": {
+        "input_tokens": {"type": "integer", "minimum": 0},
+        "output_tokens": {"type": "integer", "minimum": 0},
+        "total_tokens": {"type": ["integer", "null"], "minimum": 0},
+        "cached_input_tokens": {"type": ["integer", "null"], "minimum": 0},
+        "reasoning_output_tokens": {"type": ["integer", "null"], "minimum": 0},
+        "cache_write_input_tokens": {"type": ["integer", "null"], "minimum": 0}
+      },
+      "required": ["input_tokens", "output_tokens", "total_tokens", "cached_input_tokens", "reasoning_output_tokens", "cache_write_input_tokens"],
+      "additionalProperties": false
+    },
+    "ErrorEnvelope": {
+      "type": "object",
+      "properties": {
+        "code": {"$ref": "#/$defs/Identifier"},
+        "category": {"$ref": "#/$defs/Identifier"},
+        "message": {"type": "string"},
+        "details": {"$ref": "#/$defs/JsonValue"},
+        "request_id": {"type": ["string", "null"]},
+        "retryable": {"type": ["boolean", "null"]}
+      },
+      "required": ["code", "category", "message", "details", "request_id", "retryable"],
+      "additionalProperties": false
+    },
+    "Termination": {
+      "type": "object",
+      "properties": {
+        "status": {"$ref": "#/$defs/TerminationStatus"},
+        "reason": {"type": ["string", "null"], "minLength": 1, "pattern": "\\S"},
+        "error": {"anyOf": [{"$ref": "#/$defs/ErrorEnvelope"}, {"type": "null"}]}
+      },
+      "required": ["status", "reason", "error"],
+      "additionalProperties": false,
+      "allOf": [{
+        "if": {"properties": {"status": {"const": "failed"}}},
+        "then": {"properties": {"error": {"$ref": "#/$defs/ErrorEnvelope"}}},
+        "else": {"properties": {"error": {"type": "null"}}}
+      }]
+    },
+    "AgentOutput": {
+      "type": "object",
+      "properties": {
+        "contents": {"type": "array", "items": {"$ref": "#/$defs/AgentContent"}},
+        "usage": {"anyOf": [{"$ref": "#/$defs/TokenUsage"}, {"type": "null"}]},
+        "termination": {"$ref": "#/$defs/Termination"}
+      },
+      "required": ["contents", "usage", "termination"],
+      "additionalProperties": false
+    },
+    "StandardExchangeResponse": {
+      "type": "object",
+      "properties": {
+        "request_id": {"type": "string"},
+        "status": {"type": "string", "enum": ["success", "error"]},
+        "output": {"anyOf": [{"$ref": "#/$defs/TaggedAgentOutput"}, {"type": "null"}]},
+        "error": {"anyOf": [{"$ref": "#/$defs/ErrorEnvelope"}, {"type": "null"}]},
+        "metadata": {"type": "object", "additionalProperties": {"$ref": "#/$defs/JsonValue"}}
+      },
+      "required": ["request_id", "status", "output", "error", "metadata"],
+      "additionalProperties": false,
+      "allOf": [{
+        "if": {"properties": {"status": {"const": "success"}}},
+        "then": {"properties": {"output": {"$ref": "#/$defs/TaggedAgentOutput"}, "error": {"type": "null"}}},
+        "else": {"properties": {"output": {"type": "null"}, "error": {"$ref": "#/$defs/ErrorEnvelope"}}}
+      }]
+    },
+    "ContentEvent": {
+      "type": "object",
+      "properties": {"content_id": {"$ref": "#/$defs/Identifier"}, "content": {"$ref": "#/$defs/AgentContent"}},
+      "required": ["content_id", "content"],
+      "additionalProperties": false
+    },
+    "ContentStart": {
+      "type": "object",
+      "properties": {"content_id": {"$ref": "#/$defs/Identifier"}, "content": {"$ref": "#/$defs/AgentContent"}},
+      "required": ["content_id", "content"],
+      "additionalProperties": false
+    },
+    "TextDelta": {
+      "type": "object",
+      "properties": {"content_id": {"$ref": "#/$defs/Identifier"}, "text": {"type": "string"}},
+      "required": ["content_id", "text"],
+      "additionalProperties": false
+    },
+    "ToolArgumentsDelta": {
+      "type": "object",
+      "properties": {"content_id": {"$ref": "#/$defs/Identifier"}, "delta": {"type": "string"}},
+      "required": ["content_id", "delta"],
+      "additionalProperties": false
+    },
+    "AudioDelta": {
+      "type": "object",
+      "properties": {
+        "content_id": {"$ref": "#/$defs/Identifier"},
+        "data": {"type": "string", "contentEncoding": "base64"},
+        "sequence": {"type": "integer", "minimum": 0}
+      },
+      "required": ["content_id", "data", "sequence"],
+      "additionalProperties": false
+    },
+    "AudioTranscriptDelta": {
+      "type": "object",
+      "properties": {"content_id": {"$ref": "#/$defs/Identifier"}, "text": {"type": "string"}},
+      "required": ["content_id", "text"],
+      "additionalProperties": false
+    },
+    "ContentEnd": {
+      "type": "object",
+      "properties": {"content_id": {"$ref": "#/$defs/Identifier"}},
+      "required": ["content_id"],
+      "additionalProperties": false
+    },
+    "UsageEvent": {
+      "type": "object",
+      "properties": {"usage": {"$ref": "#/$defs/TokenUsage"}},
+      "required": ["usage"],
+      "additionalProperties": false
+    },
+    "TerminalEvent": {
+      "type": "object",
+      "properties": {"termination": {"$ref": "#/$defs/Termination"}},
+      "required": ["termination"],
+      "additionalProperties": false
+    },
+    "AgentStreamEvent": {
+      "oneOf": [
+        {"$ref": "#/$defs/TaggedContentEvent"},
+        {"$ref": "#/$defs/TaggedContentStart"},
+        {"$ref": "#/$defs/TaggedTextDelta"},
+        {"$ref": "#/$defs/TaggedToolArgumentsDelta"},
+        {"$ref": "#/$defs/TaggedAudioDelta"},
+        {"$ref": "#/$defs/TaggedAudioTranscriptDelta"},
+        {"$ref": "#/$defs/TaggedContentEnd"},
+        {"$ref": "#/$defs/TaggedUsageEvent"},
+        {"$ref": "#/$defs/TaggedTerminalEvent"}
+      ]
+    },
+    "TaggedAgentOutput": {
+      "type": "object",
+      "properties": {"type": {"const": "agent_output"}, "value": {"$ref": "#/$defs/AgentOutput"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedStandardExchangeResponse": {
+      "type": "object",
+      "properties": {"type": {"const": "exchange_response"}, "value": {"$ref": "#/$defs/StandardExchangeResponse"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedTextContent": {
+      "type": "object",
+      "properties": {"type": {"const": "text"}, "value": {"$ref": "#/$defs/TextContent"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedNotification": {
+      "type": "object",
+      "properties": {"type": {"const": "notification"}, "value": {"$ref": "#/$defs/Notification"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedReasoningContent": {
+      "type": "object",
+      "properties": {"type": {"const": "reasoning"}, "value": {"$ref": "#/$defs/ReasoningContent"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedToolCallContent": {
+      "type": "object",
+      "properties": {"type": {"const": "tool_call"}, "value": {"$ref": "#/$defs/ToolCallContent"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedToolResultContent": {
+      "type": "object",
+      "properties": {"type": {"const": "tool_result"}, "value": {"$ref": "#/$defs/ToolResultContent"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedImageContent": {
+      "type": "object",
+      "properties": {"type": {"const": "image"}, "value": {"$ref": "#/$defs/ImageContent"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedAudioContent": {
+      "type": "object",
+      "properties": {"type": {"const": "audio"}, "value": {"$ref": "#/$defs/AudioContent"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedMediaUri": {
+      "type": "object",
+      "properties": {"type": {"const": "media_uri"}, "value": {"$ref": "#/$defs/MediaUri"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedEncodedMedia": {
+      "type": "object",
+      "properties": {"type": {"const": "encoded_media"}, "value": {"$ref": "#/$defs/EncodedMedia"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedContentEvent": {
+      "type": "object",
+      "properties": {"type": {"const": "content_event"}, "value": {"$ref": "#/$defs/ContentEvent"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedContentStart": {
+      "type": "object",
+      "properties": {"type": {"const": "content_start"}, "value": {"$ref": "#/$defs/ContentStart"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedTextDelta": {
+      "type": "object",
+      "properties": {"type": {"const": "text_delta"}, "value": {"$ref": "#/$defs/TextDelta"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedToolArgumentsDelta": {
+      "type": "object",
+      "properties": {"type": {"const": "tool_arguments_delta"}, "value": {"$ref": "#/$defs/ToolArgumentsDelta"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedAudioDelta": {
+      "type": "object",
+      "properties": {"type": {"const": "audio_delta"}, "value": {"$ref": "#/$defs/AudioDelta"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedAudioTranscriptDelta": {
+      "type": "object",
+      "properties": {"type": {"const": "audio_transcript_delta"}, "value": {"$ref": "#/$defs/AudioTranscriptDelta"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedContentEnd": {
+      "type": "object",
+      "properties": {"type": {"const": "content_end"}, "value": {"$ref": "#/$defs/ContentEnd"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedUsageEvent": {
+      "type": "object",
+      "properties": {"type": {"const": "usage_event"}, "value": {"$ref": "#/$defs/UsageEvent"}},
+      "required": ["type", "value"], "additionalProperties": false
+    },
+    "TaggedTerminalEvent": {
+      "type": "object",
+      "properties": {"type": {"const": "terminal_event"}, "value": {"$ref": "#/$defs/TerminalEvent"}},
+      "required": ["type", "value"], "additionalProperties": false
+    }
+  }
+}

@@ -47,7 +47,6 @@ DEFAULT_OWNER = "agent-runtime"
 
 class SecurityScheme(StrEnum):
     """An authentication scheme a deployment may accept."""
-
     JWT = "jwt"
     OIDC = "oidc"
     API_KEY = "apiKey"
@@ -63,9 +62,16 @@ class AdvertisedSecurity:
     A deployment that authenticates nobody is refused outright rather than
     described: an agent reachable without a caller has no subject to partition
     its state by, and discovery is not the place to discover that.
-    """
 
+    Args:
+        schemes (Sequence[SecurityScheme]): Authentication schemes advertised or accepted by this service.
+    """
     def __init__(self, *, schemes: Sequence[SecurityScheme]) -> None:
+        """Initialize the instance runtime data with the supplied collaborators and configuration.
+
+        Args:
+            schemes (Sequence[SecurityScheme]): Authentication schemes advertised or accepted by this service.
+        """
         ordered = tuple(scheme for scheme in SecurityScheme if scheme in set(schemes))
         if not ordered:
             raise ValueError("a service that advertises no authentication cannot be described")
@@ -89,6 +95,11 @@ class AdvertisedSecurity:
         An issuer is what distinguishes the two token schemes. Validating a
         bearer token is ``jwt``; validating one against a configured issuer means
         an identity provider is involved, which is what ``oidc`` tells a caller.
+
+        Args:
+            jwt_validation (JwtValidationConfig | None): JWT settings used to derive the protected resource descriptor.
+            api_key_resolver (ApiKeyUserResolver | None): Application callback that resolves an API key to an authenticated user.
+            authenticators (Sequence[Authenticator] | None): Ordered authentication schemes evaluated for incoming credentials.
         """
         if authenticators is not None:
             return cls(schemes=[_scheme_of(authenticator) for authenticator in authenticators])
@@ -128,6 +139,9 @@ def _scheme_of(authenticator: Authenticator) -> SecurityScheme:
     A custom authenticator this library has never heard of cannot be projected,
     and inventing a name for it would put a scheme in the descriptor that no
     caller can act on. The host is asked to say what it accepts instead.
+
+    Args:
+        authenticator (Authenticator): Authentication implementation inspected for its scheme details.
     """
     scheme = _SCHEME_BY_AUTH_TYPE.get(authenticator.auth_type)
     if scheme is None:
@@ -155,7 +169,6 @@ class AgentDescriptorFactory:
         version: Version of the agent, not of the library serving it.
         owner: Who operates the agent.
     """
-
     def __init__(
         self,
         manifest: AgentManifest,
@@ -168,6 +181,18 @@ class AgentDescriptorFactory:
         version: str = DEFAULT_VERSION,
         owner: str = DEFAULT_OWNER,
     ) -> None:
+        """Initialize the instance runtime data with the supplied collaborators and configuration.
+
+        Args:
+            manifest (AgentManifest): Manifest being validated or projected into runtime contracts.
+            agent_id (str): Public identifier of the agent being registered or discovered.
+            tags (Sequence[str]): Search labels associated with this skill.
+            created_at (datetime): Unix creation time reported for the provider model.
+            security (AdvertisedSecurity): Security scheme metadata exposed for the protected resource.
+            streaming (bool): Whether the caller requested a streaming response.
+            version (str): Agent or API version reported through discovery.
+            owner (str): Component responsible for creating or releasing the resource.
+        """
         if not agent_id.strip():
             raise ValueError("agent_id is required to describe an agent")
         self._manifest = manifest

@@ -62,8 +62,12 @@ ASYMMETRIC_ALGORITHMS = ("RS256", "RS384", "RS512", "ES256", "ES384")
 
 @dataclass(frozen=True, slots=True)
 class McpServerAuthentication:
-    """The authentication an MCP server was configured with."""
+    """The authentication an MCP server was configured with.
 
+    Args:
+        policy (AuthenticationPolicy): Configured authentication or authorization policy.
+        resource_url (str): Protected resource URL advertised by the MCP server.
+    """
     policy: AuthenticationPolicy
     resource_url: str = ""
 
@@ -104,7 +108,12 @@ class McpServerAuthentication:
 
     @staticmethod
     def _mode(source: dict[str, str], names: _Names) -> AuthenticationMode:
-        """Which mode was asked for, inferring a scheme but never inferring silence."""
+        """Which mode was asked for, inferring a scheme but never inferring silence.
+
+        Args:
+            source (dict[str, str]): The source value being read, validated, or converted.
+            names (_Names): Tool call IDs and names used to correlate related blocks.
+        """
         declared = source.get(names.mode, "").strip()
         if declared:
             return AuthenticationMode.named(declared)
@@ -125,7 +134,13 @@ class McpServerAuthentication:
 
     @staticmethod
     def _api_key_policy(source: dict[str, str], names: _Names, caller_id: str) -> AuthenticationPolicy:
-        """Authenticate a shared secret carried in an Authorization header."""
+        """Authenticate a shared secret carried in an Authorization header.
+
+        Args:
+            source (dict[str, str]): The source value being read, validated, or converted.
+            names (_Names): Tool call IDs and names used to correlate related blocks.
+            caller_id (str): Stable caller identity returned after API-key authentication.
+        """
         secret = source.get(names.token, "").strip()
         if not secret:
             raise AuthenticationConfigurationError(
@@ -153,6 +168,10 @@ class McpServerAuthentication:
         sends a client to the right realm, and then answers 401 to the valid token
         it comes back with. It fails closed, which is why nothing catches it except
         driving a real token through.
+
+        Args:
+            source (dict[str, str]): The source value being read, validated, or converted.
+            names (_Names): Tool call IDs and names used to correlate related blocks.
         """
         issuer = _required(source, names.issuer, names.mode, "jwt")
         audience = source.get(names.audience, "").strip()
@@ -176,41 +195,65 @@ class McpServerAuthentication:
 
 @dataclass(frozen=True, slots=True)
 class _Names:
-    """The variable names of one prefix."""
+    """The variable names of one prefix.
 
+    Args:
+        prefix (str): Environment-variable prefix for one configured agent.
+    """
     prefix: str
 
     @property
     def mode(self) -> str:
+        """Return the configured MCP authentication mode.
+        """
         return f"{self.prefix}{MODE_SUFFIX}"
 
     @property
     def token(self) -> str:
+        """Return the configured bearer token source or None when token mode is disabled.
+        """
         return f"{self.prefix}{TOKEN_SUFFIX}"
 
     @property
     def issuer(self) -> str:
+        """Return the configured token issuer when JWT authentication is enabled.
+        """
         return f"{self.prefix}{ISSUER_SUFFIX}"
 
     @property
     def audience(self) -> str:
+        """Return the JWT audience expected by the MCP resource.
+        """
         return f"{self.prefix}{AUDIENCE_SUFFIX}"
 
     @property
     def resource(self) -> str:
+        """Return the protected MCP resource URL advertised to OAuth clients.
+        """
         return f"{self.prefix}{RESOURCE_SUFFIX}"
 
     @property
     def jwks(self) -> str:
+        """Return the configured JWKS endpoint used to resolve signing keys.
+        """
         return f"{self.prefix}{JWKS_SUFFIX}"
 
     @property
     def roles_claim(self) -> str:
+        """Return the configured JWT claim path from which roles are projected.
+        """
         return f"{self.prefix}{ROLES_CLAIM_SUFFIX}"
 
 
 def _required(source: dict[str, str], variable: str, mode_variable: str, mode: str) -> str:
-    """Read a variable the chosen mode cannot work without."""
+    """Read a variable the chosen mode cannot work without.
+
+    Args:
+        source (dict[str, str]): The source value being read, validated, or converted.
+        variable (str): Environment variable name used to read the setting.
+        mode_variable (str): Environment variable selecting the MCP authentication mode.
+        mode (str): Configured authentication or transport mode.
+    """
     value = source.get(variable, "").strip()
     if not value:
         raise AuthenticationConfigurationError(

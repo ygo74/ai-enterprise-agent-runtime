@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
+from ygo74.agent_runtime.domains.contracts.agent_output import AgentOutput
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,7 +34,6 @@ class ConversationTurn:
             once combined with the authenticated subject.
         message: What the person wrote, verbatim.
     """
-
     principal: AgentPrincipal
     conversation_id: str
     message: str
@@ -57,10 +57,11 @@ class AgentReply:
         pending_confirmations: Identifiers of operations described but *not*
             performed, awaiting an explicit answer. Empty means nothing is
             waiting - never that everything succeeded.
+        output: Optional typed native result preserving usage and termination.
     """
-
     text: str
     pending_confirmations: tuple[str, ...] = ()
+    output: AgentOutput | None = None
 
     @property
     def awaits_confirmation(self) -> bool:
@@ -71,7 +72,10 @@ class AgentReply:
 @runtime_checkable
 class ConversationEngine(Protocol):
     """Answers one turn of a conversation."""
-
     async def respond(self, turn: ConversationTurn) -> AgentReply:
-        """Return the agent's answer to a turn."""
+        """Return the agent's answer to a turn.
+
+        Args:
+            turn (ConversationTurn): Conversation turn whose request and response are added to session history.
+        """
         ...

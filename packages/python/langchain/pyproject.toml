@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ygo74-agent-runtime-langchain"
+version = "0.8.0"
+description = "Native LangChain and LangGraph binding for the ygo74 agent runtime"
+readme = {text = "Native LangGraph conversation binding and typed LangChain result and streaming adapters for the neutral ygo74 agent runtime. See doc/python/langchain.md in the project repository for installation, supported SDK versions, runnable offline examples, and explicit conversion diagnostics.", content-type = "text/plain"}
+requires-python = ">=3.12"
+dependencies = [
+  "ygo74-agent-runtime-agents>=0.8.0,<2",
+  "langchain-core>=1.6.3,<1.7",
+  "langgraph>=1.2,<2",
+]
+
+[project.optional-dependencies]
+http = [
+  "ygo74-agent-runtime-agents[http]>=0.8.0,<2",
+  "fastapi>=0.115",
+]
+
+[tool.setuptools.packages.find]
+include = [
+  "ygo74.agent_runtime.integrations.langchain",
+  "ygo74.agent_runtime.integrations.langchain.*",
+]
+namespaces = true
+
+[tool.setuptools.package-data]
+"ygo74.agent_runtime.integrations.langchain" = ["py.typed"]

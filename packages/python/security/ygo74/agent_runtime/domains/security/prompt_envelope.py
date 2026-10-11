@@ -26,7 +26,6 @@ from ygo74.agent_runtime.domains.security.untrusted import UntrustedText
 
 class UntrustedSection(BaseModel):
     """A labelled block of third-party content offered to the model as data."""
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     label: str = Field(min_length=1)
@@ -41,7 +40,6 @@ class ReasoningRequest(BaseModel):
         task: Trusted description of what must be produced.
         context: Untrusted material the answer must be grounded in.
     """
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     instructions: str = Field(min_length=1)
@@ -59,8 +57,13 @@ class PromptEnvelopeBuilder:
             it could about what it is looking at.
         nonce_bytes: Width of the per-rendering fence delimiter.
     """
-
     def __init__(self, *, source: str = DEFAULT_UNTRUSTED_SOURCE, nonce_bytes: int = 8) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            source (str): The source value being read, validated, or converted.
+            nonce_bytes (int): Number of random bytes used to create a fencing nonce.
+        """
         self._source = source
         self._nonce_bytes = nonce_bytes
 
@@ -70,6 +73,9 @@ class PromptEnvelopeBuilder:
         A request with no context renders no fence and no contract: announcing
         untrusted content that is not there would teach the model to discount the
         announcement when it is.
+
+        Args:
+            request (ReasoningRequest): The request received at this layer, with its protocol-specific or normalized fields.
         """
         parts = [request.instructions.strip(), "# Task", request.task.strip()]
 

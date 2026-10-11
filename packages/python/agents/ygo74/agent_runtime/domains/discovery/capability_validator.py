@@ -17,11 +17,18 @@ class CapabilityValidator:
     Discovery is only trustworthy if an advertised capability is actually
     reachable, so a contradiction fails initialization instead of degrading
     silently at request time.
-    """
 
+    Args:
+        configurations_by_route_key (Mapping[str, EndpointConfiguration]): Endpoint settings indexed by their registered route key.
+    """
     configurations_by_route_key: Mapping[str, EndpointConfiguration]
 
     def validate(self, descriptor: AgentDescriptor) -> None:
+        """Validate runtime data and raise a domain-specific error when its constraints are not met.
+
+        Args:
+            descriptor (AgentDescriptor): The canonical agent descriptor whose identity and capabilities are used.
+        """
         configuration = self.configurations_by_route_key.get(descriptor.route_key)
         if configuration is None:
             raise DiscoveryErrors.unresolved_route_key(descriptor.agent_id, descriptor.route_key)
@@ -41,11 +48,21 @@ class CapabilityValidator:
             )
 
     def validate_all(self, descriptors: tuple[AgentDescriptor, ...]) -> None:
+        """Validate all and raise a domain-specific error when its constraints are not met.
+
+        Args:
+            descriptors (tuple[AgentDescriptor, ...]): Agent descriptors to validate, order, or register.
+        """
         for descriptor in descriptors:
             self.validate(descriptor)
 
 
 def _has_enabled_surface(configuration: EndpointConfiguration) -> bool:
+    """Determine whether the agent has at least one configured endpoint matching its declared capabilities.
+
+    Args:
+        configuration (EndpointConfiguration): Validated endpoint or discovery settings controlling this operation.
+    """
     return (
         configuration.enable_chat_completions
         or configuration.enable_responses

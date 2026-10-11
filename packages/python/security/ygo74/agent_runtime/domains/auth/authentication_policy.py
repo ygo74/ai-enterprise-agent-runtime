@@ -54,7 +54,6 @@ class AuthenticationMode(StrEnum):
     reports when a host supplied its own :class:`Authenticator`, so that a start-up
     log still says something true about a scheme this enumeration never heard of.
     """
-
     NONE = "none"
     API_KEY = "api_key"
     JWT = "jwt"
@@ -71,6 +70,9 @@ class AuthenticationMode(StrEnum):
         ``CUSTOM`` is refused too. It is what a policy *reports* when a host supplied
         its own authenticator in code; naming it in a configuration file asks for a
         scheme nothing can build.
+
+        Args:
+            value (str | None): The value being converted, checked, or serialized.
         """
         text = (value or "").strip().lower()
         known = ", ".join(mode.value for mode in cls if mode is not cls.CUSTOM)
@@ -102,9 +104,18 @@ class AuthenticationPolicy:
     Built through a named constructor rather than a keyword-argument soup, so that
     reading the composition root tells you the security posture of the service
     without having to work out what an omitted argument meant.
-    """
 
+    Args:
+        mode (AuthenticationMode): Configured authentication or transport mode.
+        authenticators (tuple[Authenticator, ...]): Ordered authentication schemes evaluated for incoming credentials.
+    """
     def __init__(self, mode: AuthenticationMode, authenticators: tuple[Authenticator, ...]) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            mode (AuthenticationMode): Configured authentication or transport mode.
+            authenticators (tuple[Authenticator, ...]): Ordered authentication schemes evaluated for incoming credentials.
+        """
         self._mode = mode
         self._authenticators = authenticators
 
@@ -145,6 +156,11 @@ class AuthenticationPolicy:
         ``scheme`` covers the deployments that carry their key in an
         ``Authorization`` header - the mail MCP server presents its shared secret
         as ``Bearer <secret>``. Leave it empty and the raw header value is the key.
+
+        Args:
+            resolver (ApiKeyUserResolver): Callback that resolves a route key to its registered handler.
+            header_name (str): Credential header accepted by the authentication scheme.
+            scheme (str): Authentication scheme inspected for credentials or metadata.
         """
         return cls(
             AuthenticationMode.API_KEY,
@@ -153,7 +169,11 @@ class AuthenticationPolicy:
 
     @classmethod
     def jwt(cls, validation: JwtValidationConfig) -> Self:
-        """Validate a bearer token against an issuer's published keys."""
+        """Validate a bearer token against an issuer's published keys.
+
+        Args:
+            validation (JwtValidationConfig): JWT validation settings used by this authentication policy.
+        """
         return cls(AuthenticationMode.JWT, (JwtAuthenticator(validation),))
 
     @classmethod
@@ -165,6 +185,9 @@ class AuthenticationPolicy:
         change here.
 
         Order is precedence: the first authenticator claiming a request wins.
+
+        Args:
+            authenticators (Authenticator): Ordered authentication schemes evaluated for incoming credentials.
         """
         if not authenticators:
             raise AuthenticationConfigurationError(

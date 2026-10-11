@@ -50,7 +50,6 @@ class ConfirmationPresenter(Protocol):
     implementation resolves them into the very request that will authorise the
     operation, so what the person reads is what gets enforced and audited.
     """
-
     async def present(
         self,
         tool_name: str,
@@ -63,13 +62,26 @@ class ConfirmationPresenter(Protocol):
             DomainError: the capability cannot be described. Failing is
                 deliberate - approving an operation nobody can explain would be
                 worse than interrupting the conversation.
+
+        Args:
+            tool_name (str): Name of the tool whose declaration or invocation is being resolved.
+            arguments (Mapping[str, Any]): JSON arguments associated with a tool call.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
         """
         ...
 
 
 class ConfirmedOperationRunner:
-    """Runs the operation a claimed ticket describes, and nothing else."""
+    """Runs the operation a claimed ticket describes, and nothing else.
 
+    Args:
+        registry (SkillRegistry): The registry that supplies entries for this operation.
+        store (PendingConfirmationStore): Persistence service used to retain state across requests.
+        ledger (ConfirmationLedger): Approval ledger used to persist confirmation state.
+        renderer (ResultRenderer): Component that formats approval state for the user.
+        user (UserContext): The authenticated user whose identity or permissions govern this operation.
+        conversation_id (str): Conversation identity used to select session state for this caller.
+    """
     def __init__(
         self,
         registry: SkillRegistry,
@@ -80,6 +92,16 @@ class ConfirmedOperationRunner:
         *,
         conversation_id: str,
     ) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            registry (SkillRegistry): The registry that supplies entries for this operation.
+            store (PendingConfirmationStore): Persistence service used to retain state across requests.
+            ledger (ConfirmationLedger): Approval ledger used to persist confirmation state.
+            renderer (ResultRenderer): Component that formats approval state for the user.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
+            conversation_id (str): Conversation identity used to select session state for this caller.
+        """
         self._registry = registry
         self._store = store
         self._ledger = ledger
@@ -93,6 +115,9 @@ class ConfirmedOperationRunner:
         Claiming first is deliberate: a refusal must consume the ticket too, so
         a declined operation cannot be confirmed a moment later by repeating the
         identifier.
+
+        Args:
+            command (ConfirmationCommand): Requested operation that must pass the authorization gate.
         """
         ticket = self._store.claim(
             command.ticket_id,
@@ -108,7 +133,11 @@ class ConfirmedOperationRunner:
         return self._renderer.render(await descriptor.invoke(payload, self._user))
 
     def _record(self, ticket: ConfirmationTicket) -> None:
-        """Store the decision so the domain gate enforces this very request."""
+        """Store the decision so the domain gate enforces this very request.
+
+        Args:
+            ticket (ConfirmationTicket): Pending approval record being confirmed, declined, or expired.
+        """
         self._ledger.record(
             ConfirmationOutcome(
                 request=ticket.request,

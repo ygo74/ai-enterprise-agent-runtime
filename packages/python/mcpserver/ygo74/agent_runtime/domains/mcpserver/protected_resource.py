@@ -33,7 +33,6 @@ class ProtectedResource:
         issuer: The authorization server tokens come from.
         scopes: Scopes a client should ask for, when the deployment requires any.
     """
-
     resource_url: str
     issuer: str
     scopes: tuple[str, ...] = ()

@@ -36,12 +36,12 @@ class UntrustedOrigin:
         domain: The system the content came from - ``"mail"``, ``"wiki"``.
         kind: What part of it - ``"body"``, ``"page_title"``.
     """
-
     domain: str
     kind: str
 
     def __post_init__(self) -> None:
         """Reject an origin that could not be written as ``domain:kind``."""
+        # Check both origin components because either side can make the serialized domain:kind form ambiguous or empty.
         for part in (self.domain, self.kind):
             if not part or _SEPARATOR in part:
                 raise ValueError(f"invalid untrusted origin part {part!r}")
@@ -63,7 +63,6 @@ class UntrustedText(BaseModel):
     embeds untrusted content cannot leak it. Read the payload through
     :meth:`expose`, which documents the caller's intent at the call site.
     """
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     origin: UntrustedOrigin
@@ -97,5 +96,10 @@ class UntrustedText(BaseModel):
 
 
 def untrusted(value: str, origin: UntrustedOrigin) -> UntrustedText:
-    """Wrap a raw string coming from outside the trust boundary."""
+    """Wrap a raw string coming from outside the trust boundary.
+
+    Args:
+        value (str): The value being converted, checked, or serialized.
+        origin (UntrustedOrigin): Untrusted origin metadata attached to a value.
+    """
     return UntrustedText(origin=origin, payload=value)

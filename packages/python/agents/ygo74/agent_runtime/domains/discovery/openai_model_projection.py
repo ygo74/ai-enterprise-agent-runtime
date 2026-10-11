@@ -21,9 +21,13 @@ LIST_OBJECT: Final[str] = "list"
 
 class OpenAiModelProjection:
     """Renders descriptors into the OpenAI model and model-list wire shapes."""
-
     @staticmethod
     def project(descriptor: AgentDescriptor) -> dict[str, Any]:
+        """Project runtime data into the response shape required by the selected protocol.
+
+        Args:
+            descriptor (AgentDescriptor): The canonical agent descriptor whose identity and capabilities are used.
+        """
         entry: dict[str, Any] = {
             "id": descriptor.agent_id,
             "object": MODEL_OBJECT,
@@ -34,6 +38,11 @@ class OpenAiModelProjection:
 
     @staticmethod
     def project_list(descriptors: Sequence[AgentDescriptor]) -> dict[str, Any]:
+        """Project all entries runtime data into the provider-compatible list envelope.
+
+        Args:
+            descriptors (Sequence[AgentDescriptor]): Agent descriptors to validate, order, or register.
+        """
         return {
             "object": LIST_OBJECT,
             "data": [OpenAiModelProjection.project(descriptor) for descriptor in descriptors],

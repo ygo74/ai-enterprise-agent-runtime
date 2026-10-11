@@ -38,12 +38,13 @@ class McpHttpBinding:
             address, which is right on a workstation and wrong behind a service
             name, so a deployment that has one should say it.
     """
-
     host: str = _LOOPBACK
     port: int = 9100
     public_host: str = ""
 
     def __post_init__(self) -> None:
+        """Validate and normalize the instance runtime data after its generated initializer assigns the fields.
+        """
         if not self.public_host:
             object.__setattr__(self, "public_host", self._derived_public_host())
 
@@ -66,5 +67,9 @@ class McpHttpBinding:
 
 
 def _is_ipv6_literal(host: str) -> bool:
-    """Whether a bind address is a bare IPv6 literal needing brackets."""
+    """Whether a bind address is a bare IPv6 literal needing brackets.
+
+    Args:
+        host (str): ASGI host application receiving the MCP routes.
+    """
     return ":" in host and not host.startswith("[")

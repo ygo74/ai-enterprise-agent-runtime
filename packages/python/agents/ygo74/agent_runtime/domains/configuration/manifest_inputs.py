@@ -19,7 +19,6 @@ ManifestText = Annotated[StrictStr, StringConstraints(strip_whitespace=True, min
 
 class OperationManifestInput(BaseModel):
     """The fixed YAML shape of a skill's operation declaration."""
-
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     type: OperationType
@@ -30,7 +29,6 @@ class OperationManifestInput(BaseModel):
 
 class SkillManifestInput(BaseModel):
     """The fixed YAML fields accepted for one skill package."""
-
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     tool_name: ManifestText
@@ -42,7 +40,6 @@ class SkillManifestInput(BaseModel):
 
 class AgentManifestInput(BaseModel):
     """The fixed YAML fields accepted for one agent."""
-
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: ManifestText

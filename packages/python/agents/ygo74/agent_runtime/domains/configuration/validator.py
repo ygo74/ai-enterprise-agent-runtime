@@ -2,6 +2,11 @@ from ygo74.agent_runtime.domains.configuration.models import EndpointConfigurati
 
 
 def validate_configuration(config: EndpointConfiguration) -> None:
+    """Validate configuration and raise a domain-specific error when its constraints are not met.
+
+    Args:
+        config (EndpointConfiguration): The configuration values used to select and constrain this behavior.
+    """
     if not config.route_key:
         raise ValueError("route_key is required")
 

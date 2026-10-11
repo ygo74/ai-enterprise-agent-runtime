@@ -9,7 +9,7 @@ next to the code that could contradict it.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
@@ -31,7 +31,7 @@ from ygo74.agent_runtime.domains.security.operations import (
 )
 from ygo74.agent_runtime.domains.security.permissions import Permission
 
-PUBLISHED_AT = datetime(2026, 9, 7, tzinfo=timezone.utc)
+PUBLISHED_AT = datetime(2026, 9, 7, tzinfo=UTC)
 
 READ = Permission("mail", "read")
 

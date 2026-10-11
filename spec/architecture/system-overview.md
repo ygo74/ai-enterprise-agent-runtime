@@ -105,3 +105,11 @@ permission policy, identity-provider provisioning, persistence, and
 framework-specific approval interactions. See the [component model](component-model.md)
 and [language support](../compatibility/language-status.md) for package-level
 boundaries and current implementation differences.
+
+Python applications can optionally install separate Microsoft Agent Framework
+or LangChain/LangGraph integrations. These bind native framework execution and
+output conversion to the neutral runtime contracts; the
+[managed native-agent worker](../endpoints/managed-agent-worker.md) supplies
+shared HTTP, authentication, cache, timeout, readiness, and shutdown behavior.
+Each application still owns its framework agent, tool admission, and domain
+policy.

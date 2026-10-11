@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ygo74-agent-runtime-agents"
-version = "0.7.0"
+version = "0.8.0"
 description = "Agent hosting for the ygo74 agent runtime: endpoints, discovery, sessions and human approval"
 requires-python = ">=3.12"
 
@@ -13,7 +13,7 @@ requires-python = ">=3.12"
 # domain, the stable agent-configuration APIs, and the MCP *client* an agent uses
 # to reach tools.
 dependencies = [
-  "ygo74-agent-runtime-security>=0.6.0",
+  "ygo74-agent-runtime-security>=0.8.0",
   "pydantic>=2.7",
   "typing-extensions>=4.12",
 ]

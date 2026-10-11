@@ -70,7 +70,6 @@ class McpServerHost:
             can name itself as an OAuth resource. Ignored otherwise.
         scopes: Scopes a client should request, when the deployment requires any.
     """
-
     def __init__(
         self,
         *,
@@ -79,6 +78,14 @@ class McpServerHost:
         resource_url: str = "",
         scopes: tuple[str, ...] = (),
     ) -> None:
+        """Initialize the instance the MCP HTTP host with supplied collaborators and configuration.
+
+        Args:
+            policy (AuthenticationPolicy): Configured authentication or authorization policy.
+            binding (McpHttpBinding | None): MCP transport binding and its authentication metadata.
+            resource_url (str): Protected resource URL advertised by the MCP server.
+            scopes (tuple[str, ...]): OAuth scopes projected from the authenticated claims.
+        """
         self._policy = policy
         self._binding = binding or McpHttpBinding()
         self._authenticator = policy.build()
@@ -100,6 +107,9 @@ class McpServerHost:
         ``tools`` is what ``FastMCP.streamable_http_app()`` returns. The host adds
         routes rather than replacing them, so a server keeps whatever else it
         exposes.
+
+        Args:
+            tools (Starlette): Declared tools exposed by the MCP server.
         """
         from starlette.middleware.base import BaseHTTPMiddleware
         from starlette.requests import Request
@@ -107,16 +117,32 @@ class McpServerHost:
         from starlette.routing import Route
 
         async def health(_request: Request) -> JSONResponse:
+            """Return the MCP health response without exposing protected resource configuration.
+
+            Args:
+                _request (Request): Framework request passed through for route and correlation metadata.
+            """
             return JSONResponse({"status": "ok"})
 
         async def metadata(_request: Request) -> JSONResponse:
             # Only reachable when a resource was configured, because the route is
             # only added then. A 404 elsewhere is the honest answer: this server
             # implements no OAuth flow.
+            """Return protected-resource metadata derived from the active authentication configuration.
+
+            Args:
+                _request (Request): Framework request passed through for route and correlation metadata.
+            """
             assert self._resource is not None
             return JSONResponse(self._resource.metadata())
 
         async def guard(request: Request, call_next: Any) -> Any:
+            """Authenticate requests before invoking the protected MCP handler.
+
+            Args:
+                request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+                call_next (Any): ASGI continuation invoked after this middleware accepts the request.
+            """
             if self._is_open(request.url.path):
                 return await call_next(request)
 
@@ -165,6 +191,9 @@ class McpServerHost:
         put an authentication guard in front of, so a probe would be refused at the
         door and learn nothing. Reading the configuration is also a better error -
         it can say which host was expected and which were allowed.
+
+        Args:
+            transport_security (object | None): Transport configuration used to determine whether the resource is protected.
         """
         allowed = self._allowed_hosts(transport_security)
         if allowed is None:
@@ -187,6 +216,9 @@ class McpServerHost:
         Takes the ``FastMCP`` server rather than its application, because the
         allow-list that decides reachability lives in its settings and is gone by the
         time the application exists.
+
+        Args:
+            server (object): MCP server instance receiving the registered routes.
         """
         import uvicorn
 
@@ -209,6 +241,9 @@ class McpServerHost:
 
         ``None`` covers both "no transport security" and "protection switched off",
         which is what FastMCP produces for any non-loopback bind address.
+
+        Args:
+            transport_security (object | None): Transport configuration used to determine whether the resource is protected.
         """
         if transport_security is None:
             return None
@@ -230,6 +265,9 @@ class McpServerHost:
         into a 500 and a traceback in the log of a credential-holding process: the
         exact log-flood vector this guard exists to close, arriving through the
         guard itself.
+
+        Args:
+            path (str): Dotted claim path or filesystem path being resolved, as indicated by this API.
         """
         return path in self._open_paths()
 
@@ -254,6 +292,9 @@ class McpServerHost:
         The path is quoted before it is logged. It is attacker-controlled and
         percent-decoded by the server, so a request for `/%0AINFO:%20all%20clear`
         would otherwise write a second, forged line into the same log.
+
+        Args:
+            path (str): Dotted claim path or filesystem path being resolved, as indicated by this API.
         """
         from starlette.responses import JSONResponse
 
@@ -267,7 +308,13 @@ class McpServerHost:
         resource_url: str,
         scopes: tuple[str, ...],
     ) -> ProtectedResource | None:
-        """Build the OAuth metadata, when this server is an OAuth resource server."""
+        """Build the OAuth metadata, when this server is an OAuth resource server.
+
+        Args:
+            policy (AuthenticationPolicy): Configured authentication or authorization policy.
+            resource_url (str): Protected resource URL advertised by the MCP server.
+            scopes (tuple[str, ...]): OAuth scopes projected from the authenticated claims.
+        """
         if policy.mode is not AuthenticationMode.JWT:
             return None
 
@@ -289,7 +336,12 @@ class McpServerHost:
 
 
 def _issuer_of(policy: AuthenticationPolicy) -> str:
-    """Read the issuer out of the policy's JWT authenticator."""
+    """Read the issuer out of the policy's JWT authenticator.
+
+    Args:
+        policy (AuthenticationPolicy): Configured authentication or authorization policy.
+    """
+    # Inspect only JWT authenticators and return the first configured issuer; other credential schemes do not define an OIDC resource issuer.
     for authenticator in policy.authenticators:
         config = getattr(authenticator, "config", None) if isinstance(authenticator, JwtAuthenticator) else None
         if config is not None and config.issuer:
@@ -311,6 +363,10 @@ def _host_matches(host: str, pattern: str) -> bool:
     precisely the incident this check exists to prevent. In the other direction
     ``fnmatch`` reads ``[::1]`` as a character class and refuses a correctly
     configured IPv6 deployment.
+
+    Args:
+        host (str): ASGI host application receiving the MCP routes.
+        pattern (str): Pattern used to identify or validate an input.
     """
     if host == pattern:
         return True

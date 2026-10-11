@@ -16,8 +16,13 @@ TItem = TypeVar("TItem")
 
 @dataclass(slots=True, frozen=True)
 class PaginationRequest:
-    """Requested page window, expressed with Anthropic cursor semantics."""
+    """Requested page window, expressed with Anthropic cursor semantics.
 
+    Args:
+        limit (int | None): The maximum number of entries or units permitted by this operation.
+        after_id (str | None): Cursor requesting entries after this identifier.
+        before_id (str | None): Cursor requesting entries before this identifier.
+    """
     limit: int | None = None
     after_id: str | None = None
     before_id: str | None = None
@@ -25,8 +30,14 @@ class PaginationRequest:
 
 @dataclass(slots=True, frozen=True)
 class PaginationResult(Generic[TItem]):
-    """One page plus the continuation indicators clients need to iterate."""
+    """One page plus the continuation indicators clients need to iterate.
 
+    Args:
+        items (tuple[TItem, ...]): The ordered collection to process or project.
+        first_id (str | None): Identifier of the first item in the current page.
+        last_id (str | None): Identifier of the last item in the current page.
+        has_more (bool): Whether entries remain after the current page.
+    """
     items: tuple[TItem, ...]
     first_id: str | None
     last_id: str | None
@@ -39,12 +50,17 @@ class DiscoveryPagination:
 
     Cursors are entry identifiers rather than offsets, so a page boundary stays
     meaningful even when the catalogue changes between requests.
-    """
 
+    Args:
+        default_page_size (int): Page size used when the client omits a limit.
+        max_page_size (int): Largest page size accepted from a discovery client.
+    """
     default_page_size: int = DEFAULT_PAGE_SIZE
     max_page_size: int = MAX_PAGE_SIZE
 
     def __post_init__(self) -> None:
+        """Validate and normalize the instance discovery entries after its generated initializer has assigned the fields.
+        """
         if self.default_page_size < 1 or self.max_page_size < 1:
             raise DiscoveryErrors.invalid_pagination("page sizes must be positive")
         if self.default_page_size > self.max_page_size:
@@ -56,6 +72,13 @@ class DiscoveryPagination:
         request: PaginationRequest,
         identity: Callable[[TItem], str],
     ) -> PaginationResult[TItem]:
+        """Build a page discovery entries from the ordered entries and requested continuation position.
+
+        Args:
+            items (Sequence[TItem]): The ordered collection to process or project.
+            request (PaginationRequest): The request received at this layer, with its protocol-specific or normalized fields.
+            identity (Callable[[TItem], str]): Identifier required to correlate a route, content item, tool call, or user.
+        """
         limit = self._resolve_limit(request.limit)
         identifiers = [identity(item) for item in items]
 
@@ -87,6 +110,11 @@ class DiscoveryPagination:
         )
 
     def _resolve_limit(self, requested: int | None) -> int:
+        """Clamp or default the requested page size within the configured maximum.
+
+        Args:
+            requested (int | None): Requested value before applying pagination defaults or limits.
+        """
         if requested is None:
             return self.default_page_size
         if requested < 1:
@@ -97,6 +125,13 @@ class DiscoveryPagination:
 
     @staticmethod
     def _index_of(identifiers: list[str], cursor: str, parameter: str) -> int:
+        """Find the descriptor position matching a pagination cursor, returning no index when absent.
+
+        Args:
+            identifiers (list[str]): Model identifiers included in or compared with the discovery listing.
+            cursor (str): Opaque provider pagination cursor supplied by the client.
+            parameter (str): Name of the query parameter being validated.
+        """
         try:
             return identifiers.index(cursor)
         except ValueError as exc:

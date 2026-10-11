@@ -51,8 +51,11 @@ class AccessToken:
     The value is only reachable through :meth:`expose`, which makes every place
     that dereferences a credential greppable - the same device applied to
     untrusted third-party content, used here for the opposite problem.
-    """
 
+    Args:
+        value (str): The value being converted, checked, or serialized.
+        audience (str): Expected JWT audience identifying this API.
+    """
     value: str
     audience: str = ""
 
@@ -77,13 +80,15 @@ class AccessToken:
 @runtime_checkable
 class TokenVerifier(Protocol):
     """Establishes who a caller is from a presented bearer token."""
-
     def verify(self, token: AccessToken) -> AgentPrincipal:
         """Return the authenticated caller.
 
         Raises:
             TokenVerificationError: the token was absent, malformed, expired,
                 issued by another authority or meant for another audience.
+
+        Args:
+            token (AccessToken): The credential token to parse and authenticate.
         """
         ...
 
@@ -96,11 +101,14 @@ class DelegatedTokenSource(Protocol):
     able to check that the token it receives was issued for it, which it cannot
     do if the agent forwards the token its own caller presented.
     """
-
     async def token_for(self, principal: AgentPrincipal, audience: str) -> AccessToken:
         """Return a token the given audience will accept for this principal.
 
         Raises:
             TokenExchangeError: the authority refused the exchange.
+
+        Args:
+            principal (AgentPrincipal): Authenticated principal whose identity and claims are being projected.
+            audience (str): Expected JWT audience identifying this API.
         """
         ...

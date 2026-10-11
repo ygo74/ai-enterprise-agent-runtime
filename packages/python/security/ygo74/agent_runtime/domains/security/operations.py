@@ -15,14 +15,12 @@ from ygo74.agent_runtime.domains.security.permissions import Permission
 
 class OperationType(StrEnum):
     """Whether an operation observes or modifies external state."""
-
     READ = "READ"
     WRITE = "WRITE"
 
 
 class RiskLevel(StrEnum):
     """How damaging an unintended execution would be."""
-
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
@@ -30,7 +28,6 @@ class RiskLevel(StrEnum):
 
 class ToolOperationDescriptor(BaseModel):
     """Security metadata attached to one exposed capability."""
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     tool_name: str = Field(min_length=1)

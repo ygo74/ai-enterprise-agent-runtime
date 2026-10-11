@@ -103,6 +103,42 @@ def test_the_same_conversation_reuses_one_runtime() -> None:
     asyncio.run(scenario())
 
 
+def test_safe_cache_diagnostics_explain_reuse_expiry_and_claim_partition(caplog) -> None:
+    """Cache events expose stable opaque fingerprints, never the raw identity.
+
+    Args:
+        caplog: Captured standard log records.
+    """
+    import logging
+
+    async def scenario() -> None:
+        """Exercise lifecycle transitions under a controlled clock."""
+        clock, factory = MovableClock(NOW), RuntimeFactory()
+        cache = build_cache(factory, clock, max_conversations=2)
+        await label_of(cache, ADA, "conv-sensitive")
+        await label_of(cache, ADA, "conv-sensitive")
+        refreshed = AgentPrincipal(subject=ADA.subject, email=ADA.email, roles=("changed-role",))
+        await label_of(cache, refreshed, "conv-sensitive")
+        await label_of(cache, BOB, "conv-sensitive")
+        clock.advance(timedelta(minutes=31))
+        await label_of(cache, ADA, "conv-sensitive")
+        await cache.invalidate(ADA, "conv-sensitive")
+        await cache.release(ADA, "conv-sensitive")
+        await cache.aclose()
+
+    with caplog.at_level(logging.INFO):
+        asyncio.run(scenario())
+    events = [record for record in caplog.records if record.msg == "conversation cache continuity"]
+    assert events[0].phase == "create" and events[1].phase == "hit"
+    assert events[0].cache_instance == events[1].cache_instance
+    assert events[0].identity_fingerprint != events[2].identity_fingerprint
+    assert events[0].conversation_fingerprint == events[2].conversation_fingerprint
+    assert {"expire", "invalidate", "evict", "release"} <= {record.phase for record in events}
+    serialized = repr([record.__dict__ for record in events])
+    for secret in (ADA.subject, ADA.email, BOB.subject, "conv-sensitive", "changed-role"):
+        assert secret not in serialized
+
+
 def test_two_conversations_of_one_caller_are_separate() -> None:
     async def scenario() -> None:
         factory = RuntimeFactory()

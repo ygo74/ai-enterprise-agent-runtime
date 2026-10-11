@@ -178,3 +178,24 @@
   - Endpoint registration entry point: extended with discovery surface toggles rather than given a parallel registration API.
 - New code justified: `AgentDescriptor` model, descriptor registry, and the three stateless projections. No existing abstraction expresses provider-neutral agent capability metadata, and folding it into the exchange contracts would couple invocation payloads to catalogue concerns.
 - Guardrail for next phases: the three projections MUST remain pure functions over the descriptor with no independent state or configuration of their own.
+
+## Typed output reuse decision (2026-10-04)
+
+Reviewed exchange models, stream events, response mapping, SSE encoding and
+termination, Responses request/result wrappers, FastAPI hosting, reasoning ports,
+framework examples and the four existing Python distributions.
+
+- Evolve the existing output/stream contract domain rather than introducing an
+  unrelated second exchange pipeline. Reuse `JsonValue` and error categories.
+- Retain the Responses request boundary; replace its native result/event API.
+- Extract existing protocol projection behavior into cohesive classes outside
+  FastAPI, completing typed media/tool mappings where representable.
+- Do not overload the framework-independent `TextReasoner` port for agent output.
+- Framework-specific dependencies belong in separate distributions, not extras
+  that cause framework imports in the core. Future helpers use the same
+  integration namespace without creating speculative implementations.
+- Preserve explicit developer event selection. Runtime filtering handles valid
+  protocol limitations; unknown native events are inspectable by developer code.
+- No implicit stringification, media transcoding or tool execution is introduced.
+- A separately versioned output contract and major Python release document the
+  intentional break. Python-first delivery was approved; .NET/Java follow later.

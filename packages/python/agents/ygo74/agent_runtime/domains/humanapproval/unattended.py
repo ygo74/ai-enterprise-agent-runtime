@@ -34,12 +34,15 @@ from ygo74.agent_runtime.domains.security.user_context import UserContext
 
 class UnattendedApprovalAuthority(ConfirmationAuthority):
     """Refuses to answer on behalf of an absent user."""
-
     async def obtain(self, request: ConfirmationRequest, user: UserContext) -> ConfirmationDecision:
         """Never approve: no human answered this request.
 
         Raises:
             ConfirmationRequiredError: always.
+
+        Args:
+            request (ConfirmationRequest): The request received at this layer, with its protocol-specific or normalized fields.
+            user (UserContext): The authenticated user whose identity or permissions govern this operation.
         """
         del user
         raise ConfirmationRequiredError(request.operation.tool_name)

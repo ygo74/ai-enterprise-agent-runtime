@@ -40,7 +40,7 @@ before this amendment and are retained as completed history.
 - [X] T003 Initialize .NET solution and project baseline in packages/dotnet/Ygo74.AgentRuntime.sln and packages/dotnet/Ygo74.AgentRuntime/Ygo74.AgentRuntime.csproj
 - [X] T004 Initialize Java project baseline in packages/java/ygo74-agent-runtime/build.gradle
 - [X] T005 Create shared test folder structure in tests/contract/, tests/integration/, tests/parity/, and tests/performance/
-- [X] T006 Create usage example folders in docs/examples/dotnet-agentframework/, docs/examples/python-langchain-fastapi/, and docs/examples/java-springai-springboot/
+- [X] T006 Create usage example folders in samples/examples/dotnet-agentframework/, samples/examples/python-langchain-fastapi/, and samples/examples/java-springai-springboot/
 - [X] T007 Record reuse-first inventory targets in specs/001-openai-endpoint-exposure/research.md
 
 ---
@@ -149,7 +149,7 @@ before this amendment and are retained as completed history.
 - [X] T054 [P] [US3] Implement .NET configuration models and validation in packages/dotnet/Ygo74.AgentRuntime/Domains/Configuration/EndpointOptions.cs
 - [X] T055 [P] [US3] Implement Java configuration models and validation in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/configuration/EndpointProperties.java
 - [X] T056 [US3] Implement endpoint startup validation guards in packages/python/ygo74/agent_runtime/domains/configuration/validator.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Configuration/EndpointOptionsValidator.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/configuration/EndpointPropertiesValidator.java
-- [X] T057 [US3] Document native configuration examples in docs/examples/python-langchain-fastapi/configuration.md, docs/examples/dotnet-agentframework/configuration.md, and docs/examples/java-springai-springboot/configuration.md
+- [X] T057 [US3] Document native configuration examples in samples/examples/python-langchain-fastapi/configuration.md, samples/examples/dotnet-agentframework/configuration.md, and samples/examples/java-springai-springboot/configuration.md
 
 **Checkpoint**: Native framework configuration is complete and validated.
 
@@ -173,7 +173,7 @@ before this amendment and are retained as completed history.
 - [X] T062 [P] [US4] Implement .NET handler interface for standard exchange in packages/dotnet/Ygo74.AgentRuntime/Domains/Handlers/IUseCaseHandler.cs
 - [X] T063 [P] [US4] Implement Java handler interface for standard exchange in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/handlers/UseCaseHandler.java
 - [X] T064 [US4] Implement handler response validation in packages/python/ygo74/agent_runtime/domains/handlers/response_validator.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Handlers/ResponseValidator.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/handlers/ResponseValidator.java
-- [X] T065 [US4] Provide minimal runnable handler examples in docs/examples/python-langchain-fastapi/handlers/basic_handler.py, docs/examples/dotnet-agentframework/Handlers/BasicHandler.cs, and docs/examples/java-springai-springboot/src/main/java/com/ygo74/examples/BasicHandler.java
+- [X] T065 [US4] Provide minimal runnable handler examples in samples/examples/python-langchain-fastapi/handlers/basic_handler.py, samples/examples/dotnet-agentframework/Handlers/BasicHandler.cs, and samples/examples/java-springai-springboot/src/main/java/com/ygo74/examples/BasicHandler.java
 
 **Checkpoint**: Standard exchange contract is stable and usable by developers.
 
@@ -255,7 +255,7 @@ before this amendment and are retained as completed history.
 - [X] T096 [P] [US7] Implement .NET API-key user-resolution hook integration in packages/dotnet/Ygo74.AgentRuntime/Domains/Auth/ApiKeyAuthenticator.cs
 - [X] T097 [P] [US7] Implement Java API-key user-resolution hook integration in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/auth/ApiKeyAuthenticator.java
 - [X] T098 [US7] Implement structured auth/authz error mapping in packages/python/ygo74/agent_runtime/domains/auth/auth_errors.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Auth/AuthErrors.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/auth/AuthErrors.java
-- [X] T099 [US7] Document developer-owned authorization extension points in docs/examples/python-langchain-fastapi/authorization.md, docs/examples/dotnet-agentframework/authorization.md, and docs/examples/java-springai-springboot/authorization.md
+- [X] T099 [US7] Document developer-owned authorization extension points in samples/examples/python-langchain-fastapi/authorization.md, samples/examples/dotnet-agentframework/authorization.md, and samples/examples/java-springai-springboot/authorization.md
 
 **Checkpoint**: Shared authentication and developer-owned authorization are complete.
 
@@ -266,8 +266,8 @@ before this amendment and are retained as completed history.
 **Purpose**: Final hardening, examples validation, observability validation, and end-to-end quality gates.
 
 - [X] T100 [P] Validate log level/sink reconfiguration and OpenTelemetry redirection in tests/integration/python/test_observability_reconfiguration.py, tests/integration/dotnet/ObservabilityReconfigurationTests.cs, and tests/integration/java/ObservabilityReconfigurationTest.java
-- [X] T101 [P] Validate domain discoverability in public API docs at docs/examples/README.md
-- [X] T102 [P] Validate runnable examples execute end-to-end in docs/examples/dotnet-agentframework/, docs/examples/python-langchain-fastapi/, and docs/examples/java-springai-springboot/
+- [X] T101 [P] Validate domain discoverability in public API docs at samples/examples/README.md
+- [X] T102 [P] Validate runnable examples execute end-to-end in samples/examples/dotnet-agentframework/, samples/examples/python-langchain-fastapi/, and samples/examples/java-springai-springboot/
 - [X] T103 Run full contract suite in tests/contract/
 - [X] T104 Run full integration suite in tests/integration/
 - [X] T105 Run full parity suite in tests/parity/
@@ -324,7 +324,7 @@ before this amendment and are retained as completed history.
 - [ ] T132 (Python done) [US8] Implement capability-versus-configuration consistency validator in packages/python/ygo74/agent_runtime/domains/discovery/capability_validator.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/CapabilityValidator.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/CapabilityValidator.java
 - [ ] T133 (Python done) [US8] Implement descriptor-to-route-key binding validation against the existing route registry in packages/python/ygo74/agent_runtime/domains/discovery/descriptor_binding.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DescriptorBinding.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DescriptorBinding.java
 - [ ] T134 (Python done) [US8] Extend framework-native configuration binding with descriptor declaration in packages/python/ygo74/agent_runtime/domains/configuration/models.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Configuration/EndpointOptions.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/configuration/EndpointProperties.java
-- [ ] T135 (Python done) [US8] Document descriptor declaration in docs/examples/python-langchain-fastapi/agent-descriptor.md, docs/examples/dotnet-agentframework/agent-descriptor.md, and docs/examples/java-springai-springboot/agent-descriptor.md
+- [ ] T135 (Python done) [US8] Document descriptor declaration in samples/examples/python-langchain-fastapi/agent-descriptor.md, samples/examples/dotnet-agentframework/agent-descriptor.md, and samples/examples/java-springai-springboot/agent-descriptor.md
 
 **Checkpoint**: A validated single source of truth exists for every exposed agent.
 
@@ -389,7 +389,7 @@ before this amendment and are retained as completed history.
 - [ ] T163 [P] [US10] Implement Java agent card projection in packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/AgentCardProjection.java
 - [ ] T164 [US10] Implement security scheme advertisement without secret material in packages/python/ygo74/agent_runtime/domains/discovery/security_scheme_projection.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/SecuritySchemeProjection.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/SecuritySchemeProjection.java
 - [ ] T165 [US10] Register the well-known agent card route in packages/python/ygo74/agent_runtime/domains/endpoints/fastapi_endpoints.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Endpoints/EndpointAdapters.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/endpoints/EndpointAdapters.java
-- [ ] T166 [US10] Document the agent card surface in docs/examples/python-langchain-fastapi/agent-card.md, docs/examples/dotnet-agentframework/agent-card.md, and docs/examples/java-springai-springboot/agent-card.md
+- [ ] T166 [US10] Document the agent card surface in samples/examples/python-langchain-fastapi/agent-card.md, samples/examples/dotnet-agentframework/agent-card.md, and samples/examples/java-springai-springboot/agent-card.md
 
 **Checkpoint**: All three discovery surfaces are served from one descriptor with proven consistency.
 
@@ -416,7 +416,7 @@ before this amendment and are retained as completed history.
 - [ ] T188 [US11] Implement fail-closed visibility rule evaluation with a configurable deadline and structured failure logging in packages/python/ygo74/agent_runtime/domains/discovery/visibility_rule.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DiscoveryVisibilityEvaluator.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryVisibilityEvaluator.java (Python partial: exceptions are caught, logged with agent_id, and treated as denied in DiscoveryService._is_authorized and fastapi_endpoints._build_raw_payload; a configurable evaluation deadline/timeout is not yet implemented)
 - [ ] T173 [US11] Enforce hidden visibility and visibility-rule filtering in the registry listing path in packages/python/ygo74/agent_runtime/domains/discovery/descriptor_registry.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DescriptorRegistry.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DescriptorRegistry.java (Python done in DiscoveryService.list_models/_authorized_only)
 - [ ] T174 [US11] Normalize denied retrieval to the not-found response shape in packages/python/ygo74/agent_runtime/domains/discovery/discovery_errors.py, packages/dotnet/Ygo74.AgentRuntime/Domains/Discovery/DiscoveryErrors.cs, and packages/java/ygo74-agent-runtime/src/main/java/com/ygo74/agentruntime/domains/discovery/DiscoveryErrors.java (Python done in DiscoveryService.get_model/_find_visible)
-- [ ] T175 [US11] Document discovery access control and the visibility rule in docs/examples/python-langchain-fastapi/authorization.md, docs/examples/dotnet-agentframework/authorization.md, and docs/examples/java-springai-springboot/authorization.md (Python done)
+- [ ] T175 [US11] Document discovery access control and the visibility rule in samples/examples/python-langchain-fastapi/authorization.md, samples/examples/dotnet-agentframework/authorization.md, and samples/examples/java-springai-springboot/authorization.md (Python done)
 
 **Checkpoint**: Discovery no longer leaks the agent inventory and honors developer-owned visibility.
 
@@ -431,7 +431,7 @@ before this amendment and are retained as completed history.
 - [ ] T178 [P] Add cross-language discovery parity tests in tests/parity/test_discovery_parity.py
 - [ ] T179 [P] Add deterministic listing order tests across repeated requests in tests/parity/test_discovery_ordering.py
 - [ ] T180 [P] Validate discovery structured logging emits request identifier and outcome without leaking credentials in tests/integration/python/test_discovery_observability.py, tests/integration/dotnet/DiscoveryObservabilityTests.cs, and tests/integration/java/DiscoveryObservabilityTest.java
-- [ ] T181 [P] Update runnable examples to declare a descriptor and expose all three discovery surfaces in docs/examples/python-langchain-fastapi/, docs/examples/dotnet-agentframework/, and docs/examples/java-springai-springboot/
+- [ ] T181 [P] Update runnable examples to declare a descriptor and expose all three discovery surfaces in samples/examples/python-langchain-fastapi/, samples/examples/dotnet-agentframework/, and samples/examples/java-springai-springboot/
 - [ ] T182 Run full contract, integration, parity, and performance suites in tests/
 - [ ] T183 Execute quickstart discovery scenarios 13-17 in specs/001-openai-endpoint-exposure/quickstart.md
 - [ ] T184 Update the implementation snapshot for discovery in specs/001-openai-endpoint-exposure/quickstart.md
@@ -468,7 +468,7 @@ before this amendment and are retained as completed history.
 
 - Tests are written first and must fail before implementation.
 - Contracts and interfaces before concrete adapters.
-- Core behavior before docs/examples updates.
+- Core behavior before samples/examples updates.
 
 ---
 
@@ -585,3 +585,57 @@ before this amendment and are retained as completed history.
 2. Team B: .NET track tasks for active phase.
 3. Team C: Java track tasks for active phase.
 4. Shared QA: contract/parity tests and cross-language examples.
+
+## Typed output amendment (2026-10-04)
+
+User-approved Python-first implementation for FR-047..FR-056. Dependencies:
+contract/tests -> models -> projections -> HTTP wiring; framework integrations
+can proceed independently once the models stabilize.
+
+- [X] T189 Specify the versioned neutral result/event contract and support matrix.
+- [X] T190 Write failing typed output, lifecycle, media and diagnostic tests.
+- [X] T191 Implement typed result/content/event models and validation.
+- [X] T192 Extract non-streaming normalization and protocol projection classes.
+- [X] T193 Extract stream processing/state, protocol projectors and SSE encoding.
+- [X] T194 Wire FastAPI/HostingFactory and remove raw/native output contracts.
+- [X] T195 Implement independently installable LangChain integration and SDK tests.
+- [X] T196 Implement independently installable Agent Framework integration and SDK tests.
+- [X] T197 Migrate affected examples/docs and extend CI/build/publication.
+- [X] T198 Verify output matrices, cancellation, wheels and real latency budgets.
+- [ ] T199 Follow up with .NET/Java implementation and cross-language output parity.
+
+T199 is intentionally not claimed as delivered by this Python amendment.
+
+## Native-hosting Python pilot (2026-10-10)
+
+See [the neutral pilot contract](contracts/byoa-python-pilot.md). The prior
+output-only parity exception does not cover this increment.
+
+- [X] BYOA-1 Define native deployment/factory context using existing descriptor and tool security contracts; demonstrate <=30 delivered glue lines.
+- [X] BYOA-2 Add native MAF execution/session binding, safe progress, diagnostics, final response consumption and producer closing.
+- [X] BYOA-3 Share streaming/normal approval budgets and conversation routing, serialized leases and fail-closed lifecycle.
+- [X] BYOA-4 Compose an authenticated managed local reference worker using existing hosting/cache/discovery APIs.
+- [X] BYOA-5 Migrate Mail's execution, translation, tickets, conversation/HTTP and host orchestration; preserve native domain composition and CLI.
+- [X] BYOA-6 Add native non-Mail adoption, protocol/security/lifecycle tests, independent wheel and local worker validation, strict typing and documentation.
+- [ ] BYOA-PARITY Implement .NET/Java invocation/lifecycle/approval/worker parity and obtain maintainer release-exception approval before production rollout.
+
+Pilot local budget evidence (40 controlled no-inference turns): authenticated
+worker dispatch p95 2.331ms (<50ms), input normalization p95 0.051ms (<10ms),
+native first update p95 0.511ms (<300ms). Installed-wheel imports verified the
+neutral package remains MAF-free and the native binding/worker came from built
+wheels. An isolated local worker served readiness, authenticated discovery,
+normal output and an actual SSE stream ending in `response.completed`.
+
+Pilot validation: 202 targeted runtime tests and 140 Mail/lab tests passed.
+Ruff passed on changed production/test/example surfaces. Strict mypy passed
+17 changed runtime source files and 82 Mail/MAF source files (namespace source
+paths supplied; imported unchanged modules followed silently). `pip check`
+reported no broken requirements. The simple delivered glue is 29 nonblank lines.
+
+Historical typed-output amendment validation (2026-10-04): 932 Python contract/integration/performance/example tests passed;
+Ruff and whitespace checks passed. All six distributions built as wheels and
+sdists and passed Twine. Four isolated installed-wheel scenarios (core, each
+framework alone, both together) passed dependency, namespace, typing-marker,
+local-artifact provenance and public API checks. LangChain adapters were tested
+with SDK 1.6.3 and 1.6.6; Agent Framework with SDK 1.18.0. Actual OpenAI and
+Anthropic SDK schema/client tests cover usage and termination translation.

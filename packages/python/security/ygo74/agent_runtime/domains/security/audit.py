@@ -26,7 +26,6 @@ _LOGGER = logging.getLogger("ygo74.agent_runtime.audit")
 
 class AuditOutcome(StrEnum):
     """How an attempted operation ended."""
-
     EXECUTED = "EXECUTED"
     DECLINED = "DECLINED"
     BLOCKED = "BLOCKED"
@@ -35,7 +34,6 @@ class AuditOutcome(StrEnum):
 
 class AuditRecord(BaseModel):
     """One entry of the audit trail."""
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     tool_name: str = Field(min_length=1)
@@ -53,16 +51,20 @@ class AuditRecord(BaseModel):
 @runtime_checkable
 class AuditTrail(Protocol):
     """Destination of the audit records."""
-
     def record(self, entry: AuditRecord) -> None:
-        """Persist one audit record."""
+        """Persist one audit record.
+
+        Args:
+            entry (AuditRecord): State or registry entry currently being processed.
+        """
         ...
 
 
 class InMemoryAuditTrail(AuditTrail):
     """Keeps audit records in memory, for demonstrations and assertions."""
-
     def __init__(self) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+        """
         self._records: list[AuditRecord] = []
 
     @property
@@ -71,11 +73,19 @@ class InMemoryAuditTrail(AuditTrail):
         return tuple(self._records)
 
     def record(self, entry: AuditRecord) -> None:
-        """Append one audit record."""
+        """Append one audit record.
+
+        Args:
+            entry (AuditRecord): State or registry entry currently being processed.
+        """
         self._records.append(entry)
 
     def records_for(self, tool_name: str) -> tuple[AuditRecord, ...]:
-        """Records concerning one tool."""
+        """Records concerning one tool.
+
+        Args:
+            tool_name (str): Name of the tool whose declaration or invocation is being resolved.
+        """
         return tuple(entry for entry in self._records if entry.tool_name == tool_name)
 
     def clear(self) -> None:
@@ -88,13 +98,24 @@ class LoggingAuditTrail(AuditTrail):
 
     Records carry identifiers and outcomes only, so this is safe to enable in
     any environment: no retrieved content can reach the logs through it.
-    """
 
+    Args:
+        delegate (AuditTrail | None): Optional downstream audit or resolver implementation.
+    """
     def __init__(self, delegate: AuditTrail | None = None) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            delegate (AuditTrail | None): Optional downstream audit or resolver implementation.
+        """
         self._delegate = delegate
 
     def record(self, entry: AuditRecord) -> None:
-        """Log one audit record and forward it to the delegate, if any."""
+        """Log one audit record and forward it to the delegate, if any.
+
+        Args:
+            entry (AuditRecord): State or registry entry currently being processed.
+        """
         _LOGGER.info(
             "audit tool=%s operation=%s risk=%s outcome=%s user=%s session=%s target=%s error=%s",
             entry.tool_name,

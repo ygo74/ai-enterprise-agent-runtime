@@ -1,5 +1,23 @@
 # Data Model: OpenAI-Compatible Endpoint Exposure
 
+## Typed output amendment (2026-10-04)
+
+The entities below describe historical v1. The Python output amendment replaces
+untyped output/deltas with `AgentOutput` and a discriminated `AgentStreamEvent`
+union sharing typed contents. Incoming requests remain unchanged.
+
+Content families: answer text, notification, tool call/result, exposable
+reasoning, image, audio and correlated transcription. Usage and run termination
+are typed metadata/events. Media references preserve URI or encoded data and
+MIME/format without fetching or transcoding. Tool identities distinguish
+internally executed observations from client-delegated execution.
+
+Message/content/call identities are neutral. Protocol indices, response IDs and
+SSE sequence numbers belong to per-invocation projection state. Result
+aggregation excludes notifications; stream snapshots remain protocol-coherent.
+Unsupported valid content is filtered with diagnostics, while malformed events
+are rejected. See the versioned output contract for concrete field definitions.
+
 ## Entity: EndpointExposureConfiguration
 
 - Description: Configuration that enables endpoint surfaces and runtime behavior for a use case.

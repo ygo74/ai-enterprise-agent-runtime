@@ -14,7 +14,6 @@ class UserContext(BaseModel):
     hold a credential, an OAuth token or a password. Authentication material
     stays in the infrastructure layer, behind the tool boundary.
     """
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     user_id: str = Field(min_length=1)
@@ -22,11 +21,19 @@ class UserContext(BaseModel):
     permissions: frozenset[Permission] = frozenset()
 
     def has_permission(self, permission: Permission) -> bool:
-        """Whether the caller holds the given permission."""
+        """Whether the caller holds the given permission.
+
+        Args:
+            permission (Permission): Permission being checked against the authenticated user.
+        """
         return permission in self.permissions
 
     def require_permission(self, permission: Permission) -> None:
-        """Fail fast when the caller lacks the given permission."""
+        """Fail fast when the caller lacks the given permission.
+
+        Args:
+            permission (Permission): Permission being checked against the authenticated user.
+        """
         if permission in self.permissions:
             return
         raise PermissionDeniedError(self.user_id, permission.value)

@@ -56,9 +56,16 @@ class UnknownTicketError(TicketError):
     The three cases share one message on purpose. Distinguishing them would tell
     an unauthenticated guesser which identifiers exist, and none of the three
     changes what the caller should do.
-    """
 
+    Args:
+        ticket_id (str): Identity of the pending approval ticket being resolved.
+    """
     def __init__(self, ticket_id: str) -> None:
+        """Initialize the instance runtime data with supplied collaborators and configuration.
+
+        Args:
+            ticket_id (str): Identity of the pending approval ticket being resolved.
+        """
         super().__init__(f"confirmation {ticket_id!r} is not awaiting an answer")
         self.ticket_id = ticket_id
 
@@ -85,7 +92,6 @@ class ConfirmationTicket:
             drift from the description.
         expires_at: When the ticket stops being claimable.
     """
-
     ticket_id: str
     subject: str
     conversation_id: str
@@ -106,7 +112,17 @@ class ConfirmationTicket:
         now: datetime | None = None,
         lifetime: timedelta = DEFAULT_TICKET_LIFETIME,
     ) -> ConfirmationTicket:
-        """Create a ticket for an operation that has *not* been performed."""
+        """Create a ticket for an operation that has *not* been performed.
+
+        Args:
+            subject (str): JWT subject claim identifying the authenticated principal.
+            conversation_id (str): Conversation identity used to select session state for this caller.
+            tool_name (str): Name of the tool whose declaration or invocation is being resolved.
+            request (ConfirmationRequest): The request received at this layer, with its protocol-specific or normalized fields.
+            arguments (Mapping[str, Any]): JSON arguments associated with a tool call.
+            now (datetime | None): Current time used to evaluate expiry and ordering.
+            lifetime (timedelta): Maximum validity period for the generated ticket or token.
+        """
         issued_at = now or datetime.now(UTC)
         return cls(
             ticket_id=new_ticket_id(),
@@ -119,20 +135,32 @@ class ConfirmationTicket:
         )
 
     def has_expired(self, now: datetime) -> bool:
-        """Whether this ticket may no longer be claimed."""
+        """Whether this ticket may no longer be claimed.
+
+        Args:
+            now (datetime): Current time used to evaluate expiry and ordering.
+        """
         return now >= self.expires_at
 
     def belongs_to(self, subject: str, conversation_id: str) -> bool:
-        """Whether this ticket was raised for the given caller and conversation."""
+        """Whether this ticket was raised for the given caller and conversation.
+
+        Args:
+            subject (str): JWT subject claim identifying the authenticated principal.
+            conversation_id (str): Conversation identity used to select session state for this caller.
+        """
         return self.subject == subject and self.conversation_id == conversation_id
 
 
 @runtime_checkable
 class PendingConfirmationStore(Protocol):
     """Holds the confirmations a caller has been asked about."""
-
     def issue(self, ticket: ConfirmationTicket) -> None:
-        """Record a ticket as awaiting an answer."""
+        """Record a ticket as awaiting an answer.
+
+        Args:
+            ticket (ConfirmationTicket): Pending approval record being confirmed, declined, or expired.
+        """
         ...
 
     def claim(self, ticket_id: str, *, subject: str, conversation_id: str) -> ConfirmationTicket:
@@ -142,15 +170,30 @@ class PendingConfirmationStore(Protocol):
             UnknownTicketError: no claimable ticket matches, whether because it
                 never existed, was already claimed, expired, or belongs to
                 another caller or conversation.
+
+        Args:
+            ticket_id (str): Identity of the pending approval ticket being resolved.
+            subject (str): JWT subject claim identifying the authenticated principal.
+            conversation_id (str): Conversation identity used to select session state for this caller.
         """
         ...
 
     def pending(self, *, subject: str, conversation_id: str) -> tuple[ConfirmationTicket, ...]:
-        """Return the unanswered tickets of one conversation, oldest first."""
+        """Return the unanswered tickets of one conversation, oldest first.
+
+        Args:
+            subject (str): JWT subject claim identifying the authenticated principal.
+            conversation_id (str): Conversation identity used to select session state for this caller.
+        """
         ...
 
     def discard(self, *, subject: str, conversation_id: str) -> None:
-        """Drop every ticket of a conversation, answered or not."""
+        """Drop every ticket of a conversation, answered or not.
+
+        Args:
+            subject (str): JWT subject claim identifying the authenticated principal.
+            conversation_id (str): Conversation identity used to select session state for this caller.
+        """
         ...
 
 
@@ -160,17 +203,30 @@ class InMemoryPendingConfirmationStore(PendingConfirmationStore):
 
     A durable store is a drop-in replacement: everything that makes a claim safe
     is decided here, not by the caller.
-    """
 
+    Args:
+        clock (Clock): Clock used to make expiry and time-based behavior deterministic.
+        _tickets (dict[str, ConfirmationTicket]): Internal ticket collection owned by this registry.
+    """
     clock: Clock = _utc_now
     _tickets: dict[str, ConfirmationTicket] = field(default_factory=dict, init=False)
 
     def issue(self, ticket: ConfirmationTicket) -> None:
-        """Record a ticket as awaiting an answer."""
+        """Record a ticket as awaiting an answer.
+
+        Args:
+            ticket (ConfirmationTicket): Pending approval record being confirmed, declined, or expired.
+        """
         self._tickets[ticket.ticket_id] = ticket
 
     def claim(self, ticket_id: str, *, subject: str, conversation_id: str) -> ConfirmationTicket:
-        """Consume a ticket, refusing anything that does not match exactly."""
+        """Consume a ticket, refusing anything that does not match exactly.
+
+        Args:
+            ticket_id (str): Identity of the pending approval ticket being resolved.
+            subject (str): JWT subject claim identifying the authenticated principal.
+            conversation_id (str): Conversation identity used to select session state for this caller.
+        """
         ticket = self._tickets.get(ticket_id)
         if ticket is None:
             raise UnknownTicketError(ticket_id)
@@ -186,7 +242,12 @@ class InMemoryPendingConfirmationStore(PendingConfirmationStore):
         return ticket
 
     def pending(self, *, subject: str, conversation_id: str) -> tuple[ConfirmationTicket, ...]:
-        """Return the unanswered tickets of one conversation, oldest first."""
+        """Return the unanswered tickets of one conversation, oldest first.
+
+        Args:
+            subject (str): JWT subject claim identifying the authenticated principal.
+            conversation_id (str): Conversation identity used to select session state for this caller.
+        """
         now = self._now()
         return tuple(
             ticket
@@ -195,7 +256,12 @@ class InMemoryPendingConfirmationStore(PendingConfirmationStore):
         )
 
     def discard(self, *, subject: str, conversation_id: str) -> None:
-        """Drop every ticket of a conversation, answered or not."""
+        """Drop every ticket of a conversation, answered or not.
+
+        Args:
+            subject (str): JWT subject claim identifying the authenticated principal.
+            conversation_id (str): Conversation identity used to select session state for this caller.
+        """
         for ticket_id in [
             ticket_id for ticket_id, ticket in self._tickets.items() if ticket.belongs_to(subject, conversation_id)
         ]:
