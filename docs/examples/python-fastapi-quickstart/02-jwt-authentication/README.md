@@ -2,6 +2,10 @@
 
 This example shows how to protect `/v1/responses` and `/v1/chat/completions` with JWT validation in the Python runtime.
 
+This example has no agent framework. It shows how to protect a runtime endpoint
+with JWT authentication. The runtime checks the token and gives the handler the
+verified identity; the handler does not trust identity fields in the request.
+
 Use Python 3.12 or newer.
 The handler returns `AgentOutput` containing JSON-formatted `TextContent` with
 the authenticated subject, claims and input. The typed output migration does
@@ -24,7 +28,7 @@ Implemented checks:
 ## Install
 
 ```powershell
-cd docs/examples/python-langchain-fastapi/02-jwt-authentication
+cd docs/examples/python-fastapi-quickstart/02-jwt-authentication
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt

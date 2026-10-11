@@ -1,15 +1,36 @@
 # 04 — Human in the loop
 
-An OpenAI-compatible agent that will not call its tool until a person says so.
+This folder builds an approval-enabled LangGraph agent and shows two hosts.
+`developer_app.py` is a small FastAPI implementation using LangGraph's native
+interrupt values. `openai_responses_app.py` uses the runtime managed worker,
+which adds authenticated OpenAI-compatible routes and shared conversation and
+confirmation handling.
+
+## From a custom API to the runtime
+
+- **Keep:** the LangGraph agent and the rules that decide whether its search may
+  run.
+- **With your own API:** `developer_app.py` owns `/ask`, `/resume`, the
+  checkpoint ID and the approve-or-reject request format. It resumes the graph
+  after the user answers.
+- **With the runtime:** `openai_responses_app.py` uses `LangGraphWorker` and an
+  application `conversation_factory`. The application still supplies the graph,
+  ticket resolver and search runner.
+- **Handled by the runtime:** authenticated endpoints, conversation storage,
+  confirmation command parsing, ticket ownership and ticket display.
+
+The approval flow changes at this boundary. The direct API resumes the paused
+graph. The runtime path stops the tool call, saves its exact arguments in a
+ticket and runs the search from those arguments after `CONFIRM`.
 
 The folder's `.env.sample` contains placeholders only; replace the OpenAI key
 with your own local development key before starting the app.
 
 This is the example the `humanapproval` domain of the runtime exists for, and the
 only one here that shows an approval **spanning two HTTP requests**.
-Its HTTP handler returns `AgentOutput((TextContent(answer),))`, not a raw
-string/dictionary. Ticket ownership, literal confirmation parsing and stored
-arguments are unchanged. Streaming remains off; the reply completes each turn.
+The runtime entrypoint returns typed runtime output, including native LangGraph
+streaming. Ticket ownership, literal confirmation parsing and stored arguments
+are handled by the shared conversation engine.
 
 ## The problem it solves
 
@@ -21,19 +42,21 @@ fails as soon as the client times out. The obvious workaround drops the operatio
 and asks the user to repeat themselves, which loses the thing they were about to
 approve. Neither is acceptable, and both are common.
 
-What this example does instead:
+Both hosts stop the search until a person approves it. The direct host lets the
+developer own the full resume flow:
 
 1. the model asks for the gated tool, and the graph **suspends**;
-2. the turn ends **having changed nothing**, and the reply says what is waiting
-   and how to answer it;
-3. the person replies `CONFIRM cfm-xxxx` in a later request;
-4. that text is read by a literal parser **before the model sees it**, the ticket
-   is claimed, and the suspended graph resumes from the arguments stored on the
-   ticket.
+2. `/ask` returns the pending action without running it;
+3. `/resume` passes the person's ordered decisions to LangGraph;
+4. LangGraph resumes with the original arguments.
 
-The property worth stating twice: the model describes the operation, then plays
-no part in running it. It cannot change the arguments between the description and
-the execution, because they never come back through it.
+The runtime host uses the shared confirmation ticket flow. It declines the
+suspended tool call, returns a ticket, and later parses `CONFIRM cfm-xxxx`
+before the model sees that text. The confirmed operation runs from the ticket's
+stored arguments; this runtime path does not resume the original graph.
+
+In both modes, the model describes the operation but cannot change the arguments
+after a person has approved them.
 
 ## Why a *search* is gated here
 
@@ -59,14 +82,20 @@ Only the descriptor changes.
 | `PendingConfirmationRenderer` | renders what waits, and redacts ticket references found in retrieved content |
 | `AgentDescriptorFactory`, `AdvertisedSecurity` | publish a descriptor derived from the authentication actually configured |
 
+| From `ygo74-agent-runtime-langchain` | |
+|---|---|
+| `LangGraphSession` | runs the existing graph and translates its results/events to runtime contracts |
+| `LangGraphWorker` | hosts the graph through managed, authenticated conversation routes |
+
 | From this folder | |
 |---|---|
-| `langgraph_approval.py` | the bridge to LangGraph's interrupts |
+| `conversation.py` | connects this graph's ticket resolver and confirmed search to the runtime conversation ports |
+| `developer_agent.py` | builds the native graph without importing runtime packages |
+| `developer_app.py` | shows the route, response shape, and manual LangGraph resume flow |
 
-The bridge stays here on purpose. The library owns *whether* an operation needs an
-approval and *what* a person is shown; how a particular framework suspends a call
-is that framework's business, and a library that knew would have to know all of
-them.
+The runtime host reuses the agent instead of rebuilding its tools or graph. The
+application adapter only decides how an interrupt becomes a ticket and how a
+confirmed ticket runs the stored Microsoft Learn search arguments.
 
 ## A detail that is not a detail
 
@@ -89,16 +118,45 @@ Microsoft Learn MCP service, so configure a working OpenAI API key.
 cd docs/examples/python-langchain-fastapi/04-human-in-the-loop
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r requirements-developer.txt
 Copy-Item .env.sample .env
+uvicorn developer_app:app --port 8080
+```
+
+This direct entrypoint has `POST /ask` and `POST /resume`. The developer owns
+these routes, the response schema and the checkpoint identifier. `/ask` returns
+the framework action requests when approval is needed; `/resume` accepts an
+ordered list of `approve` or `reject` decisions and resumes the graph.
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://localhost:8080/ask" `
+  -ContentType "application/json" `
+  -Body '{"conversation_id":"demo","question":"How do I expose a private AKS cluster to partners?"}'
+
+Invoke-RestMethod -Method Post -Uri "http://localhost:8080/resume" `
+  -ContentType "application/json" `
+  -Body '{"conversation_id":"demo","decisions":[{"type":"approve"}]}'
+```
+
+For the runtime-hosted entrypoint, install `requirements.txt` instead and set
+`PYTHONPATH` to the repository's `security`, `agents`, and `langchain` package
+directories, as shown in `01-get-started`. Then run:
+
+```powershell
 uvicorn openai_responses_app:app --port 8080
 ```
+
+It uses `LangGraphWorker` with an application `conversation_factory`. The
+worker handles API-key authentication, caller and conversation partitioning,
+confirmation command parsing, one-time ticket claims, and pending-ticket
+rendering. The application supplies the graph, the ticket resolver and the
+search runner.
 
 > Port 8080, not 8000. If you point `OPENAI_API_BASE` at a local gateway, that
 > gateway is very likely on 8000 — and an agent whose model endpoint is itself
 > would be a short and confusing story.
 
-Ask something that needs documentation:
+Ask something that needs documentation through the runtime-hosted endpoint:
 
 ```powershell
 curl -s http://localhost:8080/v1/chat/completions `
@@ -107,7 +165,10 @@ curl -s http://localhost:8080/v1/chat/completions `
   -d '{"model":"ai-solution-architect-hitl","messages":[{"role":"user","content":"How do I expose a private AKS cluster to partners?"}]}'
 ```
 
-The reply performs nothing and ends with something like:
+The first reply performs nothing and includes a ticket. A later `CONFIRM` runs
+the search with the exact arguments saved on that ticket and returns the tool
+result. This runtime path does not resume the original graph after confirmation.
+The initial reply includes something like:
 
 ```text
 Awaiting your confirmation - nothing has been changed yet:
@@ -126,7 +187,7 @@ curl -s http://localhost:8080/v1/chat/completions `
   -d '{"model":"ai-solution-architect-hitl","messages":[{"role":"user","content":"CONFIRM cfm-4f2a1c9b7e03"}]}'
 ```
 
-Now the search runs and the architect answers. `CANCEL` instead, and nothing is
+Now the search runs and its result is returned. `CANCEL` instead, and nothing is
 sent — the ticket is consumed either way, so a declined operation cannot be
 confirmed a moment later by repeating the identifier.
 
@@ -139,13 +200,10 @@ confirmed a moment later by repeating the identifier.
 - Reply `yes go ahead`. It is not an approval; it reaches the model as an ordinary
   message. The grammar is deliberately tiny, because an approval the model can
   reinterpret is not an approval.
-- Ask something that makes the model want **two** searches. You get two tickets,
-  and confirming one does not run the other: the turn resumes only once every
-  suspended call has an answer. A ticket per operation would be theatre if one of
-  them approved the rest.
-- Send an ordinary message while something is pending. The question is repeated
-  rather than dropped — starting a new turn would abandon the operation the person
-  is still being asked about.
+- Ask something that makes the model want **two** searches. You get one ticket
+  for each call; each command consumes only the ticket it names.
+- Send an ordinary message while a ticket is pending. The runtime treats it as a
+  new agent turn; the ticket remains available until it is answered or expires.
 - Wait fifteen minutes before answering. The ticket has expired.
 
 ## What this example is not

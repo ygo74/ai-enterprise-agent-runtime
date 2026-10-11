@@ -4,6 +4,11 @@ This small, local example hosts the Python runtime behind FastAPI and echoes
 requests through OpenAI Responses, Chat Completions and Anthropic Messages.
 It needs no LLM provider key or external service.
 
+This folder contains runtime examples that do not use LangChain or another
+agent framework. For examples with a native framework agent, see the
+[LangChain examples](../python-langchain-fastapi/README.md) or the
+[Microsoft Agent Framework examples](../python-agentframework-fastapi/README.md).
+
 ## Requirements
 
 - Python 3.12 or newer
@@ -138,3 +143,12 @@ The example deliberately enables anonymous access with
 guide](../../python/agent-runtime.md) for protected authentication and discovery
 options, and the [installation guide](../../python/installation.md) for package
 choices.
+
+## Authentication examples
+
+- [JWT authentication](02-jwt-authentication/README.md) protects runtime
+  endpoints with a local HS256 key.
+- [OIDC and Keycloak](03-jwt-oidc-keycloak/README.md) checks JWTs with Keycloak
+  public keys.
+
+These examples have no agent framework. They focus on runtime authentication.

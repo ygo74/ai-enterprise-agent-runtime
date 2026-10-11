@@ -1,29 +1,69 @@
-# Native MAF reference worker (offline)
+# Microsoft Agent Framework with FastAPI
 
-`native.py` supplies a native Agent factory plus the existing discovery descriptor
-inside a typed definition. `app.py` is platform glue (combined <=30 nonblank lines).
-`echo_client.py` is domain/model code, with genuine zero inference token usage.
-`deployment.py` belongs to the operator. No proprietary registry/skills or
-agent-owned HTTP/SSE code is required.
+This example uses one native Microsoft Agent Framework (MAF) agent in two ways.
+`developer_app.py` is a small FastAPI app written in the usual MAF style.
+`app.py` gives the same agent factory to the runtime worker.
 
-From this directory, with the runtime's optional integration installed:
+## From your own API to the runtime
+
+- **Keep:** `native.py` builds a normal MAF `Agent`; `echo_client.py` supplies
+  its offline chat client. The agent code has no runtime imports.
+- **With your own API:** `developer_app.py` calls `await agent.run(question)`
+  and returns `{"answer": ...}`. The application owns the route and response.
+- **With the runtime:** `app.py` connects the agent definition and operator
+  settings to `AgentFrameworkWorker`.
+- **Handled by the runtime:** OpenAI and Anthropic endpoint formats, streaming,
+  conversation history, authentication, discovery, readiness and shutdown.
+
+`definition.py` names the trusted agent factory. `deployment.py` contains
+operator settings such as the API key and deployment identity. The runtime
+integration converts MAF responses and updates to typed runtime output. The app
+does not write provider protocol or SSE code.
+
+The sample uses a deterministic local chat client, so it needs no model key or
+external service. Dependencies for the developer-owned API and the runtime app
+are listed separately.
+
+## Run the developer-owned API
+
+From this directory, install `requirements-developer.txt`, then start the app:
 
 ```powershell
+cd docs/examples/python-agentframework-fastapi
+python -m pip install -r requirements-developer.txt
+python -m uvicorn developer_app:app --host 127.0.0.1 --port 8098
+```
+
+```shell
+curl http://127.0.0.1:8098/ask \
+  -H 'content-type: application/json' \
+  -d '{"question":"hello"}'
+```
+
+The response is owned by this app: `{"answer":"Echo: hello"}`.
+
+## Run with the runtime worker
+
+Install `requirements.txt` in an environment with the runtime packages
+available. From this directory, install the requirements, then set the local
+API key and start the worker:
+
+```powershell
+python -m pip install -r requirements.txt
 $env:NATIVE_WORKER_API_KEY = "<your-local-test-key>"
 python -m uvicorn app:create_app --factory --host 127.0.0.1 --port 8099
 ```
 
 Send `x-api-key` with your configured key to `/v1/chat/completions`,
-`/v1/responses`, `/v1/messages` or `/v1/models`. Model: `agentframework-echo`.
-Set `stream=true` to invoke real native streaming. `/health/ready` is public,
-read-only and contains only readiness. Use normal operator logging configuration.
+`/v1/responses`, `/v1/messages` or `/v1/models`. The model name is
+`agentframework-echo`. Set `stream=true` to use native MAF streaming.
 
-The same native agent works independently: construct it with `create_agent`
-and use `await agent.run("hello")`. There is no network/model credential needed.
-Only the local HTTP authentication key is operator-supplied.
+`/health/ready` is public and returns only readiness. The worker owns the HTTP
+and conversation lifecycle. The API key protects these endpoints; it is not a
+model credential.
 
-This is a **single-instance Python pilot**, not a production sandbox or
-cross-language release. Keep one deployment per worker. Container/workload
-identity, network and secret/MCP restrictions are platform responsibilities.
-See [native agents](../../python/native-agents.md) for admission, input-profile,
-usage, lifecycle and parity limits.
+This is a **single-instance Python pilot**, not a production sandbox or a
+cross-language release. Keep one deployment per worker. Container identity,
+network rules and secret access remain platform responsibilities. See
+[native agents](../../python/native-agents.md) for tool admission, input limits,
+usage, lifecycle and support limits.

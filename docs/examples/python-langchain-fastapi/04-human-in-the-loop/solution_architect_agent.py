@@ -19,12 +19,18 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import HumanInTheLoopMiddleware
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
+from ygo74.agent_runtime.domains.contracts.agent_definition import AgentFactoryContext
 
 from env_loader import ensure_env_loaded
 from langgraph_approval import LangGraphApprovalBridge
 from mcp_mslearn_tool import mslearn_mcp_search
 
-from ygo74.agent_runtime.domains.humanapproval.confirmation import ConfirmationPolicy
+from ygo74.agent_runtime.domains.humanapproval.confirmation import (
+    ConfiguredConfirmationPolicy,
+    ConfirmationPolicy,
+    InMemoryConfirmationPreferenceStore,
+)
+from ygo74.agent_runtime.domains.security.floor import SecurityFloor
 from ygo74.agent_runtime.domains.security.operations import OperationType, RiskLevel, ToolOperationDescriptor
 from ygo74.agent_runtime.domains.security.permissions import Permission
 from ygo74.agent_runtime.domains.security.user_context import UserContext
@@ -80,23 +86,12 @@ def build_agent(policy: ConfirmationPolicy, user: UserContext, *, model: Any | N
     )
 
 
-def answer_of(state: Any) -> str:
-    """Read the assistant's reply out of a graph result."""
-    messages = state.get("messages") if isinstance(state, dict) else None
-    if not messages:
-        return ""
-    content = getattr(messages[-1], "content", "")
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        parts = [str(item.get("text", "")) for item in content if isinstance(item, dict)]
-        return "\n".join(part for part in parts if part)
-    return str(content)
-
-
-def interrupts_of(state: Any) -> tuple[Any, ...]:
-    """Read the interrupts a graph result carries, whatever the key is called."""
-    if not isinstance(state, dict):
-        return ()
-    raw = state.get("__interrupt__") or ()
-    return tuple(raw)
+def build_graph(context: AgentFactoryContext) -> Any:
+    """Build the trusted default graph for the worker's authenticated conversation."""
+    user = UserContext(
+        user_id=context.principal.subject,
+        session_id=context.conversation_id,
+        permissions=frozenset({OPERATIONS[0].required_permission}),
+    )
+    policy = ConfiguredConfirmationPolicy(InMemoryConfirmationPreferenceStore(), SecurityFloor(()))
+    return build_agent(policy, user)

@@ -13,11 +13,11 @@ def example(monkeypatch):
     directory = Path(__file__).resolve().parents[3] / "docs" / "examples" / "python-agentframework-fastapi"
     monkeypatch.syspath_prepend(str(directory))
     monkeypatch.setenv("NATIVE_WORKER_API_KEY", "controlled-test-key")
-    native, deployment = import_module("native"), import_module("deployment")
+    definition, deployment = import_module("definition"), import_module("deployment")
     from ygo74.agent_runtime.integrations.agentframework.worker import (
         AgentFrameworkWorker,
     )
-    return directory, AgentFrameworkWorker(native.definition, deployment.settings)
+    return directory, AgentFrameworkWorker(definition.definition, deployment.settings)
 
 
 @pytest.mark.parametrize(("path", "body"), [

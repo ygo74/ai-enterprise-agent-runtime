@@ -4,6 +4,10 @@ This example shows how to protect `/v1/responses` and `/v1/chat/completions` wit
 validation backed by a real OIDC provider (Keycloak), using JWKS-based signature
 verification instead of a shared static secret.
 
+This example has no agent framework. It shows how to protect a runtime endpoint
+with a Keycloak JWT. The runtime checks the token against Keycloak's public keys
+and gives the handler the verified identity.
+
 Use Python 3.12 or newer and Docker Compose for the local Keycloak service.
 The handler returns `AgentOutput` containing JSON-formatted `TextContent` with
 the verified subject, roles, groups, claims and input. JWT/JWKS validation and
@@ -27,7 +31,7 @@ Implemented checks:
 ## Install
 
 ```powershell
-cd docs/examples/python-langchain-fastapi/03-jwt-oidc-keycloak
+cd docs/examples/python-fastapi-quickstart/03-jwt-oidc-keycloak
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt

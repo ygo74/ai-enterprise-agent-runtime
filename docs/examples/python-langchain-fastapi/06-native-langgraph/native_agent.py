@@ -2,11 +2,10 @@
 
 from langchain.agents import create_agent
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
-from ygo74.agent_runtime.domains.contracts.agent_definition import AgentFactoryContext
 
 
-def build_graph(context: AgentFactoryContext) -> object:
-    """Return one compiled, tool-free graph for the requested conversation."""
+def build_graph(context: object) -> object:
+    """Return one compiled, tool-free graph for either host entrypoint."""
     del context
     return create_agent(
         model=FakeListChatModel(responses=["This answer came from an offline native LangGraph agent."]),

@@ -8,11 +8,8 @@ from enum import StrEnum
 from typing import Any
 
 from env_loader import ensure_env_loaded
-from langchain.agents import create_agent
 from langchain_core.messages import AIMessage
 from langchain_core.runnables.schema import StreamEvent
-from langchain_openai import ChatOpenAI
-from mcp_mslearn_tool import mslearn_mcp_search
 from ygo74.agent_runtime.domains.contracts.agent_output import AgentOutput, Notification
 from ygo74.agent_runtime.domains.contracts.stream_events import (
     AgentStreamEvent,
@@ -24,17 +21,10 @@ from ygo74.agent_runtime.integrations.langchain import (
     LangChainResultAdapter,
     LangChainStreamAdapter,
 )
+from solution_architect_graph import build_solution_architect_agent
 
 ensure_env_loaded()
 logger = logging.getLogger(__name__)
-
-SYSTEM_PROMPT = (
-    "You are a Senior AI Solution Architect. "
-    "Design production-ready AI architectures, justify tradeoffs, cite Microsoft Learn references, "
-    "and provide clear migration and operations guidance. "
-    "When documentation is needed, call the mslearn_mcp_search tool first."
-)
-
 
 class ArchitectEvent(StrEnum):
     MODEL_STREAM = "on_chat_model_stream"
@@ -106,12 +96,6 @@ class SolutionArchitect:
     def _diagnose(outcome: ConversionOutcome) -> None:
         for diagnostic in outcome.diagnostics:
             logger.info("LangChain output selection: code=%s reason=%s", diagnostic.code, diagnostic.reason)
-
-
-def build_solution_architect_agent() -> Any:
-    llm = ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-5-chat"), temperature=1)
-    return create_agent(model=llm, tools=[mslearn_mcp_search], system_prompt=SYSTEM_PROMPT)
-
 
 async def run_solution_architect_agent(user_input: str) -> AgentOutput:
     return await SolutionArchitect.configured().run(user_input)

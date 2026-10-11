@@ -63,8 +63,8 @@ jwks_url = f"{issuer}/protocol/openid-connect/certs"
 
 jwt_config = JwtValidationConfig(
     allowed_algorithms=("RS256",),
-    # Keycloak access tokens do not include "nbf" by default, unlike the static
-    # HS256 tokens generated in the 02-jwt-authentication example.
+    # Keycloak access tokens do not include "nbf" by default. The local HS256
+    # example includes it in its development token.
     required_claims=("sub", "exp", "iss", "aud"),
     issuer=os.getenv("JWT_ISSUER", issuer),
     audience=os.getenv("JWT_AUDIENCE", "runtime"),

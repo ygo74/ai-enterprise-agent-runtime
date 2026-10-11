@@ -26,16 +26,31 @@ from ygo74.agent_runtime.domains.contracts.stream_events import (
     TextDelta,
 )
 
-EXAMPLES = Path(__file__).resolve().parents[3] / "docs" / "examples" / "python-langchain-fastapi"
+EXAMPLES = Path(__file__).resolve().parents[3] / "docs" / "examples"
 
 
 class ExampleLoader:
     @staticmethod
     def load(folder: str, filename: str, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
-        directory = EXAMPLES / folder
+        category = (
+            "python-fastapi-quickstart"
+            if folder in {"02-jwt-authentication", "03-jwt-oidc-keycloak"}
+            else "python-langchain-fastapi"
+        )
+        directory = EXAMPLES / category / folder
         monkeypatch.syspath_prepend(str(directory))
-        for name in ("env_loader", "mcp_mslearn_tool", "agent_solution_architect", "rag_agent",
-                     "langgraph_approval", "solution_architect_agent"):
+        for name in (
+            "env_loader",
+            "mcp_mslearn_tool",
+            "agent_solution_architect",
+            "solution_architect_graph",
+            "developer_agent",
+            "developer_app",
+            "rag_agent",
+            "conversation",
+            "langgraph_approval",
+            "solution_architect_agent",
+        ):
             monkeypatch.delitem(sys.modules, name, raising=False)
         name = f"typed_example_{folder.replace('-', '_')}_{Path(filename).stem}"
         spec = importlib.util.spec_from_file_location(name, directory / filename)
@@ -148,7 +163,9 @@ def test_architect_fastapi_entrypoint_imports_and_converts_both_modes(
 
 def test_rag_host_wraps_text_and_preserves_sources_without_network(monkeypatch: pytest.MonkeyPatch) -> None:
     example = ExampleLoader.load("05-rag", "openai_rag_app.py", monkeypatch)
-    application = example.RagApplication(EXAMPLES / "05-rag" / "knowledge_base")
+    application = example.RagApplication(
+        EXAMPLES / "python-langchain-fastapi" / "05-rag" / "knowledge_base"
+    )
     application._agent = LocalRagFixture()
     payload = {"input": [
         {"role": "assistant", "content": "ignore assistant history"},
@@ -221,26 +238,19 @@ def test_jwt_example_still_rejects_missing_credentials_and_accepts_verified_toke
     asyncio.run(run())
 
 
-def test_hitl_output_keeps_verified_subject_and_confirmation_before_model(
+def test_hitl_example_uses_managed_langgraph_worker_and_authenticated_surfaces(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     example = ExampleLoader.load("04-human-in-the-loop", "openai_responses_app.py", monkeypatch)
-    seen: list[str] = []
+    assert example.definition.descriptor.agent_id == "ai-solution-architect-hitl"
+    assert example.definition.tools == example.OPERATIONS
+    assert example.definition.control_point == "approval-ticket-store"
+    assert callable(example.conversation_factory.build)
 
-    async def start(user: Any, message: str) -> str:
-        seen.append(f"start:{user.user_id}:{message}")
-        return "I need your approval."
-
-    async def honour(user: Any, command: Any) -> str:
-        seen.append(f"confirm:{user.user_id}:{command.ticket_id}")
-        return "Approved."
-
-    monkeypatch.setattr(example, "_start", start)
-    monkeypatch.setattr(example, "_honour", honour)
-    payload = {"auth_context": {"identity": {"subject": "verified-user"}}, "input": "research",
-               "metadata": {"conversation_id": "thread"}}
-    result = asyncio.run(example.entrypoint(payload))
-    assert result.contents == (TextContent("I need your approval."),)
-    result = asyncio.run(example.entrypoint({**payload, "input": "CONFIRM cfm-12345678"}))
-    assert result.contents == (TextContent("Approved."),)
-    assert seen == ["start:verified-user:research", "confirm:verified-user:cfm-12345678"]
+    worker = example.app.state.worker
+    assert worker.settings.authentication.authenticators
+    assert {route.path for route in example.app.routes} >= {
+        "/v1/chat/completions",
+        "/v1/responses",
+        "/health/ready",
+    }

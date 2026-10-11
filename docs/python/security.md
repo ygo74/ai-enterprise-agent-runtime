@@ -88,9 +88,9 @@ signatures. `JwtValidationConfig` also supports
 `leeway_seconds` for clock skew; its default required claim is `sub`. Set
 `required_claims`, `issuer`, `audience`, and `allowed_algorithms` to match the
 token contract you intend to accept. The runnable
-[JWT example](../examples/python-langchain-fastapi/02-jwt-authentication/README.md)
+[JWT example](../examples/python-fastapi-quickstart/02-jwt-authentication/README.md)
 uses a local HS256 key; the
-[OIDC/Keycloak example](../examples/python-langchain-fastapi/03-jwt-oidc-keycloak/README.md)
+[OIDC/Keycloak example](../examples/python-fastapi-quickstart/03-jwt-oidc-keycloak/README.md)
 shows asymmetric JWKS validation and role projection.
 
 ### API keys

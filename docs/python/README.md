@@ -29,13 +29,15 @@ to serve a local endpoint.
 ## Runnable examples
 
 - [Minimal FastAPI quickstart](../examples/python-fastapi-quickstart/README.md):
-  local echo agent without external credentials
+  local runtime handler without an agent SDK or external credentials; also
+  contains JWT and Keycloak authentication examples
 - [LangChain + FastAPI examples](../examples/python-langchain-fastapi/README.md):
   richer agent integration, authentication, descriptors, and human approval
 - [Python MCP server](../examples/python-mcp-server/README.md): protected
   streamable HTTP server
 - [Microsoft Agent Framework + FastAPI](../examples/python-agentframework-fastapi/README.md):
-  SDK contents converted to the neutral output contract
+  paired developer-owned and runtime-hosted entrypoints for the same native MAF
+  agent
 
 ## References
 

@@ -1,30 +1,31 @@
 # Python LangChain + FastAPI Examples
 
-Each example lives in its own folder.
+Each example lives in its own folder. Agent examples have two entrypoints: one
+uses FastAPI and LangChain directly; the other uses the runtime. Compare them to
+see which agent code stays and which hosting code the runtime takes over.
 
 For package selection, installation, and an overview of the Python runtime, see
 the [Python library documentation](../../python/README.md).
 
 ## Available examples
 
-- `01-get-started`: AI Solution Architect agent with LangChain, MCP Microsoft Learn tool, and OpenAI Responses exposure via `ygo74` runtime.
-- `02-jwt-authentication`: OpenAI-compatible FastAPI endpoints protected with JWT validation (`Bearer` + claims + signature).
-- `03-jwt-oidc-keycloak`: same protection, but signature validation against a real OIDC provider (Keycloak) via JWKS instead of a static secret.
-- `04-human-in-the-loop`: the same agent, but its tool call waits for an explicit human approval that spans two HTTP requests - a ticket is issued, the turn ends having changed nothing, and a later `CONFIRM` replays the stored arguments.
-- `05-rag`: LangChain RAG agent using Azure OpenAI chat and embedding deployments, an in-memory vector index over a local Markdown knowledge base, source citations, and OpenAI Responses/Chat Completions exposure.
-- `06-native-langgraph`: offline native graph binding and managed worker using a deterministic model, trusted factory and explicit operator authentication.
+- `01-get-started`: keep the Solution Architect agent and Microsoft Learn tool; compare a custom `/ask` route with runtime OpenAI endpoints.
+- `04-human-in-the-loop`: compare a developer-owned LangGraph approval flow with the runtime worker's confirmation tickets.
+- `05-rag`: keep the RAG pipeline and local Markdown index; compare custom JSON/text responses with runtime OpenAI endpoints.
+- `06-native-langgraph`: keep an offline LangGraph and replace the custom `/ask` host with the `LangGraphWorker` facade.
+- `07-managed-worker`: use the same offline graph with `ManagedAgentWorker` directly and provide a custom conversation factory.
 
-## Convention
+## How to compare the two entrypoints
 
-All hosting entrypoints return `AgentOutput` or `AgentStreamEvent` streams
-from the agents 1.x typed output contract. Framework-native values and strings
-remain internal to model helpers, never the HTTP handler output boundary.
-`01-get-started` explicitly installs `ygo74-agent-runtime-langchain` for native
-result/event conversion. Other examples wrap their own text answers directly;
-they do not install an unused integration or the framework-pulling meta package.
-Reuse decision: extend existing entrypoints, input/security helpers and model
-helpers; reuse the agents content/event contracts and optional integration
-adapters rather than adding example-specific output models.
+In each agent example, start with the developer-owned entrypoint. It calls
+LangChain directly and owns its route and response. Then open the runtime
+entrypoint. The agent or RAG work stays in the application; the runtime adds
+standard endpoints and handles the shared HTTP and conversation work.
+
+Examples 01 and 05 show how to connect an existing application to runtime
+contracts. Example 04 shows a custom conversation factory for domain rules.
+Example 06 is the shorter LangGraph worker setup. Example 07 shows the lower
+level worker API for applications that need to build their own conversation.
 
 - Each example folder contains source files, a `requirements.txt`, and a README
   with run instructions. Environment files or `.env.sample` templates are

@@ -1,18 +1,34 @@
 # 05-rag: Local Knowledge Base RAG
 
-This example builds a LangChain retrieval-augmented generation (RAG) agent over
+This example builds one LangChain retrieval-augmented generation (RAG) agent over
 the Markdown files in `knowledge_base/`. It uses OpenAI embeddings to index local
 documents in an in-memory vector store, retrieves relevant chunks for each
 question, and asks a chat model to answer from those excerpts with filename
 citations. Both model calls use Azure OpenAI deployments.
 
-The FastAPI app exposes OpenAI Responses (`/v1/responses`) and Chat Completions
-(`/v1/chat/completions`) through the runtime's public `HostingFactory` API. Both
-non-streaming and streaming requests use the same retrieval pipeline.
-The hosting boundary returns `AgentOutput` with `TextContent`, or a typed
+It has two FastAPI entrypoints. `developer_app.py` is the developer-owned API;
+it returns a custom JSON response or plain-text stream. `openai_rag_app.py`
+passes the same RAG agent through the runtime's public `HostingFactory` API and
+exposes OpenAI Responses (`/v1/responses`) and Chat Completions
+(`/v1/chat/completions`). Both use the same retrieval pipeline.
+The runtime hosting boundary returns `AgentOutput` with `TextContent`, or a typed
 `ContentStart`/`TextDelta`/`ContentEnd`/`TerminalEvent` stream. Source filenames
 and the appended `Sources:` section are preserved in both modes. The internal
 LangChain model helper still produces text; no unused integration is installed.
+
+## From a custom API to the runtime
+
+- **Keep:** `rag_agent.py`, the local Markdown files, retrieval, model calls and
+  source citations.
+- **With your own API:** `developer_app.py` owns `/ask`, `/ask/stream` and their
+  JSON and plain-text responses.
+- **With the runtime:** `openai_rag_app.py` maps runtime input to the same RAG
+  agent and converts its text and stream chunks to runtime output.
+- **Handled by the runtime:** OpenAI-compatible endpoints, request parsing,
+  streaming transport, discovery and endpoint registration.
+
+This example keeps the RAG logic independent from the runtime. The runtime
+entrypoint is a small adapter around the existing application code.
 
 ## Prerequisites
 
@@ -28,6 +44,9 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
+
+To run only the developer-owned entrypoint without runtime packages, install
+`requirements-developer.txt` in its environment.
 
 For development against the runtime source in this repository, set `PYTHONPATH`
 after installing the framework requirements, to use the local runtime source:
@@ -51,6 +70,24 @@ path; LangChain constructs the deployment API routes. Both deployments must
 support the configured API version.
 
 ## Run
+
+Run the developer-owned API:
+
+```powershell
+python -m uvicorn developer_app:app --reload --port 8005
+```
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri "http://127.0.0.1:8005/ask" `
+  -ContentType "application/json" `
+  -Body '{"question":"How does this example protect against prompt injection in retrieved documents?"}'
+```
+
+The `/ask/stream` route returns the native generated text and source list as a
+plain-text stream. Its request and response formats are owned by this example.
+
+Run the runtime-hosted API to use OpenAI-compatible routes:
 
 ```powershell
 python -m uvicorn openai_rag_app:app --reload --port 8005
