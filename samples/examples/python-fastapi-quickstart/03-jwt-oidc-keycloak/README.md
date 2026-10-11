@@ -31,7 +31,7 @@ Implemented checks:
 ## Install
 
 ```powershell
-cd docs/examples/python-fastapi-quickstart/03-jwt-oidc-keycloak
+cd samples/examples/python-fastapi-quickstart/03-jwt-oidc-keycloak
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt

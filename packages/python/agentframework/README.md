@@ -20,9 +20,9 @@ automatically exposed. Tool calls describe internal execution by default.
 Public namespace: `ygo74.agent_runtime.integrations.agentframework`.
 Base adapters and sessions do not import FastAPI or choose output protocols.
 The optional `worker` module uses the `[http]` extra for managed local hosting.
-See `docs/python/native-agents.md` for the factory + declarative-definition path
+See `doc/python/native-agents.md` for the factory + declarative-definition path
 and the optional domain approval bridge.
 
-See the repository's `docs/python/agentframework.md` guide and the runnable,
-offline `docs/examples/python-agentframework-fastapi` example (operator-supplied
+See the repository's `doc/python/agentframework.md` guide and the runnable,
+offline `samples/examples/python-agentframework-fastapi` example (operator-supplied
 local authentication key, no model credentials).

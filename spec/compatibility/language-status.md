@@ -69,6 +69,6 @@ registration in this repository. Applications connect the building blocks to
 ASP.NET Core or Spring themselves.
 
 The detailed shared status matrix is maintained in
-[`docs/parity-status.md`](../../docs/parity-status.md). The feature contracts
+[`doc/contributors/parity-status.md`](../../doc/contributors/parity-status.md). The feature contracts
 and tests define shared behavior where an implementation exists; listing the
 same endpoint identifiers does not imply identical host integration.

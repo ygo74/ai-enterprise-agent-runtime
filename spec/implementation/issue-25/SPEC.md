@@ -92,7 +92,8 @@ SDK OpenAI.
 - Contrats, fixtures et tests Python de contrat, d’intégration et de
   performance sous `tests/`; les contrats partagés ne seront étendus que si
   cela est nécessaire et compatible avec les runtimes existants.
-- Documentation et exemples Python OpenAI Responses sous `docs/`.
+- Documentation Python OpenAI Responses sous `doc/` et exemples sous
+  `samples/examples/`.
 
 ## Contraintes
 

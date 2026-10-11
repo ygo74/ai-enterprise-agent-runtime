@@ -74,7 +74,7 @@ When working in this repository, Codex is directed to:
 - Existing Copilot entry point: `.github/copilot-instructions.md`.
 
 The feature plan documents the canonical layout under `packages/`, `tests/`,
-`docs/`, and `specs/`.
+`doc/`, and `specs/`.
 
 ## Contraintes
 

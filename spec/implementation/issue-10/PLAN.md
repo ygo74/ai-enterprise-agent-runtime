@@ -70,8 +70,8 @@ readable as repository guidance.
 **Fichiers/composants :**
 
 - `AGENTS.md`
-- `docs/tasks/issue-10/SPEC.md`
-- `docs/tasks/issue-10/PLAN.md`
+- `spec/implementation/issue-10/SPEC.md`
+- `spec/implementation/issue-10/PLAN.md`
 
 **Modifications :**
 

@@ -7,8 +7,8 @@ those values into the protocol the caller selected.
 
 The definitive fields and support matrix are in the
 [typed output contract](../../specs/001-openai-endpoint-exposure/contracts/typed-output-contract.md).
-The [local echo example](../examples/python-fastapi-quickstart/app.py) and
-[structured example](../examples/python-fastapi-quickstart/responses_structured_app.py)
+The [local echo example](../../samples/examples/python-fastapi-quickstart/app.py) and
+[structured example](../../samples/examples/python-fastapi-quickstart/responses_structured_app.py)
 demonstrate runnable handlers.
 
 ## Construct the pivot directly

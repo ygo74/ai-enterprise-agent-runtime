@@ -24,12 +24,16 @@ competing set of Codex-only conventions.
 
 - `packages/python/`, `packages/dotnet/`, and `packages/java/` contain the
   language-specific runtime libraries.
+- `doc/` contains user/operator guides, contributor documentation, and detailed
+  Python library guides.
+- `samples/examples/` contains runnable integrations and usage examples.
+- `spec/` contains consolidated system behavior and issue implementation
+  records under `spec/implementation/`.
+- `specs/<feature>/` contains active feature specifications, plans, tasks, and
+  related design artifacts.
 - `tests/contract/`, `tests/integration/`, `tests/parity/`, and
   `tests/performance/` contain shared contract and quality coverage. Follow the
   language-specific subdirectories already used by the affected tests.
-- `docs/examples/` contains runnable integrations and usage examples.
-- `specs/<feature>/` contains feature specifications, plans, tasks, and related
-  design artifacts.
 
 Follow the active feature plan for the detailed layout and conventions relevant
 to the change.
@@ -69,7 +73,7 @@ to the change.
   files.
 - When a Python change affects public behavior, APIs, configuration,
   dependencies, or supported workflows, update the corresponding user docs and
-  runnable examples. Use [`docs/python/README.md`](docs/python/README.md) as the
+  runnable examples. Use [`doc/python/README.md`](doc/python/README.md) as the
   Python documentation entry point.
 
 These instructions provide repository context only. Copilot-specific agents,

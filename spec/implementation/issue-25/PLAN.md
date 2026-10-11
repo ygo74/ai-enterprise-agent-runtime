@@ -211,13 +211,13 @@ budgets Python.
 
 **Fichiers/composants :**
 
-- `docs/python/agent-runtime.md`
-- Exemple Python ciblé sous `docs/examples/python-langchain-fastapi/` ou
-  `docs/examples/python-fastapi-quickstart/`
+- `doc/python/agent-runtime.md`
+- Exemple Python ciblé sous `samples/examples/python-langchain-fastapi/` ou
+  `samples/examples/python-fastapi-quickstart/`
 - `tests/performance/python/`
 - `tests/performance/baselines/performance_thresholds.json` seulement si une
   mesure Responses spécifique est ajoutée
-- `docs/tasks/issue-25/PLAN.md`
+- `spec/implementation/issue-25/PLAN.md`
 
 **Modifications :**
 
@@ -260,7 +260,7 @@ budgets Python.
 
 - Ruff : PASS avec `/tmp/issue16-venv/bin/python -m ruff check
   packages/python/agents tests
-  docs/examples/python-fastapi-quickstart/responses_structured_app.py`.
+  samples/examples/python-fastapi-quickstart/responses_structured_app.py`.
 - Tests concernés : PASS, 58 tests cumulés pour les tests contractuels et
   d’intégration Responses, les scénarios de démonstration et les suites
   existantes d’autorisation et d’authentification. Les cinq nouveaux tests de

@@ -36,7 +36,7 @@ whole or maps its features to examples that can be run.
 
 ## Périmètre
 
-- Add a central Python documentation guide under `docs/python/`, covering the
+- Add a central Python documentation guide under `doc/python/`, covering the
   shipped distributions and their installation extras, a quickstart, the
   currently supported endpoint and discovery surfaces, standard exchange and
   handler flow, routing and middleware, authentication and authorization,
@@ -83,11 +83,11 @@ whole or maps its features to examples that can be run.
 
 ## Architecture concernée
 
-- `docs/python/` (new Python library guide and navigation).
-- `README.md` and `docs/examples/python-langchain-fastapi/README.md` (links into
+- `doc/python/` (new Python library guide and navigation).
+- `README.md` and `samples/examples/python-langchain-fastapi/README.md` (links into
   the guide).
-- `docs/examples/python-langchain-fastapi/` and
-  `docs/examples/python-mcp-server/` (existing executable workflows, updated
+- `samples/examples/python-langchain-fastapi/` and
+  `samples/examples/python-mcp-server/` (existing executable workflows, updated
   only where needed).
 - `AGENTS.md` and `.github/copilot-instructions.md` (documentation maintenance
   instructions).
@@ -170,11 +170,11 @@ describe an agent and expose it through OpenAI's `GET /v1/models` endpoint.
 
 ### Périmètre complémentaire
 
-- Add a first-class topic page at `docs/python/agent-discovery.md`, indexed from
-  `docs/python/README.md` and linked from the discovery section of
-  `docs/python/agent-runtime.md`.
+- Add a first-class topic page at `doc/python/agent-discovery.md`, indexed from
+  `doc/python/README.md` and linked from the discovery section of
+  `doc/python/agent-runtime.md`.
 - Consolidate the existing
-  `docs/examples/python-langchain-fastapi/agent-descriptor.md` walkthrough into
+  `samples/examples/python-langchain-fastapi/agent-descriptor.md` walkthrough into
   that canonical page; retain the old example path as a short link so existing
   references continue to work.
 - Explain the provider-neutral `AgentDescriptor` and the purpose of its
@@ -234,7 +234,7 @@ describe an agent and expose it through OpenAI's `GET /v1/models` endpoint.
 
 - Keep English as the documentation language, consistent with issue 14 and
   existing Python guides.
-- Use `docs/python/agent-discovery.md` as the canonical location, rather than
+- Use `doc/python/agent-discovery.md` as the canonical location, rather than
   expanding the current example-specific page in place, so the topic is
   discoverable independently of a particular agent integration.
 - None.
@@ -245,15 +245,15 @@ describe an agent and expose it through OpenAI's `GET /v1/models` endpoint.
 
 After the agent discovery topic, the requester asked for the same level of
 topic-oriented documentation for the Python security implementation. The
-existing `docs/python/security.md` is already linked from the documentation
+existing `doc/python/security.md` is already linked from the documentation
 index, but currently gives only a short overview and relies on example pages
 and source links for implementation details.
 
 ### Périmètre complémentaire
 
-- Expand `docs/python/security.md` as the canonical, practical Python security
+- Expand `doc/python/security.md` as the canonical, practical Python security
   guide instead of adding a second page that duplicates its current purpose.
-  Update the `docs/python/README.md` summary to reflect the guide's coverage.
+  Update the `doc/python/README.md` summary to reflect the guide's coverage.
 - Explain the responsibility boundary: authentication establishes a caller
   context; application code owns business authorization; descriptors and
   permissions do not by themselves enforce access to application data.
@@ -320,8 +320,8 @@ and source links for implementation details.
 
 - Keep English as the documentation language, consistent with the existing
   Python guide and issue 14.
-- Expand the already-indexed `docs/python/security.md`; keep
-  `docs/examples/python-langchain-fastapi/authorization.md` and the runnable
+- Expand the already-indexed `doc/python/security.md`; keep
+  `samples/examples/python-langchain-fastapi/authorization.md` and the runnable
   JWT/OIDC examples as focused implementation walkthroughs linked from it.
 - None.
 
@@ -337,9 +337,9 @@ fit together or where the example supplies framework-specific orchestration.
 
 ### Additional scope
 
-- Add `docs/python/human-in-the-loop.md` as the canonical topic guide, link it
-  from `docs/python/README.md`, and replace the short human-approval summary in
-  `docs/python/agent-runtime.md` with a link to the new page. Keep the existing
+- Add `doc/python/human-in-the-loop.md` as the canonical topic guide, link it
+  from `doc/python/README.md`, and replace the short human-approval summary in
+  `doc/python/agent-runtime.md` with a link to the new page. Keep the existing
   `04-human-in-the-loop/README.md` as the step-by-step runnable walkthrough.
 - Explain the end-to-end responsibility split: application code classifies
   operations and permissions; `ConfirmationPolicy` decides whether to ask;
@@ -418,6 +418,6 @@ fit together or where the example supplies framework-specific orchestration.
 
 - Keep English as the documentation language, consistent with the Python guide
   and issue 14.
-- Keep `docs/python/human-in-the-loop.md` as the topic reference and retain the
+- Keep `doc/python/human-in-the-loop.md` as the topic reference and retain the
   existing example README as its runnable walkthrough.
 - None.

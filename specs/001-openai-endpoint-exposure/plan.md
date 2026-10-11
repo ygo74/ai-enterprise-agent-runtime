@@ -236,7 +236,12 @@ tests/
 ├── parity/
 └── performance/
 
-docs/
+doc/
+├── contributors/
+├── python/
+└── users/
+
+samples/
 └── examples/
     ├── dotnet-agentframework/
     ├── python-langchain-fastapi/

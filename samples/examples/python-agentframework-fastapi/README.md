@@ -43,7 +43,7 @@ and tool types in place of the offline echo client.
 From this directory, install `requirements-developer.txt`, then start the app:
 
 ```powershell
-cd docs/examples/python-agentframework-fastapi
+cd samples/examples/python-agentframework-fastapi
 python -m pip install -r requirements-developer.txt
 python -m uvicorn developer_app:app --host 127.0.0.1 --port 8098
 ```
@@ -79,5 +79,5 @@ model credential.
 This is a **single-instance Python pilot**, not a production sandbox or a
 cross-language release. Keep one deployment per worker. Container identity,
 network rules and secret access remain platform responsibilities. See
-[native agents](../../python/native-agents.md) for tool admission, input limits,
+[native agents](../../../doc/python/native-agents.md) for tool admission, input limits,
 usage, lifecycle and support limits.

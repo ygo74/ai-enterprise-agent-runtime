@@ -6,7 +6,7 @@ the definition reuses `AgentDescriptor` and the existing `ToolOperationDescripto
 security model. Factory inputs are `AgentFactoryContext` (verified principal,
 conversation, deployment and issuer/tenant namespace), never HTTP payloads.
 
-The [runnable native echo](../examples/python-agentframework-fastapi/README.md)
+The [runnable native echo](../../samples/examples/python-agentframework-fastapi/README.md)
 delivers fewer than 30 nonblank lines in `native.py` plus `app.py`, including
 imports and docstrings. `echo_client.py` is the native agent's offline model
 implementation; `deployment.py` is operator configuration. There is no hidden
@@ -20,7 +20,7 @@ entrypoint, then add runtime hosting when you need shared HTTP surfaces:
 
 1. Build and test the MAF `Agent` with the MAF SDK.
 2. Keep the agent factory independent of runtime imports. The offline example's
-   [`developer_app.py`](../examples/python-agentframework-fastapi/developer_app.py)
+   [`developer_app.py`](../../samples/examples/python-agentframework-fastapi/developer_app.py)
    shows this path and uses `await agent.run(...)`.
 3. Add an `AgentDefinition` that points to the trusted factory and a
    `WorkerSettings` object for operator-owned authentication and lifecycle.

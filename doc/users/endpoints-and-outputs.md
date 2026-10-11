@@ -41,14 +41,14 @@ selected endpoint. It does not accept a raw string or arbitrary result
 dictionary as the public output contract in version 1.0.
 
 For a structured response example, see
-[`responses_structured_app.py`](../../docs/examples/python-fastapi-quickstart/responses_structured_app.py).
+[`responses_structured_app.py`](../../samples/examples/python-fastapi-quickstart/responses_structured_app.py).
 For content types and migration details, see
-[Typed outputs](../../docs/python/typed-outputs.md).
+[Typed outputs](../../doc/python/typed-outputs.md).
 
 ## Streaming
 
 Streaming uses Server-Sent Events. The request must set `stream` to `true`, and
 the handler must return an async iterator of typed events. Each provider uses
 its own event format. Do not return a normal `AgentOutput` for a streaming
-request. See [Agent runtime](../../docs/python/agent-runtime.md) for the event
+request. See [Agent runtime](../../doc/python/agent-runtime.md) for the event
 mapping and protocol-specific limits.

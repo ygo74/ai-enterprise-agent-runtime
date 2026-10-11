@@ -30,7 +30,7 @@ parity limits.
 - [`packages/dotnet/`](packages/dotnet/): .NET package (`Ygo74.AgentRuntime`)
 - [`packages/java/`](packages/java/): Java package (`ygo74-agent-runtime`)
 - [`tests/`](tests/): contract, integration, parity, and performance tests
-- [`docs/examples/`](docs/examples/): example integrations
+- [`samples/examples/`](samples/examples/): example integrations
 - [`spec/`](spec/): consolidated system specification
 - [`specs/001-openai-endpoint-exposure/`](specs/001-openai-endpoint-exposure/): legacy feature contracts and validation assets
 
@@ -54,7 +54,7 @@ answer about who is calling.
 The core and base meta-package have no dependency on an agent framework.
 Version 1.0 of the Python agents output API uses a typed neutral pivot and
 removes raw outputs/native OpenAI Responses passthrough. See
-[typed outputs and migration](docs/python/typed-outputs.md). This output contract
+[typed outputs and migration](doc/python/typed-outputs.md). This output contract
 is Python-first; .NET/Java implementation follows separately.
 
 They all contribute to the same namespace, so the import path does not say which
@@ -92,7 +92,7 @@ The runtime is organized around reusable domains:
 - **Observability** hooks for logging and OpenTelemetry.
 
 The security model and the agent contracts are currently **Python only**; see
-[`docs/parity-status.md`](docs/parity-status.md) for what .NET and Java must
+[`doc/contributors/parity-status.md`](doc/contributors/parity-status.md) for what .NET and Java must
 implement to reach parity, and for the behaviour those implementations have to
 preserve.
 
@@ -105,13 +105,13 @@ keeps that true.
 
 ## Getting Started
 
-The [Python library documentation](docs/python/README.md) covers package
+The [Python library documentation](doc/python/README.md) covers package
 selection, installation, a local quickstart, and the current Python runtime
 capabilities.
 
 1. Pick your target runtime in [`packages/python/`](packages/python/), [`packages/dotnet/`](packages/dotnet/), or [`packages/java/`](packages/java/).
 2. Review current behavior in [`spec/`](spec/) and shared machine-readable contracts in [`specs/001-openai-endpoint-exposure/contracts/`](specs/001-openai-endpoint-exposure/contracts/).
-3. Explore usage patterns in [`docs/examples/`](docs/examples/).
+3. Explore usage patterns in [`samples/examples/`](samples/examples/).
 
 Important documents:
 
@@ -122,8 +122,8 @@ Important documents:
 - [Provider endpoint surfaces](spec/endpoints/provider-surfaces.md)
 - [Language support and parity](spec/compatibility/language-status.md)
 - [Shared machine-readable contracts and validation assets](specs/001-openai-endpoint-exposure/contracts/)
-- Hosting an MCP server: [`docs/mcp-server-hosting.md`](docs/mcp-server-hosting.md)
-- Cross-language parity status: [`docs/parity-status.md`](docs/parity-status.md)
+- Hosting an MCP server: [`doc/users/mcp-server-hosting.md`](doc/users/mcp-server-hosting.md)
+- Cross-language parity status: [`doc/contributors/parity-status.md`](doc/contributors/parity-status.md)
 
 ## Quickstart for contributors
 
@@ -131,10 +131,10 @@ The repository is multi-language. The commands below are the currently documente
 
 ### Install the local Python quickstart
 
-From [`docs/examples/python-fastapi-quickstart/README.md`](docs/examples/python-fastapi-quickstart/README.md):
+From [`samples/examples/python-fastapi-quickstart/README.md`](samples/examples/python-fastapi-quickstart/README.md):
 
 ```powershell
-cd docs/examples/python-fastapi-quickstart
+cd samples/examples/python-fastapi-quickstart
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
@@ -150,10 +150,10 @@ DOTNET_CLI_HOME=/mnt/c/devel/ai-enterprise-agent-runtime dotnet test tests/dotne
 
 ### Start the local Python endpoint
 
-From [`docs/examples/python-fastapi-quickstart/README.md`](docs/examples/python-fastapi-quickstart/README.md):
+From [`samples/examples/python-fastapi-quickstart/README.md`](samples/examples/python-fastapi-quickstart/README.md):
 
 ```powershell
-cd docs/examples/python-fastapi-quickstart
+cd samples/examples/python-fastapi-quickstart
 uvicorn app:app --reload --port 8000
 ```
 

@@ -112,7 +112,7 @@ Basic, Kerberos, mutual TLS: implement `Authenticator` and pass it to
 `AuthenticationPolicy.of(...)`. No change to the library, and the library's own test
 suite proves it by running a Basic authenticator written entirely outside it.
 
-See [docs/mcp-server-hosting.md](../../mcp-server-hosting.md).
+See [MCP server hosting](../../../doc/users/mcp-server-hosting.md).
 
 ## The mistake this saves you from
 

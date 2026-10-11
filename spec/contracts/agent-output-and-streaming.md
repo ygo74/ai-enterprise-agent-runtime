@@ -55,7 +55,7 @@ requires genuine input and output usage in its response and before visible
 stream content. The runtime does not invent a zero-usage baseline after model
 execution or buffer content to hide missing usage. OpenAI surfaces can represent
 some responses without usage. Exact content support is maintained in the
-[Python typed output guide](../../docs/python/typed-outputs.md).
+[Python typed output guide](../../doc/python/typed-outputs.md).
 
 ## Acceptance and limits
 

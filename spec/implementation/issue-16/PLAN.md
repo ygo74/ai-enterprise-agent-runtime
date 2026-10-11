@@ -124,7 +124,7 @@ declarations and ensure those declarations remain type-correct.
 **Fichiers/composants :**
 
 - Audit concrete Python classes in `packages/python/`,
-  `tests/integration/python/`, and `docs/examples/` against runtime
+  `tests/integration/python/`, and `samples/examples/` against runtime
   `typing.Protocol` definitions.
 - Update only concrete implementations found to rely on structural conformance
   without declaring the runtime protocol in their class bases.
@@ -157,8 +157,8 @@ clear migration path from direct endpoint registration.
 
 **Fichiers/composants :**
 
-- `docs/python/agent-runtime.md`
-- `docs/examples/python-fastapi-quickstart/app.py` and its README, as needed
+- `doc/python/agent-runtime.md`
+- `samples/examples/python-fastapi-quickstart/app.py` and its README, as needed
 - `tests/integration/python/test_fastapi_hosting_factory.py`
 
 **Modifications :**
@@ -191,8 +191,8 @@ the change for review.
 **Fichiers/composants :**
 
 - All implementation, test, protocol declaration, and documentation changes
-- `docs/tasks/issue-16/SPEC.md`
-- `docs/tasks/issue-16/PLAN.md`
+- `spec/implementation/issue-16/SPEC.md`
+- `spec/implementation/issue-16/PLAN.md`
 
 **Modifications :**
 

@@ -73,11 +73,15 @@ language support document records current parity limits.
 ## Sources of behavior
 
 The implementation and integration tests define what the runtime does. The
-main package entry points are under `packages/`; current usage guides are under
-`docs/`; behavior tests are under `tests/`. This specification summarizes those
+main package entry points are under `packages/`; current guides are under
+`doc/`; runnable samples are under `samples/`; behavior tests are under
+`tests/`. This specification summarizes those
 sources and calls out incomplete or language-specific areas rather than treating
 design intent as implemented behavior.
 
-Task-specific design records remain under `docs/tasks/`. The older Speckit
-feature directory under `specs/` is separate from this consolidated system
-specification.
+Task-specific design records remain under
+[`spec/implementation/`](implementation/README.md). Keep each issue's SPEC and
+PLAN there while work is active; consolidate durable behavior into the relevant
+domain pages in `spec/` without removing the issue tracking record. The active
+Speckit feature directory under `specs/` remains separate from this consolidated
+system specification.

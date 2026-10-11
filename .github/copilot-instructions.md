@@ -6,4 +6,4 @@ at specs/001-openai-endpoint-exposure/plan.md
 
 When a Python change affects public behavior, APIs, configuration, dependencies,
 or supported workflows, update the corresponding user documentation and runnable
-examples. Use `docs/python/README.md` as the Python documentation entry point.
+examples. Use `doc/python/README.md` as the Python documentation entry point.

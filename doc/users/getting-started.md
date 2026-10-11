@@ -13,7 +13,7 @@ it does not need an AI provider account or an API key.
 Run these commands from the repository root:
 
 ```bash
-cd docs/examples/python-fastapi-quickstart
+cd samples/examples/python-fastapi-quickstart
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
@@ -45,6 +45,6 @@ install `ygo74-agent-runtime-agents[http]`. Add
 `ygo74-agent-runtime-agentframework` only when the application uses that
 framework adapter. Use `ygo74-agent-runtime-mcp` to host an MCP server.
 
-See the [package selection table](../../docs/python/installation.md) before
-deploying. The [quickstart guide](../../docs/python/quickstart.md) explains the
+See the [package selection table](../../doc/python/installation.md) before
+deploying. The [quickstart guide](../../doc/python/quickstart.md) explains the
 handler contract and the other endpoint surfaces.

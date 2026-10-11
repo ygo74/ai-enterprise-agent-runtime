@@ -46,7 +46,7 @@ The agent uses the Microsoft Learn MCP tool at
 ## Install
 
 ```powershell
-cd docs/examples/python-langchain-fastapi/01-get-started
+cd samples/examples/python-langchain-fastapi/01-get-started
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -114,7 +114,7 @@ Invoke-RestMethod -Method Post `
 Run the same native agent through runtime endpoints:
 
 ```powershell
-# From docs/examples/python-langchain-fastapi/01-get-started
+# From samples/examples/python-langchain-fastapi/01-get-started
 python -m uvicorn openai_responses_app:app --reload --port 8001
 ```
 
@@ -149,7 +149,7 @@ Use the Python client below to test this endpoint with both SDKs:
 Run all checks (default):
 
 ```powershell
-# From docs/examples/python-langchain-fastapi/01-get-started
+# From samples/examples/python-langchain-fastapi/01-get-started
 python sdk_compat_client.py --base-url http://127.0.0.1:8001
 ```
 

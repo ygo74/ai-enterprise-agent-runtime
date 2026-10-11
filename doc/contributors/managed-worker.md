@@ -66,4 +66,4 @@ Tests: [native agent definition](../../tests/integration/python/test_native_agen
 and [native worker](../../tests/integration/python/test_native_worker.py).
 
 See the [managed worker specification](../../spec/endpoints/managed-agent-worker.md)
-and [native agent guide](../../docs/python/native-agents.md).
+and [native agent guide](../../doc/python/native-agents.md).

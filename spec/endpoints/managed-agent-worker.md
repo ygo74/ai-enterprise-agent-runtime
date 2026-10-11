@@ -75,4 +75,4 @@ in the [Agent Framework integration](../integrations/agent-framework.md) and
 [LangChain/LangGraph integration](../integrations/langchain-langgraph.md)
 specifications. The Python implementation is in
 [`managed_worker.py`](../../packages/python/agents/ygo74/agent_runtime/domains/endpoints/managed_worker.py)
-and the [native worker guide](../../docs/python/native-agents.md).
+and the [native worker guide](../../doc/python/native-agents.md).

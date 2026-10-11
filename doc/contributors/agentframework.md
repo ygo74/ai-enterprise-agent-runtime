@@ -38,4 +38,4 @@ Tests: [binding](../../tests/integration/python/test_agentframework_binding.py),
 and [native worker](../../tests/integration/python/test_native_worker.py).
 
 See the [Agent Framework specification](../../spec/integrations/agent-framework.md)
-and [public guide](../../docs/python/agentframework.md).
+and [public guide](../../doc/python/agentframework.md).

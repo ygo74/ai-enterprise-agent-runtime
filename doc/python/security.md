@@ -88,9 +88,9 @@ signatures. `JwtValidationConfig` also supports
 `leeway_seconds` for clock skew; its default required claim is `sub`. Set
 `required_claims`, `issuer`, `audience`, and `allowed_algorithms` to match the
 token contract you intend to accept. The runnable
-[JWT example](../examples/python-fastapi-quickstart/02-jwt-authentication/README.md)
+[JWT example](../../samples/examples/python-fastapi-quickstart/02-jwt-authentication/README.md)
 uses a local HS256 key; the
-[OIDC/Keycloak example](../examples/python-fastapi-quickstart/03-jwt-oidc-keycloak/README.md)
+[OIDC/Keycloak example](../../samples/examples/python-fastapi-quickstart/03-jwt-oidc-keycloak/README.md)
 shows asymmetric JWKS validation and role projection.
 
 ### API keys
@@ -130,7 +130,7 @@ add_ai_endpoints(
 reads `x-api-key` by default. It can also read a named
 scheme from a selected header. Keep key storage, rotation, revocation, and the
 resolver's lookup behavior in the application. See the
-[authorization walkthrough](../examples/python-langchain-fastapi/authorization.md)
+[authorization walkthrough](../../samples/examples/python-langchain-fastapi/authorization.md)
 for the complete API-key extension point.
 
 ### Combining or extending authenticators
@@ -308,7 +308,7 @@ needs a public resource URL and an issuer. The host takes its signing algorithm
 allowlist from `JwtValidationConfig`, so configure an asymmetric algorithm
 allowlist for this resource-server use. MCP caller authentication does not
 itself authorize access to the resources used by a tool. See the
-[MCP server hosting guide](../mcp-server-hosting.md) for protected-resource
+[MCP server hosting guide](../users/mcp-server-hosting.md) for protected-resource
 metadata, HTTP transport setup, health endpoints, and complete configurations.
 
 ## Application security building blocks
@@ -446,14 +446,14 @@ prevent prompt injection, guarantee that a model will follow the boundary, or
 block a tool call or other side effect. Keep deterministic permission checks,
 validation, confirmation, and downstream system authorization around operations
 with consequences. The
-[human-in-the-loop walkthrough](../examples/python-langchain-fastapi/04-human-in-the-loop/README.md)
+[human-in-the-loop walkthrough](../../samples/examples/python-langchain-fastapi/04-human-in-the-loop/README.md)
 shows a confirmation flow spanning requests; it is an example of application
 composition rather than automatic enforcement by the fence.
 
 The primitives in this section do not currently have a standalone runnable
 example covering permission registries, audit trails, security floors, or
 prompt fencing individually. The
-[authorization walkthrough](../examples/python-langchain-fastapi/authorization.md)
+[authorization walkthrough](../../samples/examples/python-langchain-fastapi/authorization.md)
 demonstrates the HTTP adapter authorization hooks, while the
-[human-in-the-loop example](../examples/python-langchain-fastapi/04-human-in-the-loop/README.md)
+[human-in-the-loop example](../../samples/examples/python-langchain-fastapi/04-human-in-the-loop/README.md)
 demonstrates operation classification and confirmation in an agent flow.

@@ -63,7 +63,7 @@ behave consistently across languages where an adapter exists. Provider wire
 envelopes and HTTP status mapping remain adapter-specific. Language-only
 capabilities and missing framework adapters are recorded in the [language
 support matrix](../compatibility/language-status.md) and detailed [parity
-status](../../docs/parity-status.md).
+status](../../doc/contributors/parity-status.md).
 
 The repository's validation layers include shared JSON contract fixtures,
 language-specific unit and integration tests, cross-language parity checks,

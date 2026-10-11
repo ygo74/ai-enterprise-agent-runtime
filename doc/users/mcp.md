@@ -28,7 +28,7 @@ python -m pip install ygo74-agent-runtime-mcp 'mcp>=1.24,<2'
 
 ## Check an MCP server's authentication
 
-The repository's [MCP server example](../../docs/examples/python-mcp-server/README.md)
+The repository's [MCP server example](../../samples/examples/python-mcp-server/README.md)
 listens on `127.0.0.1:9300`. From its folder, install `requirements.txt`, then
 start it in API-key mode:
 
@@ -62,5 +62,5 @@ authentication settings, and remote tool name. Keep tokens in environment
 variables or a secret manager. The agent should expose only the capabilities it
 needs, and the server should enforce its own authorization.
 
-See [MCP client bindings and server hosting](../../docs/python/mcp.md) for
+See [MCP client bindings and server hosting](../../doc/python/mcp.md) for
 configuration fields, OAuth support, lifecycle rules, and the server host API.

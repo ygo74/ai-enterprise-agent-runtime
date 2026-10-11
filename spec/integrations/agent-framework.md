@@ -82,8 +82,8 @@ If admission is missing or fails, the worker refuses to create that conversation
 - The integration is Python-only; .NET and Java output integrations remain
   pending.
 
-The [Microsoft Agent Framework guide](../../docs/python/agentframework.md) and
-[native-agent guide](../../docs/python/native-agents.md) show the public APIs.
+The [Microsoft Agent Framework guide](../../doc/python/agentframework.md) and
+[native-agent guide](../../doc/python/native-agents.md) show the public APIs.
 The implementation is under
 [`integrations/agentframework`](../../packages/python/agentframework/ygo74/agent_runtime/integrations/agentframework/);
 the integration coverage includes

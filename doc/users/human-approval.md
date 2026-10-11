@@ -10,7 +10,7 @@ Requirements: Python 3.12+, an OpenAI API key, and access to the Microsoft Learn
 MCP service. From the repository root, run:
 
 ```bash
-cd docs/examples/python-langchain-fastapi/04-human-in-the-loop
+cd samples/examples/python-langchain-fastapi/04-human-in-the-loop
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
@@ -55,5 +55,5 @@ This example stores tickets and graph checkpoints in memory. It is a single
 process demonstration; a multi-worker deployment needs shared atomic ticket
 storage and durable or shared graph state. Streaming is disabled because this
 approval flow finishes one request before continuing in another. See
-[Human-in-the-loop approval](../../docs/python/human-in-the-loop.md) for the
+[Human-in-the-loop approval](../../doc/python/human-in-the-loop.md) for the
 policy and storage contracts.

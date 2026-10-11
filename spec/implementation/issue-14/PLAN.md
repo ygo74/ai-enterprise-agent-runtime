@@ -34,8 +34,8 @@ smallest suitable distribution and optional extras.
 
 **Fichiers/composants :**
 
-- `docs/python/README.md` (new landing page and documentation map)
-- `docs/python/installation.md` (new package selection and installation guide)
+- `doc/python/README.md` (new landing page and documentation map)
+- `doc/python/installation.md` (new package selection and installation guide)
 - Reference only: `packages/python/{meta,agents,security,mcpserver}/pyproject.toml`
 
 **Modifications :**
@@ -63,10 +63,10 @@ request handling through discovery and operational extensions.
 
 **Fichiers/composants :**
 
-- `docs/python/quickstart.md` (new end-to-end path linked to a runnable example)
-- `docs/python/agent-runtime.md` (new capability and key API guide)
-- `docs/examples/python-fastapi-quickstart/` (new local echo example)
-- Reference/update as needed: `docs/examples/python-langchain-fastapi/README.md`
+- `doc/python/quickstart.md` (new end-to-end path linked to a runnable example)
+- `doc/python/agent-runtime.md` (new capability and key API guide)
+- `samples/examples/python-fastapi-quickstart/` (new local echo example)
+- Reference/update as needed: `samples/examples/python-langchain-fastapi/README.md`
   and the existing `01-get-started` / `04-human-in-the-loop` examples
 - Reference only: Python `configuration`, `contracts`, `endpoints`, `handlers`,
   `routing`, `middleware`, `discovery`, `sessions`, `humanapproval`, and
@@ -110,12 +110,12 @@ without duplicating the existing detailed hosting walkthroughs.
 
 **Fichiers/composants :**
 
-- `docs/python/security.md` (new package and authentication/security guide)
-- `docs/python/mcp.md` (new MCP client/server guide)
-- References: `docs/examples/python-langchain-fastapi/authorization.md`,
-  `docs/examples/python-langchain-fastapi/02-jwt-authentication/`,
-  `docs/examples/python-langchain-fastapi/03-jwt-oidc-keycloak/`,
-  `docs/examples/python-mcp-server/README.md`, and `docs/mcp-server-hosting.md`
+- `doc/python/security.md` (new package and authentication/security guide)
+- `doc/python/mcp.md` (new MCP client/server guide)
+- References: `samples/examples/python-langchain-fastapi/authorization.md`,
+  `samples/examples/python-langchain-fastapi/02-jwt-authentication/`,
+  `samples/examples/python-langchain-fastapi/03-jwt-oidc-keycloak/`,
+  `samples/examples/python-mcp-server/README.md`, and `doc/users/mcp-server-hosting.md`
 - Reference only: `packages/python/security/` and the Python `mcp` and
   `mcpserver` domains
 
@@ -151,8 +151,8 @@ change workflow.
 **Fichiers/composants :**
 
 - `README.md`
-- `docs/examples/README.md`
-- `docs/examples/python-langchain-fastapi/README.md`
+- `samples/examples/README.md`
+- `samples/examples/python-langchain-fastapi/README.md`
 - `AGENTS.md`
 - `.github/copilot-instructions.md`
 - `.gitignore` (allow safe, tracked `.env.sample` templates under the existing
@@ -165,7 +165,7 @@ change workflow.
 - Add a concise instruction in both agent guidance entry points to update
   Python user docs and the related runnable examples whenever public Python
   behavior, APIs, configuration, dependencies, or supported workflows change.
-- Point to `docs/python/README.md` as the current documentation source instead
+- Point to `doc/python/README.md` as the current documentation source instead
   of copying documentation requirements or feature details into the agent
   instructions.
 
@@ -183,7 +183,7 @@ and accurately tied to examples and current implementation.
 **Fichiers/composants :**
 
 - All files created or changed in Steps 1–4
-- `docs/tasks/issue-14/SPEC.md` and `docs/tasks/issue-14/PLAN.md`
+- `spec/implementation/issue-14/SPEC.md` and `spec/implementation/issue-14/PLAN.md`
 
 **Modifications :**
 
@@ -216,11 +216,11 @@ agent and making it discoverable through OpenAI's model-listing endpoints.
 
 **Fichiers/composants :**
 
-- `docs/python/agent-discovery.md` (new canonical topic page)
-- `docs/python/README.md` (add the topic to the guide index)
-- `docs/python/agent-runtime.md` (replace the brief discovery summary with a
+- `doc/python/agent-discovery.md` (new canonical topic page)
+- `doc/python/README.md` (add the topic to the guide index)
+- `doc/python/agent-runtime.md` (replace the brief discovery summary with a
   link to the detailed topic)
-- `docs/examples/python-langchain-fastapi/agent-descriptor.md` (retain this
+- `samples/examples/python-langchain-fastapi/agent-descriptor.md` (retain this
   existing path as a short pointer to the canonical topic)
 - Reference only: `AgentDescriptor`, `AgentCapabilitySet`, `AgentSkill`,
   `DescriptorRegistry`, `DiscoveryConfiguration`, `add_ai_endpoints`,
@@ -288,15 +288,15 @@ already shipped by the Python runtime.
 
 **Fichiers/composants :**
 
-- `docs/python/security.md` (expand the canonical security topic page)
-- `docs/python/README.md` (describe the expanded security guide)
+- `doc/python/security.md` (expand the canonical security topic page)
+- `doc/python/README.md` (describe the expanded security guide)
 - Reference only: FastAPI authentication and header forwarding, auth context,
   JWT/API-key/custom authenticators, `AuthenticationPolicy`, agent access
   policy, permission and security domain primitives, and their integration
   tests.
-- Existing walkthroughs: `docs/examples/python-langchain-fastapi/authorization.md`,
+- Existing walkthroughs: `samples/examples/python-langchain-fastapi/authorization.md`,
   `02-jwt-authentication/`, `03-jwt-oidc-keycloak/`,
-  `04-human-in-the-loop/README.md`, and `docs/mcp-server-hosting.md`.
+  `04-human-in-the-loop/README.md`, and `doc/users/mcp-server-hosting.md`.
 
 **Modifications :**
 
@@ -332,7 +332,7 @@ already shipped by the Python runtime.
   integration tests.
 - Check the JWT and Keycloak walkthrough prerequisites, configuration names,
   and commands against their app/source files and README instructions; check
-  the MCP reference against `docs/mcp-server-hosting.md`.
+  the MCP reference against `doc/users/mcp-server-hosting.md`.
 - Check local Markdown links and code-block syntax, and run `git diff --check`.
 - Do not modify or run runtime tests and do not claim the external JWT/OIDC or
   MCP example was smoke-tested; this step expands docs and links existing
@@ -350,7 +350,7 @@ already shipped by the Python runtime.
 - The domain security primitives are described with their enforcement limits,
   and the page does not claim that they implement a complete RBAC system or
   automatically enforce application permissions.
-- `docs/python/security.md` remains the single central security topic page;
+- `doc/python/security.md` remains the single central security topic page;
   examples remain linked as focused walkthroughs rather than duplicated.
 
 **État :** The canonical security guide and its landing-page summary are
@@ -369,14 +369,14 @@ and an approval resumed through a later HTTP request.
 
 **Fichiers/composants :**
 
-- `docs/python/human-in-the-loop.md` (new canonical topic page)
-- `docs/python/README.md` (index the topic)
-- `docs/python/agent-runtime.md` (replace the brief approval overview with a
+- `doc/python/human-in-the-loop.md` (new canonical topic page)
+- `doc/python/README.md` (index the topic)
+- `doc/python/agent-runtime.md` (replace the brief approval overview with a
   link to the topic page)
 - Reference only: `humanapproval` policy, authority, broker, gate, ledger,
   operation runner, tickets, command parser, renderer, and the security
   operation/permission/audit types used by them.
-- Existing workflow: `docs/examples/python-langchain-fastapi/04-human-in-the-loop/`
+- Existing workflow: `samples/examples/python-langchain-fastapi/04-human-in-the-loop/`
   and `tests/integration/python/test_human_approval.py`.
 
 **Modifications :**
@@ -394,7 +394,7 @@ and an approval resumed through a later HTTP request.
 - Explain `ConfirmationRequest` / `ConfirmationDecision`, `ConfirmationGate`,
   and `GatedOperationRunner`: permission enforcement, same-user and
   same-request checks, expected refusal errors, and the four audit outcomes.
-  Link back to `docs/python/security.md` for general treatment of permissions,
+  Link back to `doc/python/security.md` for general treatment of permissions,
   security floors, operation descriptors, and audit records.
 - Distinguish the broker/ledger authority path from the HTTP ticket pattern.
   Explain the `ConfirmationAuthority`, `ConfirmationBroker`,
@@ -521,19 +521,19 @@ scope before including any runtime changes.
 
 ## Décisions techniques
 
-- Place user-facing Python documentation under `docs/python/`, with one landing
+- Place user-facing Python documentation under `doc/python/`, with one landing
   page and focused installation, quickstart, agent runtime, security, and MCP
   guides.
 - Place the detailed agent descriptor/model discovery guidance at
-  `docs/python/agent-discovery.md`; keep the current example-level path as a
+  `doc/python/agent-discovery.md`; keep the current example-level path as a
   compatibility pointer and link to it from the central docs.
 - Document both `add_ai_endpoints` (combined endpoint registration) and
   `add_discovery_endpoints` (direct model discovery registration) because both
   are existing supported FastAPI integration paths.
-- Keep `docs/python/security.md` as the canonical security guide and preserve
+- Keep `doc/python/security.md` as the canonical security guide and preserve
   the example-specific JWT, OIDC, authorization, MCP, and human-approval pages
   as linked walkthroughs.
-- Add `docs/python/human-in-the-loop.md` as the canonical approval topic and
+- Add `doc/python/human-in-the-loop.md` as the canonical approval topic and
   preserve `04-human-in-the-loop/README.md` as the detailed LangGraph walkthrough.
 - Reuse and link to current examples and contracts; only revise example files
   when necessary to correct or complete a documented path.

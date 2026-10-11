@@ -56,6 +56,6 @@ declared skill resolves to a delivered package and implementation, every
 permission resolves in the application registry, and every operation meets the
 security floor. Configuration loading does not require FastAPI or the MCP SDK.
 
-See the [configuration guide](../../docs/python/agent-runtime.md#delivered-agent-configuration),
+See the [configuration guide](../../doc/python/agent-runtime.md#delivered-agent-configuration),
 the [`configuration` package](../../packages/python/agents/ygo74/agent_runtime/domains/configuration/),
 and [`test_manifest_configuration_schemas.py`](../../tests/integration/python/test_manifest_configuration_schemas.py).

@@ -5,7 +5,7 @@ uses FastAPI and LangChain directly; the other uses the runtime. Compare them to
 see which agent code stays and which hosting code the runtime takes over.
 
 For package selection, installation, and an overview of the Python runtime, see
-the [Python library documentation](../../python/README.md).
+the [Python library documentation](../../../doc/python/README.md).
 
 ## Available examples
 

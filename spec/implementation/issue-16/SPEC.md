@@ -107,7 +107,7 @@ surfaces, configure security, and configure discovery.
 - Concrete Python implementations and their tests wherever they implement a
   protocol defined by this runtime.
 - `tests/integration/python/` and Python package-level contract/type checks.
-- `docs/python/agent-runtime.md` and the relevant runnable FastAPI example.
+- `doc/python/agent-runtime.md` and the relevant runnable FastAPI example.
 
 ## Contraintes
 

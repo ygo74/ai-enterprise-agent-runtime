@@ -4,7 +4,7 @@
 
 For the Python output amendment, return a typed `AgentOutput` or an asynchronous
 stream of typed events, not legacy strings/dictionaries/native Responses events.
-Use the updated [Python documentation](../../docs/python/README.md) and runnable
+Use the updated [Python documentation](../../doc/python/README.md) and runnable
 examples as the API reference.
 
 Exercise the same output through all three endpoints, with and without streaming.

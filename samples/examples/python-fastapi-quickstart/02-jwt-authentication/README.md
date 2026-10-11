@@ -28,7 +28,7 @@ Implemented checks:
 ## Install
 
 ```powershell
-cd docs/examples/python-fastapi-quickstart/02-jwt-authentication
+cd samples/examples/python-fastapi-quickstart/02-jwt-authentication
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt

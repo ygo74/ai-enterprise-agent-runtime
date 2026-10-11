@@ -39,7 +39,7 @@ entrypoint is a small adapter around the existing application code.
 ## Install
 
 ```powershell
-cd docs/examples/python-langchain-fastapi/05-rag
+cd samples/examples/python-langchain-fastapi/05-rag
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt

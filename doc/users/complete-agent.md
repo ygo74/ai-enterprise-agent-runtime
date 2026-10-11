@@ -7,7 +7,7 @@ the user's question to Microsoft's public Microsoft Learn MCP service, so the
 example asks for permission before sending it.
 
 The runnable source is
-[`04-human-in-the-loop`](../../docs/examples/python-langchain-fastapi/04-human-in-the-loop/README.md).
+[`04-human-in-the-loop`](../../samples/examples/python-langchain-fastapi/04-human-in-the-loop/README.md).
 Use that folder as the source of truth if package versions or code change.
 
 ## What this example includes
@@ -27,7 +27,7 @@ Use that folder as the source of truth if package versions or code change.
 
 This example uses `add_ai_endpoints` rather than the newer managed LangGraph
 worker. The managed worker is demonstrated separately by the
-[offline native LangGraph example](../../docs/examples/python-langchain-fastapi/06-native-langgraph/README.md);
+[offline native LangGraph example](../../samples/examples/python-langchain-fastapi/06-native-langgraph/README.md);
 that example has no tools or approval flow. Do not combine the two examples by
 assuming they share the same application setup.
 
@@ -49,7 +49,7 @@ turn state. The MCP search service and model provider are external requirements.
 Run from the repository root:
 
 ```bash
-cd docs/examples/python-langchain-fastapi/04-human-in-the-loop
+cd samples/examples/python-langchain-fastapi/04-human-in-the-loop
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt

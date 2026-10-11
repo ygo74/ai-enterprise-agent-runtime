@@ -17,7 +17,7 @@ configuration, and API names.
 - Maintain `doc/users/README.md` as the index when adding pages.
 - Keep contributor architecture in `doc/contributors/` and feature rationale
   in `spec/`; link to those pages instead of mixing audiences.
-- Keep runnable examples under `doc/examples/` when the repository has no more
+- Keep runnable examples under `samples/examples/` when the repository has no more
   specific example convention. Link each example from its domain page.
 
 ## Domain pages and examples

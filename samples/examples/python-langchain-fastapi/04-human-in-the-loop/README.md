@@ -115,7 +115,7 @@ Use Python 3.12 or newer. The example calls OpenAI and Microsoft's public
 Microsoft Learn MCP service, so configure a working OpenAI API key.
 
 ```powershell
-cd docs/examples/python-langchain-fastapi/04-human-in-the-loop
+cd samples/examples/python-langchain-fastapi/04-human-in-the-loop
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements-developer.txt

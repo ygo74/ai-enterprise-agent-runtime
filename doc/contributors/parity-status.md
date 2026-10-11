@@ -18,7 +18,7 @@ Framework Python distributions adapt their SDK outputs without core dependencies
 on either framework.
 
 .NET and Java implementation is pending. It must preserve the versioned
-[typed output contract](../specs/001-openai-endpoint-exposure/contracts/typed-output-contract.md),
+[typed output contract](../../specs/001-openai-endpoint-exposure/contracts/typed-output-contract.md),
 including protocol-specific filtering diagnostics, notification exclusion in
 non-streaming results, content correlation, errors and stream cleanup.
 The historical v1 runtime/tests do not establish v2 parity. Task T199 in the
@@ -37,9 +37,9 @@ credential policy and concrete dialects in `ai_agents`.
 The MCP client continues to require the optional
 `ygo74-agent-runtime-agents[mcp]` extra. These APIs have no .NET or Java
 implementation yet. Equivalent implementations must preserve the Python
-behavior contracts documented in [`agent-runtime.md`](python/agent-runtime.md),
-[`human-in-the-loop.md`](python/human-in-the-loop.md), and
-[`mcp.md`](python/mcp.md), including confirmation ordering, bounded fail-closed
+behavior contracts documented in [`agent-runtime.md`](../python/agent-runtime.md),
+[`human-in-the-loop.md`](../python/human-in-the-loop.md), and
+[`mcp.md`](../python/mcp.md), including confirmation ordering, bounded fail-closed
 cleanup, connection lifecycle, header secrecy and application-owned policy.
 
 ## 2026-09-12 — capabilities adopted from the AI Agent Lab
@@ -260,7 +260,7 @@ incomplete, it is wrong.
   here. LangGraph's interrupts, Microsoft Agent Framework's approval mode and
   whatever comes next are each that framework's business; a library that knew
   would have to know all of them. See
-  `docs/examples/python-langchain-fastapi/04-human-in-the-loop` for what such a
+  `samples/examples/python-langchain-fastapi/04-human-in-the-loop` for what such a
   bridge looks like.
 - `domains.sessions` and `domains.mcp` are **Python-first for a stronger reason**
   than the rest: the first is built on `asyncio` primitives and the second on the

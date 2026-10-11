@@ -10,7 +10,7 @@ From the repository root, install the integration into an isolated environment
 with the example's requirements:
 
 ```bash
-cd docs/examples/python-langchain-fastapi/01-get-started
+cd samples/examples/python-langchain-fastapi/01-get-started
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
@@ -29,23 +29,23 @@ Invoke-RestMethod -Method Post `
 
 The example returns a Responses API result containing the agent's architecture
 answer. It calls the Microsoft Learn MCP service when research is needed. See the
-[LangChain guide](../../docs/python/langchain.md) for supported adapters and
+[LangChain guide](../../doc/python/langchain.md) for supported adapters and
 event conversion.
 
 ## Microsoft Agent Framework
 
 The Microsoft Agent Framework example is in
-[`docs/examples/python-agentframework-fastapi/`](../../docs/examples/python-agentframework-fastapi/).
+[`samples/examples/python-agentframework-fastapi/`](../../samples/examples/python-agentframework-fastapi/).
 Its README explains setup and the API call. The example adapts SDK response and
 stream updates to neutral runtime outputs; install the framework adapter only
 when using this SDK. See the
-[Agent Framework guide](../../docs/python/agentframework.md) for the supported
+[Agent Framework guide](../../doc/python/agentframework.md) for the supported
 types and limitations.
 
 ## Native LangGraph worker
 
 The runtime can also host a trusted native LangGraph factory through its managed
-worker. The [offline worker example](../../docs/examples/python-langchain-fastapi/06-native-langgraph/README.md)
+worker. The [offline worker example](../../samples/examples/python-langchain-fastapi/06-native-langgraph/README.md)
 uses a deterministic fake model, so it needs no provider credentials. It has no
 tools; a graph with tools needs an explicit admission hook. The worker handles
 authentication, discovery, readiness, conversation cache, and shutdown.

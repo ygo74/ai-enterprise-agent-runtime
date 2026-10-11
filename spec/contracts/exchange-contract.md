@@ -42,7 +42,7 @@ of the invoking protocol. Raw dictionaries/strings and native Responses output
 items are not alternate output contracts. .NET/Java retain historical v1.
 See the current [agent output and streaming specification](agent-output-and-streaming.md),
 the [versioned typed output contract](../../specs/001-openai-endpoint-exposure/contracts/typed-output-contract.md),
-and [migration guide](../../docs/python/typed-outputs.md).
+and [migration guide](../../doc/python/typed-outputs.md).
 
 ## Errors
 

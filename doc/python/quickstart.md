@@ -11,10 +11,10 @@ mapping without requiring an LLM key or an external service.
 
 ## Run the example
 
-Follow the [quickstart example README](../examples/python-fastapi-quickstart/README.md):
+Follow the [quickstart example README](../../samples/examples/python-fastapi-quickstart/README.md):
 
 ```bash
-cd docs/examples/python-fastapi-quickstart
+cd samples/examples/python-fastapi-quickstart
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
@@ -48,6 +48,6 @@ Raw output strings/dictionaries and native OpenAI stream events were removed in
 agents 1.0. See [typed outputs and migration](typed-outputs.md) before adapting
 an older handler.
 
-This quickstart is deliberately minimal. See the [LangChain + FastAPI examples](../examples/python-langchain-fastapi/README.md)
+This quickstart is deliberately minimal. See the [LangChain + FastAPI examples](../../samples/examples/python-langchain-fastapi/README.md)
 for a real agent with an external LLM and MCP tool, JWT and OIDC authentication,
 agent discovery, and human approval.

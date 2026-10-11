@@ -41,4 +41,4 @@ Tests: [manifest configuration schemas](../../tests/integration/python/test_mani
 and [descriptor validation](../../tests/integration/python/test_descriptor_validation.py).
 
 See the [manifest specification](../../spec/configuration/agent-manifests.md)
-and [Python configuration guide](../../docs/python/README.md).
+and [Python configuration guide](../../doc/python/README.md).

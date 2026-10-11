@@ -363,7 +363,7 @@ visibility and invocation must depend on the authenticated caller. With the
 combined `add_ai_endpoints` setup, pass it as `authorization_policy`; that
 policy filters discovery and gates invocation. With separate registration,
 pass the same policy as `authorization_policy` to `add_ai_endpoints` and as
-`access_policy` to `add_discovery_endpoints`. See the [authorization guide](../examples/python-langchain-fastapi/authorization.md)
+`access_policy` to `add_discovery_endpoints`. See the [authorization guide](../../samples/examples/python-langchain-fastapi/authorization.md)
 for a fuller access-control walkthrough.
 
 The list and detail responses contain public metadata. Keep private details in
@@ -372,9 +372,9 @@ or `metadata`.
 
 ## Runnable example and references
 
-The [LangChain + FastAPI example](../examples/python-langchain-fastapi/01-get-started/README.md)
+The [LangChain + FastAPI example](../../samples/examples/python-langchain-fastapi/01-get-started/README.md)
 declares a descriptor in
-[`openai_responses_app.py`](../examples/python-langchain-fastapi/01-get-started/openai_responses_app.py)
+[`openai_responses_app.py`](../../samples/examples/python-langchain-fastapi/01-get-started/openai_responses_app.py)
 and enables model discovery. It requires the prerequisites listed in that
 example, including an OpenAI API key. The model-listing request itself does not
 call the model provider.
@@ -383,8 +383,8 @@ call the model provider.
 - [Agent catalog specification](../../spec/discovery/agent-catalog.md)
 - [Agent descriptor schema](../../specs/001-openai-endpoint-exposure/contracts/agent-descriptor-v1.schema.json)
 - [Endpoint surface specification](../../spec/endpoints/provider-surfaces.md)
-- [Configuration walkthrough](../examples/python-langchain-fastapi/configuration.md)
-- [Authorization walkthrough](../examples/python-langchain-fastapi/authorization.md)
+- [Configuration walkthrough](../../samples/examples/python-langchain-fastapi/configuration.md)
+- [Authorization walkthrough](../../samples/examples/python-langchain-fastapi/authorization.md)
 - [Python implementation: descriptor](../../packages/python/agents/ygo74/agent_runtime/domains/discovery/agent_descriptor.py)
 - [Python implementation: descriptor defaults](../../packages/python/agents/ygo74/agent_runtime/domains/discovery/descriptor_defaults.py)
 - [Python implementation: descriptor registry](../../packages/python/agents/ygo74/agent_runtime/domains/discovery/descriptor_registry.py)

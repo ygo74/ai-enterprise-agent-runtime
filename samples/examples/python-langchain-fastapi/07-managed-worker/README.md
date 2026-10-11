@@ -27,7 +27,7 @@ or conversation services. For a simpler LangGraph setup, start with
 Use Python 3.12 or newer:
 
 ```shell
-cd docs/examples/python-langchain-fastapi/07-managed-worker
+cd samples/examples/python-langchain-fastapi/07-managed-worker
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-developer.txt

@@ -59,4 +59,4 @@ Tests: [MCP plumbing](../../tests/integration/python/test_mcp_plumbing.py),
 and [MCP server settings](../../tests/integration/python/test_mcp_server_settings.py).
 
 See the [MCP specification](../../spec/mcp/client-and-server.md) and [server
-hosting guide](../../docs/mcp-server-hosting.md).
+hosting guide](../../doc/users/mcp-server-hosting.md).

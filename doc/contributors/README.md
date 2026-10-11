@@ -22,13 +22,17 @@ describes supported behavior and public contracts.
 - [LangChain and LangGraph integration](langchain.md)
 - [Observability](observability.md)
 - [Language parity and validation](parity-validation.md)
+- [Detailed parity status](parity-status.md)
 
 ## Suggested reading path
 
 Start with package boundaries, then read the domain page you plan to change.
 Follow the linked implementation and tests before changing a contract. Shared
 wire formats and schemas are under `specs/`; current system behavior is under
-`spec/`; runnable consumer examples are under `docs/examples/`.
+`spec/`; runnable consumer examples are under `samples/examples/`.
+
+Detailed Python package and integration guides are indexed in
+[`../python/README.md`](../python/README.md).
 
 ## Repository instructions
 

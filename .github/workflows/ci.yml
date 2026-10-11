@@ -98,7 +98,7 @@ jobs:
           python -m pip install -e packages/python/langchain
           python -m pip install -e packages/python/agentframework
           python -m pip install "agent-framework-openai==1.14.2" "openai>=1.99"
-          python -m pip install -r docs/examples/python-langchain-fastapi/01-get-started/requirements.txt -r docs/examples/python-langchain-fastapi/04-human-in-the-loop/requirements.txt -r docs/examples/python-langchain-fastapi/05-rag/requirements.txt
+          python -m pip install -r samples/examples/python-langchain-fastapi/01-get-started/requirements.txt -r samples/examples/python-langchain-fastapi/04-human-in-the-loop/requirements.txt -r samples/examples/python-langchain-fastapi/05-rag/requirements.txt
 
       - name: Lint with Ruff
         run: |
@@ -106,7 +106,7 @@ jobs:
 
       - name: Execute pytest
         run: |
-          python -m pytest tests/ docs/examples/python-agentframework-fastapi/test_agentframework_fastapi_example.py --junitxml=python-test-results.xml
+          python -m pytest tests/ samples/examples/python-agentframework-fastapi/test_agentframework_fastapi_example.py --junitxml=python-test-results.xml
 
       - name: Publish Python Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2

@@ -25,7 +25,7 @@ an application-owned resolver or an identity provider for a deployed service.
 
 For OIDC, configure JWT validation with the issuer, audience, signing key
 resolver, and required claims expected from your identity provider. The
-[Keycloak example](../../docs/examples/python-langchain-fastapi/03-jwt-oidc-keycloak/README.md)
+[Keycloak example](../../samples/examples/python-fastapi-quickstart/03-jwt-oidc-keycloak/README.md)
 shows a local setup. Its development realm and signing keys are for local use,
 not production.
 
@@ -38,6 +38,6 @@ to both invocation and discovery so a caller does not see agents they cannot
 use.
 
 For descriptor fields, route registration, and access policy behavior, see
-[Agent discovery](../../docs/python/agent-discovery.md). Authentication and
+[Agent discovery](../../doc/python/agent-discovery.md). Authentication and
 authorization responsibilities are described in
-[Security](../../docs/python/security.md).
+[Security](../../doc/python/security.md).

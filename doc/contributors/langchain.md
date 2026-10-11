@@ -39,4 +39,4 @@ Tests: [LangChain adapter packaging](../../tests/integration/python/test_langcha
 and [LangGraph worker](../../tests/integration/python/test_langgraph_worker.py).
 
 See the [LangChain/LangGraph specification](../../spec/integrations/langchain-langgraph.md)
-and [public guide](../../docs/python/langchain.md).
+and [public guide](../../doc/python/langchain.md).

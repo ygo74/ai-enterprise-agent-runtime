@@ -107,6 +107,6 @@ authentication, cache, readiness, and shutdown behavior.
   FastAPI. The integration is Python-only; .NET and Java parity is not implied.
 
 The implementation and public API are described in the
-[LangChain user guide](../../docs/python/langchain.md). The source behavior is
+[LangChain user guide](../../doc/python/langchain.md). The source behavior is
 covered by the integration tests under `tests/integration/python/`, including
 `test_langgraph_worker.py` and `test_native_worker.py`.
