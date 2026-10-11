@@ -13,6 +13,26 @@ implementation; `deployment.py` is operator configuration. There is no hidden
 agent-specific handler, SSE loop, registry, confirmation resolver or projector.
 The native agent also runs outside the runtime with `await agent.run(...)`.
 
+## BYOA development workflow
+
+Bring the native agent first. Develop it with the framework's own types and
+entrypoint, then add runtime hosting when you need shared HTTP surfaces:
+
+1. Build and test the MAF `Agent` with the MAF SDK.
+2. Keep the agent factory independent of runtime imports. The offline example's
+   [`developer_app.py`](../examples/python-agentframework-fastapi/developer_app.py)
+   shows this path and uses `await agent.run(...)`.
+3. Add an `AgentDefinition` that points to the trusted factory and a
+   `WorkerSettings` object for operator-owned authentication and lifecycle.
+4. Pass both to `AgentFrameworkWorker`. The runtime hosts the existing agent;
+   it does not rebuild the agent or its tools.
+
+This is a real split in the example: `requirements-developer.txt` installs no
+runtime package, while `requirements.txt` adds the runtime integration. The
+Mail and Wiki agents in the companion lab also use shared runtime domain and
+security types for their business rules. Their console workflows do not need
+the HTTP host, but those domain packages remain dependencies.
+
 Install `ygo74-agent-runtime-agentframework[http]`. The integration supports
 `agent-framework-core>=1.18,<1.19`; the core/meta runtime remains MAF-free.
 The lab's OpenAI adapter is separately versioned (`>=1.14.2,<1.15`), compatible

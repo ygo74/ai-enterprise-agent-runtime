@@ -24,6 +24,20 @@ The sample uses a deterministic local chat client, so it needs no model key or
 external service. Dependencies for the developer-owned API and the runtime app
 are listed separately.
 
+## Developer workflow
+
+1. Build and run the native MAF agent with `developer_app.py`. At this stage,
+   you only need the MAF SDK, FastAPI and your agent code.
+2. Add or change the agent's instructions, model client and tools in
+   `native.py` and `echo_client.py`. Keep these files free of runtime imports.
+3. When the agent is ready to serve standard AI endpoints, add its trusted
+   factory to `definition.py` and operator settings to `deployment.py`.
+4. Use `AgentFrameworkWorker` in `app.py`. The integration handles HTTP
+   protocols, typed output, authentication and conversation lifecycle.
+
+This sample keeps these steps small. A real agent can use its normal MAF model
+and tool types in place of the offline echo client.
+
 ## Run the developer-owned API
 
 From this directory, install `requirements-developer.txt`, then start the app:
