@@ -5,10 +5,10 @@ Return to the [Python documentation entry point](README.md).
 ## Installation and ownership
 
 ```powershell
-python -m pip install "ygo74-agent-runtime-langchain==1.0.0"
+python -m pip install "ygo74-agent-runtime-langchain==0.8.0"
 ```
 
-Requires Python 3.12+, `ygo74-agent-runtime-agents>=1.0.0,<2`,
+Requires Python 3.12+, `ygo74-agent-runtime-agents>=0.8,<2`,
 `langchain-core>=1.6.3,<1.7`, and `langgraph>=1.2,<2`. These ranges match the
 Wiki application's framework floors. The integration is tested offline against
 **langchain-core 1.6.3 and 1.6.6** in dedicated validation virtual environments.

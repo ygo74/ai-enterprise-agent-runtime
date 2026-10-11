@@ -79,7 +79,7 @@ in streaming mode). A real Anthropic-compatible handler must provide known
 later measured cumulative usage may update the stream. This separate fixture
 preserves the unknown-usage rejection demonstration.
 It needs no framework, model or provider key.
-Only `ygo74-agent-runtime-agents[http]>=1.0,<2` is installed. From this directory, run:
+Only `ygo74-agent-runtime-agents[http]>=0.8,<2` is installed. From this directory, run:
 
 ```bash
 uvicorn responses_structured_app:app --reload --port 8001

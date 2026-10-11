@@ -5,4 +5,4 @@ langchain-core>=1.0,<2
 langchain-openai>=1.0,<2
 langchain-text-splitters>=1.0,<2
 python-dotenv>=1.0
-ygo74-agent-runtime-agents[http]>=1.0,<2
+ygo74-agent-runtime-agents[http]>=0.8,<2
