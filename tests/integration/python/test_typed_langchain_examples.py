@@ -26,7 +26,7 @@ from ygo74.agent_runtime.domains.contracts.stream_events import (
     TextDelta,
 )
 
-EXAMPLES = Path(__file__).resolve().parents[3] / "docs" / "examples"
+EXAMPLES = Path(__file__).resolve().parents[3] / "samples" / "examples"
 
 
 class ExampleLoader:

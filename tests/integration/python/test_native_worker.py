@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def example(monkeypatch):
-    directory = Path(__file__).resolve().parents[3] / "docs" / "examples" / "python-agentframework-fastapi"
+    directory = Path(__file__).resolve().parents[3] / "samples" / "examples" / "python-agentframework-fastapi"
     monkeypatch.syspath_prepend(str(directory))
     monkeypatch.setenv("NATIVE_WORKER_API_KEY", "controlled-test-key")
     definition, deployment = import_module("definition"), import_module("deployment")

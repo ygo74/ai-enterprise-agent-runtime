@@ -28,7 +28,7 @@ from ygo74.agent_runtime.domains.discovery.agent_descriptor import Modality
 
 EXAMPLE_PATH = (
     Path(__file__).resolve().parents[3]
-    / "docs"
+    / "samples"
     / "examples"
     / "python-fastapi-quickstart"
     / "responses_structured_app.py"

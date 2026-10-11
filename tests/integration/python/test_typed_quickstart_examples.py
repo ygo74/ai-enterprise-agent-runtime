@@ -20,7 +20,7 @@ from ygo74.agent_runtime.domains.contracts.stream_events import (
 
 
 def _load_echo() -> ModuleType:
-    path = Path(__file__).resolve().parents[3] / "docs" / "examples" / "python-fastapi-quickstart" / "app.py"
+    path = Path(__file__).resolve().parents[3] / "samples" / "examples" / "python-fastapi-quickstart" / "app.py"
     spec = importlib.util.spec_from_file_location("typed_echo_example", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
