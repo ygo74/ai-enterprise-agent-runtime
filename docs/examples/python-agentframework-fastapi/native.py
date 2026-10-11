@@ -1,6 +1,6 @@
 """Native factory and declaration; no skill registry, handlers or event loop."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from agent_framework import Agent
 from echo_client import EchoClient
@@ -23,8 +23,6 @@ definition = AgentDefinition(
     AgentDescriptor(
         agent_id="agentframework-echo", route_key="agentframework-echo", display_name="Native Echo",
         description="Offline native agent, with server-managed conversation history.",
-        version="1.0.0", owner="example", created_at_utc=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        version="1.0.0", owner="example", created_at_utc=datetime(2026, 1, 1, tzinfo=UTC),
         capabilities=AgentCapabilitySet(streaming=True),
-    ),
-    factory="native:create_agent",
-)
+    ), factory="native:create_agent")

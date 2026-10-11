@@ -93,6 +93,22 @@ class StreamingSessionPort(Protocol):
 
 
 @runtime_checkable
+class InitialUsageStreamingSessionPort(Protocol):
+    """Optional stream capability for sessions that can order usage before content."""
+
+    def ask_stream(
+        self, message: str, *, require_initial_usage: bool = False
+    ) -> AsyncGenerator[AgentStreamEvent]:
+        """Start a native stream while satisfying an output surface's usage ordering.
+
+        Args:
+            message: Latest user text.
+            require_initial_usage: Whether to hold visible events until real usage is known.
+        """
+        ...
+
+
+@runtime_checkable
 class OutputSessionPort(Protocol):
     """Optional typed output capability preserving usage and termination."""
 
@@ -232,16 +248,21 @@ class HttpConversationEngine(Generic[ConversationT]):
                 return replace(reply, output=replace(output, contents=contents))
             return self._reply(conversation, await conversation.session.ask(turn.message))
 
-    async def stream(self, turn: ConversationTurn) -> AsyncGenerator[AgentStreamEvent]:
+    async def stream(
+        self, turn: ConversationTurn, *, require_initial_usage: bool = False
+    ) -> AsyncGenerator[AgentStreamEvent]:
         """Release a completed turn before exposing its terminal to the transport.
 
         Args:
             turn: Typed verified caller, conversation and latest text.
+            require_initial_usage: Hold visible events until real usage is known where supported.
         """
         terminal: TerminalEvent | None = None
         async with (
             self._conversations.turn(turn.principal, turn.conversation_id) as conversation,
-            aclosing(self._stream_turn(conversation, turn)) as stream,
+            aclosing(self._stream_turn(
+                conversation, turn, require_initial_usage=require_initial_usage,
+            )) as stream,
         ):
             async for event in stream:
                 if isinstance(event, TerminalEvent):
@@ -254,12 +275,16 @@ class HttpConversationEngine(Generic[ConversationT]):
         # inside cache.turn would inject GeneratorExit and invalidate valid history.
         yield terminal
 
-    async def _stream_turn(self, conversation: ConversationT, turn: ConversationTurn) -> AsyncGenerator[AgentStreamEvent]:
+    async def _stream_turn(
+        self, conversation: ConversationT, turn: ConversationTurn, *,
+        require_initial_usage: bool = False,
+    ) -> AsyncGenerator[AgentStreamEvent]:
         """Finish native execution and pending rendering while the turn is leased.
 
         Args:
             conversation: Pinned caller-scoped resources.
             turn: Verified latest-user turn.
+            require_initial_usage: Hold visible events until real usage is known where supported.
         """
         command = self._parser.parse(turn.message)
         if command is not None:
@@ -271,7 +296,12 @@ class HttpConversationEngine(Generic[ConversationT]):
         if not isinstance(conversation.session, StreamingSessionPort):
             raise TypeError("conversation session does not support native streaming")
         terminal: TerminalEvent | None = None
-        async with aclosing(conversation.session.ask_stream(turn.message)) as stream:
+        session = conversation.session
+        if require_initial_usage and isinstance(session, InitialUsageStreamingSessionPort):
+            producer = session.ask_stream(turn.message, require_initial_usage=True)
+        else:
+            producer = session.ask_stream(turn.message)
+        async with aclosing(producer) as stream:
             async for event in stream:
                 if isinstance(event, TerminalEvent):
                     if terminal is not None:

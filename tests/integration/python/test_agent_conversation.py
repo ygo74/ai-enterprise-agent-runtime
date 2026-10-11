@@ -14,9 +14,15 @@ from ygo74.agent_runtime.domains.contracts.agent_output import (
     TextContent,
 )
 from ygo74.agent_runtime.domains.contracts.conversation import ConversationTurn
+from ygo74.agent_runtime.domains.contracts.exchange_models import (
+    StandardExchangeResponse,
+)
 from ygo74.agent_runtime.domains.contracts.stream_events import (
     ContentEvent,
     TerminalEvent,
+)
+from ygo74.agent_runtime.domains.endpoints.conversation_entrypoint import (
+    ConversationEntrypoint,
 )
 from ygo74.agent_runtime.domains.humanapproval.commands import ConfirmationCommand
 from ygo74.agent_runtime.domains.humanapproval.confirmation import ConfirmationRequest
@@ -114,14 +120,16 @@ class StreamingSession(FakeSession):
         """
         super().__init__()
         self.mode = mode
+        self.initial_usage_requirements: list[bool] = []
 
-    async def ask_stream(self, message):
+    async def ask_stream(self, message, *, require_initial_usage=False):
         """Offer controlled neutral events.
 
         Args:
             message: Controlled latest user input.
         """
         self.messages.append(message)
+        self.initial_usage_requirements.append(require_initial_usage)
         yield ContentEvent("text", TextContent("controlled"))
         if self.mode == "missing":
             return
@@ -131,6 +139,30 @@ class StreamingSession(FakeSession):
             yield TerminalEvent()
         if self.mode == "after":
             yield ContentEvent("late", TextContent("invalid late content"))
+
+
+@pytest.mark.asyncio
+async def test_entrypoint_forwards_usage_ordering_to_capable_sessions():
+    """Forward the transport's usage order requirement to capable sessions."""
+    factory = StreamingFactory("normal")
+    engine = HttpConversationEngine(ConversationRuntimeCache(factory.build, factory.close))
+    entrypoint = ConversationEntrypoint(engine, require_email=False)
+
+    stream = await entrypoint({
+        "request_id": "request",
+        "stream": True,
+        "require_initial_usage": True,
+        "input": [{"role": "user", "content": "controlled"}],
+        "auth_context": {
+            "userId": "ada",
+            "identity": {"subject": "ada", "email": "ada@example.test"},
+        },
+    })
+    assert not isinstance(stream, StandardExchangeResponse)
+    events = [event async for event in stream]
+
+    assert isinstance(events[-1], TerminalEvent)
+    assert factory.built[0].session.initial_usage_requirements == [True]
 
 
 class StreamingFactory(ConversationFactory):

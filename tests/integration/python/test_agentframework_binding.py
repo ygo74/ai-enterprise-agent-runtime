@@ -517,7 +517,9 @@ async def test_approval_subruns_have_unique_content_one_terminal_and_true_usage(
     from ygo74.agent_runtime.domains.streaming.stream_processor import StreamProcessor
 
     session = AgentFrameworkSession(Agent(ApprovalClient()), resolver=DeclineResolver())
-    events = [event async for event in session.ask_stream("one")]
+    events = [event async for event in session.ask_stream(
+        "one", require_initial_usage=protocol_name == "anthropic.messages",
+    )]
     assert sum(isinstance(event, TerminalEvent) for event in events) == 1
     ids = [event.content_id for event in events if isinstance(event, ContentStart)]
     assert len(ids) == len(set(ids)) == 2

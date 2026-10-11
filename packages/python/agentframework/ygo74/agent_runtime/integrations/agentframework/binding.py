@@ -188,23 +188,31 @@ class AgentFrameworkSession:
                     return item
         raise RuntimeError("native execution produced no output")
 
-    async def ask_stream(self, message: str) -> AsyncGenerator[AgentStreamEvent]:
+    async def ask_stream(
+        self, message: str, *, require_initial_usage: bool = False,
+    ) -> AsyncGenerator[AgentStreamEvent]:
         """Stream real native updates through existing adapters.
 
         Args:
             message: Latest user text.
+            require_initial_usage: Hold visible events until this stream reports real token counts.
         """
-        async with aclosing(self._execute(message, stream=True)) as execution:
+        async with aclosing(self._execute(
+            message, stream=True, require_initial_usage=require_initial_usage,
+        )) as execution:
             async for item in execution:
                 if not isinstance(item, AgentOutput):
                     yield item
 
-    async def _execute(self, message: str, *, stream: bool) -> AsyncGenerator[AgentStreamEvent | AgentOutput]:
+    async def _execute(
+        self, message: str, *, stream: bool, require_initial_usage: bool = False,
+    ) -> AsyncGenerator[AgentStreamEvent | AgentOutput]:
         """Own native sub-runs and exactly one invocation terminal.
 
         Args:
             message: Initial user text.
             stream: Native response mode, not an output simulation flag.
+            require_initial_usage: Hold visible events until actual usage is available.
         """
         if self._broken:
             raise RuntimeError("native session was invalidated; create a fresh conversation")
@@ -219,7 +227,12 @@ class AgentFrameworkSession:
         try:
             while True:
                 result: _Round | None = None
-                async with aclosing(self._round(current, stream=stream, previous_usage=usage.usage)) as round_stream:
+                async with aclosing(self._round(
+                    current,
+                    stream=stream,
+                    previous_usage=usage.usage,
+                    require_initial_usage=require_initial_usage,
+                )) as round_stream:
                     async for item in round_stream:
                         if isinstance(item, _Round):
                             result = item
@@ -282,6 +295,7 @@ class AgentFrameworkSession:
 
     async def _round(
         self, message: str | Message, *, stream: bool, previous_usage: TokenUsage | None,
+        require_initial_usage: bool = False,
     ) -> AsyncGenerator[AgentStreamEvent | _Round]:
         """Convert one sub-run and close producer/content lifecycle on exit.
 
@@ -289,6 +303,7 @@ class AgentFrameworkSession:
             message: User text or native approval answers.
             stream: Whether to invoke native streaming.
             previous_usage: Completed sub-run counters, for cumulative snapshots.
+            require_initial_usage: Hold visible events until actual usage is available.
         """
         invocation_id = uuid4().hex
         self._subrun += 1
@@ -296,6 +311,8 @@ class AgentFrameworkSession:
         adapter = AgentFrameworkStreamAdapter()
         progress = ToolProgressPolicy(self._tool_names)
         snapshot: TokenUsage | None = None
+        pending_events: list[AgentStreamEvent] = []
+        usage_emitted = False
         hidden: set[str] = set()
         terminal: Termination | None = None
         scope = NativeStreamScope(
@@ -308,7 +325,10 @@ class AgentFrameworkSession:
             try:
                 async for update in scope.updates(producer):
                     for progress_event in progress.observe(update):
-                        yield progress_event
+                        if not require_initial_usage or usage_emitted:
+                            yield progress_event
+                        else:
+                            pending_events.append(progress_event)
                     conversion = adapter.convert_update(update)
                     ConversionDiagnostics.record(conversion.decisions, invocation_id)
                     for event in conversion.events:
@@ -320,15 +340,28 @@ class AgentFrameworkSession:
                             cumulative.add(snapshot)
                             if cumulative.usage is not None:
                                 yield UsageEvent(cumulative.usage)
+                                if require_initial_usage:
+                                    usage_emitted = True
+                                    for pending in pending_events:
+                                        yield pending
+                                    pending_events.clear()
                         elif self._visible(event, hidden):
-                            yield self._namespace(event, invocation_id)
+                            projected = self._namespace(event, invocation_id)
+                            if not require_initial_usage or usage_emitted:
+                                yield projected
+                            else:
+                                pending_events.append(projected)
                 with scope.activate():
                     response = await producer.get_final_response()
                 for event in adapter.finish():
                     if isinstance(event, TerminalEvent):
                         terminal = event.termination
                     elif self._visible(event, hidden):
-                        yield self._namespace(event, invocation_id)
+                        projected = self._namespace(event, invocation_id)
+                        if not require_initial_usage or usage_emitted:
+                            yield projected
+                        else:
+                            pending_events.append(projected)
             except Exception as error:  # Translate the native execution boundary without exposing provider messages.
                 raise RuntimeError("Native agent execution failed") from error
             finally:
@@ -344,6 +377,18 @@ class AgentFrameworkSession:
         conversion_output = AgentFrameworkOutputAdapter().convert(response)
         ConversionDiagnostics.record(conversion_output.decisions, invocation_id)
         output = conversion_output.output
+        if stream and require_initial_usage and pending_events and not usage_emitted:
+            round_usage = output.usage or snapshot
+            if round_usage is not None:
+                cumulative = UsageAccumulator()
+                if previous_usage is not None:
+                    cumulative.add(previous_usage)
+                cumulative.add(round_usage)
+                if cumulative.usage is not None:
+                    yield UsageEvent(cumulative.usage)
+                    usage_emitted = True
+            for pending in pending_events:
+                yield pending
         termination = output.termination
         if terminal is not None and terminal.status is not TerminationStatus.SUCCESS:
             termination = terminal

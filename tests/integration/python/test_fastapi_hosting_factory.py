@@ -190,6 +190,7 @@ def test_factory_registers_only_selected_surfaces_and_routes_by_descriptor() -> 
         "route-demo-agent",
         "route-demo-agent",
     ]
+    assert [payload["require_initial_usage"] for payload in seen] == [False, True]
 
 
 def test_factory_matches_direct_registration_for_routes_and_responses() -> None:

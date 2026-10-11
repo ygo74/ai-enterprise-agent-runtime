@@ -2,7 +2,7 @@
 
 from collections.abc import AsyncGenerator, AsyncIterator, Mapping
 from contextlib import aclosing
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 from uuid import uuid4
 
 from ygo74.agent_runtime.domains.contracts.conversation import (
@@ -43,6 +43,22 @@ class StreamingConversationEngine(Protocol):
         ...
 
 
+@runtime_checkable
+class InitialUsageStreamingConversationEngine(Protocol):
+    """Optional engine capability for protocol surfaces that require early usage."""
+
+    def stream(
+        self, turn: ConversationTurn, *, require_initial_usage: bool = False
+    ) -> AsyncGenerator[AgentStreamEvent]:
+        """Produce events with real usage ordered before visible output when requested.
+
+        Args:
+            turn: Verified typed turn.
+            require_initial_usage: Whether visible events must wait for real usage.
+        """
+        ...
+
+
 class ConversationEntrypoint:
     """Select response mode only at the transport boundary.
 
@@ -74,18 +90,28 @@ class ConversationEntrypoint:
         turn = self.to_turn(payload)
         correlation = str(payload.get("request_id") or uuid4().hex)
         if payload.get("stream") is True:
-            return self._correlated_stream(turn, correlation)
+            return self._correlated_stream(
+                turn,
+                correlation,
+                require_initial_usage=payload.get("require_initial_usage") is True,
+            )
         with ContinuityDiagnostics.request(correlation):
             return self.to_payload(payload, await self._engine.respond(turn))
 
-    async def _correlated_stream(self, turn: ConversationTurn, correlation: str) -> AsyncGenerator[AgentStreamEvent]:
+    async def _correlated_stream(
+        self, turn: ConversationTurn, correlation: str, *, require_initial_usage: bool = False,
+    ) -> AsyncGenerator[AgentStreamEvent]:
         """Scope each pull and cleanup, never leaking context across consumer yields.
 
         Args:
             turn: Verified latest-user turn.
             correlation: Transport request correlation, fingerprinted before use.
+            require_initial_usage: Hold visible events until real usage is known where supported.
         """
-        producer = self._engine.stream(turn)
+        if require_initial_usage and isinstance(self._engine, InitialUsageStreamingConversationEngine):
+            producer = self._engine.stream(turn, require_initial_usage=True)
+        else:
+            producer = self._engine.stream(turn)
         try:
             while True:
                 with ContinuityDiagnostics.request(correlation):

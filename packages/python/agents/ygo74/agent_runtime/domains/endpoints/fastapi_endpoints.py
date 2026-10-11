@@ -251,6 +251,7 @@ def add_ai_endpoints(
                 header_forwarder=header_forwarder,
             )
             exchange_request = map_to_exchange(endpoint_type, payload)
+            protocol = OutputProtocol(endpoint_type)
 
             uniform_payload = {
                 "request_id": exchange_request.request_id,
@@ -260,13 +261,14 @@ def add_ai_endpoints(
                 "stream": exchange_request.stream,
                 "metadata": exchange_request.metadata,
                 "auth_context": exchange_request.auth_context,
+                "require_initial_usage": protocol is OutputProtocol.ANTHROPIC_MESSAGES,
             }
             if endpoint_type == "openai.responses":
                 uniform_payload["provider_options"] = exchange_request.provider_options
 
             result = agent_entrypoint(uniform_payload)
             context = ProjectionContext(
-                OutputProtocol(endpoint_type),
+                protocol,
                 exchange_request.request_id,
                 exchange_request.route_key,
                 payload.get("model"),
