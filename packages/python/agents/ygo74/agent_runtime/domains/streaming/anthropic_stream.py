@@ -15,7 +15,10 @@ from ygo74.agent_runtime.domains.contracts.stream_events import (
     TextDelta,
     UsageEvent,
 )
-from ygo74.agent_runtime.domains.mapping.output_projector import OutputWireValues
+from ygo74.agent_runtime.domains.mapping.output_projector import (
+    OutputProjectionError,
+    OutputWireValues,
+)
 from ygo74.agent_runtime.domains.streaming.sse_encoder import WireEvent
 from ygo74.agent_runtime.domains.streaming.stream_state import StreamState
 
@@ -31,7 +34,6 @@ class AnthropicStreamProjector:
         self._indices: dict[str, int] = {}
         self._has_tools = False
         self._started = False
-        self._pending: list[WireEvent] = []
 
     @staticmethod
     def _event(name: str, payload: dict[str, JsonValue]) -> WireEvent:
@@ -79,9 +81,7 @@ class AnthropicStreamProjector:
             state (StreamState): The state that tracks the current operation lifecycle.
         """
         if isinstance(event, UsageEvent):
-            frames = self.start(state) + self._pending
-            self._pending = []
-            return frames
+            return self.start(state)
         if not isinstance(event, (ContentStart, ContentEnd, TextDelta)):
             return []
         entry = state.contents[event.content_id]
@@ -91,10 +91,10 @@ class AnthropicStreamProjector:
         if not frames:
             return []
         if state.usage is None:
-            # Native SDKs may report real usage late. Preserve ordered frames
-            # until then; never invent zero counters to start the message.
-            self._pending.extend(frames)
-            return []
+            raise OutputProjectionError(
+                "Anthropic Messages requires known input/output token usage; "
+                "streams require UsageEvent before visible content"
+            )
         return self.start(state) + frames
 
     def _content(

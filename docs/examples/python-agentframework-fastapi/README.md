@@ -10,7 +10,7 @@ From this directory, with the runtime's optional integration installed:
 
 ```powershell
 $env:NATIVE_WORKER_API_KEY = "<your-local-test-key>"
-python -m uvicorn app:app --host 127.0.0.1 --port 8099
+python -m uvicorn app:create_app --factory --host 127.0.0.1 --port 8099
 ```
 
 Send `x-api-key` with your configured key to `/v1/chat/completions`,

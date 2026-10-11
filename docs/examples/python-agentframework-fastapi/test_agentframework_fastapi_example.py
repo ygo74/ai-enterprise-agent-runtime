@@ -9,7 +9,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
-def _example_app() -> FastAPI:
+def _example_app(monkeypatch: pytest.MonkeyPatch) -> FastAPI:
+    monkeypatch.setenv("NATIVE_WORKER_API_KEY", "controlled-test-key")
+    monkeypatch.syspath_prepend(str(Path(__file__).parent))
     spec = importlib.util.spec_from_file_location("agentframework_offline_example", Path(__file__).with_name("app.py"))
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -27,10 +29,14 @@ def _example_app() -> FastAPI:
 ])
 @pytest.mark.parametrize("stream", [False, True])
 def test_agentframework_offline_example_serves_all_surfaces(
-    path: str, body: dict[str, object], stream: bool,
+    path: str, body: dict[str, object], stream: bool, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    with TestClient(_example_app()) as client:
-        response = client.post(path, json={**body, "stream": stream})
+    with TestClient(_example_app(monkeypatch)) as client:
+        response = client.post(
+            path,
+            json={**body, "stream": stream},
+            headers={"x-api-key": "controlled-test-key"},
+        )
     assert response.status_code == 200, response.text
     if stream:
         assert response.headers["content-type"].startswith("text/event-stream")
@@ -48,8 +54,8 @@ def test_agentframework_offline_example_serves_all_surfaces(
             assert response.json()["usage"] == {"input_tokens": 0, "output_tokens": 0}
 
 
-def test_agentframework_offline_example_discovery() -> None:
-    with TestClient(_example_app()) as client:
-        response = client.get("/v1/models")
+def test_agentframework_offline_example_discovery(monkeypatch: pytest.MonkeyPatch) -> None:
+    with TestClient(_example_app(monkeypatch)) as client:
+        response = client.get("/v1/models", headers={"x-api-key": "controlled-test-key"})
     assert response.status_code == 200
     assert response.json()["data"][0]["id"] == "agentframework-echo"
