@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ygo74-agent-runtime-agentframework"
-version = "1.0.0"
+version = "0.8.0"
 description = "Native Microsoft Agent Framework execution and typed output integration"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-  "ygo74-agent-runtime-agents>=1.0.0,<2",
+  "ygo74-agent-runtime-agents>=0.8.0,<2",
   "agent-framework-core>=1.18.0,<1.19",
 ]
 

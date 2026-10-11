@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ygo74-agent-runtime"
-version = "1.0.0"
+version = "0.8.0"
 description = "Cross-language AI enterprise agent runtime (meta-package)"
 requires-python = ">=3.12"
 
@@ -19,9 +19,9 @@ requires-python = ">=3.12"
 #   ygo74-agent-runtime-agents     hosting an agent
 #   ygo74-agent-runtime-mcp        hosting an MCP server
 dependencies = [
-  "ygo74-agent-runtime-security>=0.6.0",
-  "ygo74-agent-runtime-agents>=1.0.0,<2",
-  "ygo74-agent-runtime-mcp>=0.6.0",
+  "ygo74-agent-runtime-security>=0.8.0",
+  "ygo74-agent-runtime-agents>=0.8.0,<2",
+  "ygo74-agent-runtime-mcp>=0.8.0",
 ]
 
 [project.optional-dependencies]
