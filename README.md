@@ -115,6 +115,8 @@ capabilities.
 
 Important documents:
 
+- [User and operator guides](doc/users/README.md)
+- [Contributor architecture guides](doc/contributors/README.md)
 - [System overview](spec/architecture/system-overview.md)
 - [Exchange contract](spec/contracts/exchange-contract.md)
 - [Provider endpoint surfaces](spec/endpoints/provider-surfaces.md)

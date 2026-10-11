@@ -2,20 +2,25 @@
 
 ## Package layout
 
-The repository contains Python, .NET, and Java implementations. Python is split
-into three runtime distributions and one dependency-only meta-package:
+The repository contains Python, .NET, and Java implementations. Python ships
+three core runtime distributions, two separate framework integrations, and one
+dependency-only meta-package:
 
 | Distribution | Responsibility | Optional features |
 |---|---|---|
 | `ygo74-agent-runtime-security` | Authentication, application-security primitives, common Python domain errors, and user-context construction | None in this repository |
 | `ygo74-agent-runtime-agents` | Agent contracts, configuration loading and schemas, reasoning port, endpoints, discovery, routing, sessions, approval | `configuration` for YAML and `.env`; `http` for FastAPI; `mcp` for the MCP client |
 | `ygo74-agent-runtime-mcp` | MCP server hosting | `http` for streamable HTTP server transport |
-| `ygo74-agent-runtime` | Installs all Python distributions | `http`, `mcp`, and `mcp-server` extras forwarded to the relevant package |
+| `ygo74-agent-runtime-agentframework` | Native Microsoft Agent Framework execution and typed output integration | `http` for the managed worker |
+| `ygo74-agent-runtime-langchain` | LangChain result/stream conversion and native LangGraph session binding | `http` for the managed LangGraph worker |
+| `ygo74-agent-runtime` | Installs the security, agents, and MCP core distributions | `http`, `mcp`, and `mcp-server` extras forwarded to the relevant package |
 
 The packages contribute to a shared `ygo74.agent_runtime` namespace and should
 be imported from their domain modules. The current design avoids a flat facade
-and keeps framework/protocol dependencies optional. Python requires 3.12 or
-newer. The .NET library targets .NET 8; the Java library targets Java 21.
+and keeps framework/protocol dependencies optional. Framework integrations are
+installed separately and are not pulled in by the core meta-package. Python
+requires 3.12 or newer. The .NET library targets .NET 8; the Java library
+targets Java 21.
 
 ## Configuration ownership
 

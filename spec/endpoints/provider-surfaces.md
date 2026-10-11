@@ -65,7 +65,8 @@ Non-streaming projection excludes them with diagnostics. Images/audio retain
 their URI or encoded data and MIME/format without transcoding. A valid content
 unsupported by the selected protocol is filtered with a correlated log; the
 developer need not inspect the invoking protocol. Invalid event sequences still
-fail. See the tested [output contract and support matrix](../../specs/001-openai-endpoint-exposure/contracts/typed-output-contract.md).
+fail. See the [agent output and streaming specification](../contracts/agent-output-and-streaming.md)
+and tested [support matrix](../../specs/001-openai-endpoint-exposure/contracts/typed-output-contract.md).
 
 The .NET package includes an OpenAI stream mapper and stream termination
 building blocks; Java includes Anthropic stream mapping and termination types.

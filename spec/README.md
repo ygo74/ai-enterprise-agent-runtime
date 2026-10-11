@@ -42,23 +42,33 @@ checks remain runtime behavior.
 | System purpose and request flow | [Architecture overview](architecture/system-overview.md) |
 | Runtime domains and dependency boundaries | [Component model](architecture/component-model.md) |
 | Request, response, error, and stream values | [Exchange contract](contracts/exchange-contract.md) |
+| Typed agent results, content, usage, and streaming lifecycle | [Agent output and streaming](contracts/agent-output-and-streaming.md) |
 | Provider-compatible invocation and streaming | [Endpoint surfaces](endpoints/provider-surfaces.md) |
+| Trusted factories, identity-scoped state, and managed HTTP lifecycle | [Managed native-agent worker](endpoints/managed-agent-worker.md) |
 | Agent descriptors and model listings | [Agent catalog](discovery/agent-catalog.md) |
+| Delivered agent and skill manifests | [Agent manifests](configuration/agent-manifests.md) |
 | Authentication, agent access, and authorization | [Authentication and authorization](security/authentication-and-authorization.md) |
 | Permission, audit, operation, and untrusted-content primitives | [Application security](security/application-security-primitives.md) |
+| Route selection, dispatch, and middleware composition | [Routing and middleware](runtime/routing-and-middleware.md) |
+| Framework-neutral typed model reasoning | [Reasoning port](runtime/reasoning.md) |
 | Routing, middleware, conversation containers, HTTP turn handling, and cache | [Pipelines and state](runtime/pipelines-and-state.md) |
 | Confirmation, gated operations, and bounded approval-loop orchestration | [Human approval](runtime/human-approval.md) |
+| Microsoft Agent Framework result, session, and worker binding | [Agent Framework integration](integrations/agent-framework.md) |
+| LangChain result conversion, native LangGraph conversations, and managed worker | [LangChain and LangGraph integration](integrations/langchain-langgraph.md) |
 | MCP bindings, client connections, dialect registry, and server responsibilities | [MCP integration](mcp/client-and-server.md) |
 | Distributions, configuration, logging, and validation | [Packaging and operations](operations/packaging-configuration-observability.md) |
+| Logging and incomplete telemetry hooks | [Observability](operations/observability.md) |
 | Implemented behavior by language | [Language support and parity](compatibility/language-status.md) |
 
 ## Reading order
 
-Start with the architecture overview and component model. The exchange contract
-defines the common boundary used by endpoint adapters. Endpoint, discovery, and
-security documents then describe externally visible behavior. The runtime and
-MCP documents cover optional composition building blocks, and the language
-support document records current parity limits.
+Start with the architecture overview and component model. The exchange and
+typed-output contracts define the values used across endpoints. Endpoint,
+discovery, configuration, and security documents then describe externally
+visible behavior. The runtime and framework integration pages explain how
+applications compose workers, conversations, approval, and reasoning. MCP and
+operations pages describe optional hosting and deployment boundaries. The
+language support document records current parity limits.
 
 ## Sources of behavior
 

@@ -8,7 +8,7 @@ features. This table records the repository's current implementation boundaries.
 |---|---|---|---|
 | Exchange contracts, errors, stream events | Yes | Yes | Yes |
 | Typed output v2, media and notification projections | Python 1.0 output API | Pending; historical v1 only | Pending; historical v1 only |
-| Framework output integrations | Separate LangChain and Agent Framework distributions | Pending | Pending |
+| Framework output and native session integrations | Separate LangChain/LangGraph and Agent Framework distributions | Pending | Pending |
 | Provider request/response mapping | Yes | Yes | Yes |
 | HTTP route hosting | FastAPI adapter | No built-in ASP.NET Core adapter | No built-in Spring adapter |
 | Invocation surfaces | OpenAI Responses, OpenAI Chat Completions, Anthropic Messages | Shared endpoint identifiers and mapping/dispatch building blocks | Shared endpoint identifiers and mapping/dispatch building blocks |
@@ -21,6 +21,7 @@ features. This table records the repository's current implementation boundaries.
 | Agent access policy | Yes | No | No |
 | Routing and middleware building blocks | Yes | Yes | Yes |
 | Conversation container, HTTP turn engine, and runtime cache | Yes | No | No |
+| Managed native-agent HTTP worker | Python; separate framework integrations | No | No |
 | Human approval, bounded approval loop, and application-security primitives | Yes | No | No |
 | Framework-neutral `TextReasoner` port and typed reasoning errors | Yes | No | No |
 | Python `DomainError` hierarchy and `UserContextFactory` | Yes | No | No |
@@ -40,11 +41,14 @@ dialect mechanics let applications avoid reimplementing shared integration
 control flow. Framework session state, domain policy, credentials, and concrete
 MCP dialects remain application-owned. Python also offers agent-configuration
 discovery, `.env` loading, fixed agent/skill manifest schemas and loaders, and a
-framework-neutral reasoning port. These APIs are Python-only; their presence
-does not imply that the .NET or Java packages load agent manifests or host agent
-frameworks. A separate package hosts MCP servers. `HostingFactory`
-composes one descriptor/entrypoint pair; applications with multiple agents can
-use the lower-level registration helper and dispatcher.
+framework-neutral reasoning port. A separate LangChain distribution adapts
+LangChain results and streams and can bind native LangGraph sessions to the
+shared managed worker; the Agent Framework integration is separately packaged.
+These APIs are Python-only; their presence does not imply that the .NET or Java
+packages load agent manifests or host agent frameworks. A separate package
+hosts MCP servers. `HostingFactory` composes one descriptor/entrypoint pair;
+applications with multiple agents can use the lower-level registration helper
+and dispatcher.
 
 There is no A2A agent-card endpoint and no AG-UI adapter. The discovery
 configuration's `enable_agent_card` field currently does not register a route.

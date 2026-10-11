@@ -20,6 +20,7 @@ container.
 | Agent context and common errors | Build user context from caller-supplied identity/permissions; shared Python domain error base | Python |
 | Sessions | Typed conversation container, HTTP turn engine, and runtime cache | Python |
 | Human approval | Confirmation/gating primitives and bounded approval-loop orchestration | Python |
+| Framework integrations | Typed output conversion and native LangGraph session/worker binding | Separate Python LangChain and Agent Framework distributions |
 | MCP client | Generic bindings, connection lifecycle, and dialect registry | Python |
 | MCP server | Authenticated server hosting | Separate Python distribution |
 | Observability | Standard logging and telemetry integration hooks | Python, .NET, Java; telemetry hooks are incomplete placeholders |
@@ -40,9 +41,13 @@ flowchart BT
     Security[security distribution]
     Agents[agents distribution]
     Mcp[MCP server distribution]
+    AgentFramework[Agent Framework integration]
+    LangChain[LangChain integration]
     Meta[meta distribution]
     Agents --> Security
     Mcp --> Security
+    AgentFramework --> Agents
+    LangChain --> Agents
     Meta --> Agents
     Meta --> Mcp
     Meta --> Security
