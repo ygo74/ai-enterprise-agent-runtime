@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-http = ["ygo74-agent-runtime-agents[http]>=1.0.0,<2"]
+http = ["ygo74-agent-runtime-agents[http]>=0.8.0,<2"]
 
 [tool.setuptools.packages.find]
 include = ["ygo74.agent_runtime.integrations.agentframework*"]

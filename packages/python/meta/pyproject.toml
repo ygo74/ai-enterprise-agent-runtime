@@ -26,10 +26,10 @@ dependencies = [
 
 [project.optional-dependencies]
 # Passed through, so `ygo74-agent-runtime[http]` keeps working as it did.
-http = ["ygo74-agent-runtime-agents[http]>=1.0.0,<2"]
-mcp = ["ygo74-agent-runtime-agents[mcp]>=1.0.0,<2"]
-configuration = ["ygo74-agent-runtime-agents[configuration]>=1.0.0,<2"]
-mcp-server = ["ygo74-agent-runtime-mcp[http]>=0.6.0"]
+http = ["ygo74-agent-runtime-agents[http]>=0.8.0,<2"]
+mcp = ["ygo74-agent-runtime-agents[mcp]>=0.8.0,<2"]
+configuration = ["ygo74-agent-runtime-agents[configuration]>=0.8.0,<2"]
+mcp-server = ["ygo74-agent-runtime-mcp[http]>=0.8.0"]
 
 [tool.setuptools]
 # No package to find: this distribution is its dependency list.

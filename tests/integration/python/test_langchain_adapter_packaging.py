@@ -8,14 +8,14 @@ def test_langchain_distribution_owns_only_its_namespace() -> None:
     configuration = tomllib.loads((package / "pyproject.toml").read_text())
     project = configuration["project"]
     assert project["name"] == "ygo74-agent-runtime-langchain"
-    assert project["version"] == "1.0.0"
+    assert project["version"] == "0.8.0"
     assert project["dependencies"] == [
-        "ygo74-agent-runtime-agents>=1.0.0,<2",
+        "ygo74-agent-runtime-agents>=0.8.0,<2",
         "langchain-core>=1.6.3,<1.7",
         "langgraph>=1.2,<2",
     ]
     assert project["optional-dependencies"]["http"] == [
-        "ygo74-agent-runtime-agents[http]>=1.0.0,<2",
+        "ygo74-agent-runtime-agents[http]>=0.8.0,<2",
         "fastapi>=0.115",
     ]
     finder = configuration["tool"]["setuptools"]["packages"]["find"]
