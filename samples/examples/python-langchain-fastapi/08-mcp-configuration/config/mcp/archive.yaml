@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../../../../../packages/python/agents/ygo74/agent_runtime/domains/configuration/schemas/mcp-server.schema.json
+server: archive-http
+transport: http
+url: https://archive.example.test/mcp
+capabilities:
+  - search_mail
+tools:
+  search_mail: archive_search
+request_timeout_seconds: 45
+authentication_mode: oauth
+authentication_oauth:
+  client_id: mail-archive-agent
+  client_secret: ${ARCHIVE_MCP_CLIENT_SECRET}
+  callback_port: 8765
+  scopes:
+    - archive.read
+  token_file: .secrets/archive-token.json
+  client_name: Mail archive example
+network:
+  proxy_url: null

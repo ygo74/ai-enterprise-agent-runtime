@@ -14,6 +14,7 @@ the [Python library documentation](../../../doc/python/README.md).
 - `05-rag`: keep the RAG pipeline and local Markdown index; compare custom JSON/text responses with runtime OpenAI endpoints.
 - `06-native-langgraph`: keep an offline LangGraph and replace the custom `/ask` host with the `LangGraphWorker` facade.
 - `07-managed-worker`: use the same offline graph with `ManagedAgentWorker` directly and provide a custom conversation factory.
+- `08-mcp-configuration`: load typed MCP server YAML, share one connection across skills, and validate configuration without contacting a server.
 
 ## How to compare the two entrypoints
 

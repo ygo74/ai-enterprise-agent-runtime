@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../../../../../../../../packages/python/agents/ygo74/agent_runtime/domains/configuration/schemas/skill.schema.json
+tool_name: send_mail
+implementation: mail.send_mail
+description: Send a message using the current mail server.
+operation:
+  type: WRITE
+  risk: HIGH
+  permission: mail:send
+  confirmation_required: true
+mcp_server: mail
+mcp_tools:
+  - send_mail

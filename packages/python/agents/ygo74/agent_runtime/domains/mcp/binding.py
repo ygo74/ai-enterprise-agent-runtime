@@ -21,11 +21,17 @@ import logging
 import sys
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import AsyncExitStack
+from dataclasses import dataclass, field
 from datetime import timedelta
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Generic, TypeVar
+from urllib.parse import urlsplit
 
+from ygo74.agent_runtime.domains.configuration.manifest_schemas import (
+    JsonSchemaValidator,
+    ManifestSchemas,
+)
 from ygo74.agent_runtime.domains.mcp.mcp_errors import (
     McpBindingError,
     McpToolUnavailableError,
@@ -109,6 +115,36 @@ class McpTransport(StrEnum):
     """How a client reaches a server."""
     STDIO = "stdio"
     HTTP = "http"
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class McpNetworkSettings:
+    """HTTP network settings shared by a server binding's connections.
+
+    Args:
+        proxy_url (str | None): Optional credential-free HTTP or HTTPS proxy URL.
+    """
+
+    proxy_url: str | None = field(default=None, repr=False)
+
+    def __post_init__(self) -> None:
+        """Reject proxy URLs that cannot safely be represented or used."""
+        if self.proxy_url is None:
+            return
+        parsed = urlsplit(self.proxy_url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
+            raise ValueError("network.proxy_url must be a credential-free HTTP or HTTPS URL")
+        try:
+            if parsed.port is not None and not 1 <= parsed.port <= 65535:
+                raise ValueError("network.proxy_url port is outside the valid range")
+        except ValueError as error:
+            if "network.proxy_url" in str(error):
+                raise
+            raise ValueError("network.proxy_url has an invalid port") from error
+
+    def __repr__(self) -> str:
+        """Describe proxy presence without printing its address or credentials."""
+        return f"{type(self).__name__}(proxy_configured={self.proxy_url is not None})"
 
 
 class McpServerBinding(Generic[CapabilityT]):
@@ -336,6 +372,10 @@ class McpServerBindingLoader(Generic[CapabilityT]):
             raise self._error_factory(f"could not read {path}: {error}") from error
         if not isinstance(document, dict):
             raise self._error_factory(f"{path} must contain a mapping")
+        try:
+            JsonSchemaValidator.validate(document, ManifestSchemas.mcp_server(), path=path)
+        except ValueError as error:
+            raise self._error_factory(str(error)) from error
         return document
 
     def _transport(self, document: dict[str, Any], path: Path) -> McpTransport:
@@ -436,6 +476,7 @@ class McpConnection:
         timeout_seconds (int): Maximum duration allowed for the operation.
         auth (Any | None): Authentication configuration used by the protected MCP resource.
         headers (Mapping[str, str] | None): The request headers used for protocol selection, forwarding, or authentication.
+        network (McpNetworkSettings | None): HTTP proxy configuration for this connection.
         unavailable (ErrorFactory): Response or fallback used when the underlying service is unavailable.
     """
     def __init__(
@@ -445,6 +486,7 @@ class McpConnection:
         timeout_seconds: int = 30,
         auth: Any | None = None,
         headers: Mapping[str, str] | None = None,
+        network: McpNetworkSettings | None = None,
         unavailable: ErrorFactory = McpToolUnavailableError,
     ) -> None:
         """Initialize the instance runtime data with supplied collaborators and configuration.
@@ -454,6 +496,7 @@ class McpConnection:
             timeout_seconds (int): Maximum duration allowed for the operation.
             auth (Any | None): Authentication configuration used by the protected MCP resource.
             headers (Mapping[str, str] | None): The request headers used for protocol selection, forwarding, or authentication.
+            network (McpNetworkSettings | None): HTTP proxy configuration for this connection.
             unavailable (ErrorFactory): Response or fallback used when the underlying service is unavailable.
         """
         _require_mcp()
@@ -461,6 +504,7 @@ class McpConnection:
         self._timeout = timeout_seconds
         self._auth = auth
         self._headers = _RedactedMapping(headers or {})
+        self._network = network or McpNetworkSettings()
         self._unavailable = unavailable
         self._stack: AsyncExitStack | None = None
         self._session: ClientSession | None = None
@@ -521,12 +565,16 @@ class McpConnection:
             stack (AsyncExitStack): Ordered middleware or execution stack.
         """
         if self._binding.transport is McpTransport.HTTP:
+            transport_options: dict[str, Any] = {}
+            if self._network.proxy_url is not None:
+                transport_options["httpx_client_factory"] = _ProxyHttpClientFactory(self._network.proxy_url)
             read, write, _ = await stack.enter_async_context(
                 streamablehttp_client(
                     self._binding.url,
                     headers=dict(self._headers) or None,
                     timeout=self._timeout,
                     auth=self._auth,
+                    **transport_options,
                 )
             )
         else:
@@ -567,3 +615,41 @@ def _require_mcp() -> None:
         raise RuntimeError(
             "the 'mcp' extra of ygo74-agent-runtime is required to reach a Model Context Protocol server"
         ) from _MCP_IMPORT_ERROR
+
+
+class _ProxyHttpClientFactory:
+    """Create the pinned MCP SDK's owned HTTP client with a configured proxy.
+
+    Args:
+        proxy_url (str): Credential-free HTTP or HTTPS proxy URL.
+    """
+
+    def __init__(self, proxy_url: str) -> None:
+        """Initialize the factory with a prevalidated proxy URL.
+
+        Args:
+            proxy_url (str): Credential-free HTTP or HTTPS proxy URL.
+        """
+        self._proxy_url = proxy_url
+
+    def __call__(
+        self,
+        headers: dict[str, str] | None = None,
+        timeout: Any = None,
+        auth: Any = None,
+    ) -> Any:
+        """Create an HTTPX client; the SDK owns and closes its lifetime.
+
+        Args:
+            headers (dict[str, str] | None): Default HTTP headers supplied by MCP.
+            timeout (Any): HTTPX timeout selected by the MCP transport.
+            auth (Any): HTTPX authentication handler supplied by MCP.
+        """
+        if httpx is None:
+            raise RuntimeError("HTTP proxy support requires the 'mcp' extra")
+        return httpx.AsyncClient(
+            proxy=self._proxy_url,
+            headers=headers,
+            timeout=timeout,
+            auth=auth,
+        )

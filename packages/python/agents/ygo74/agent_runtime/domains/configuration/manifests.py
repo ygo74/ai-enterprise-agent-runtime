@@ -12,6 +12,10 @@ from ygo74.agent_runtime.domains.configuration.manifest_inputs import (
     AgentManifestInput,
     SkillManifestInput,
 )
+from ygo74.agent_runtime.domains.configuration.manifest_schemas import (
+    JsonSchemaValidator,
+    ManifestSchemas,
+)
 from ygo74.agent_runtime.domains.contracts.manifests import AgentManifest, SkillManifest
 from ygo74.agent_runtime.domains.errors import DomainError
 from ygo74.agent_runtime.domains.security.floor import SecurityFloor
@@ -62,12 +66,15 @@ class YamlDocument:
             raise ConfigurationError(f"{path} must contain a mapping")
         return loaded
 
-    def validate(self, model: type[ManifestInputT]) -> ManifestInputT:
+    def validate(self, model: type[ManifestInputT], *, schema: str | None = None) -> ManifestInputT:
         """Validate this raw YAML mapping against its typed input contract.
 
         Args:
             model (type[ManifestInputT]): Provider-visible model or agent identifier.
+            schema (str | None): Optional packaged JSON Schema text applied before Pydantic validation.
         """
+        if schema is not None:
+            self._validate_schema(schema)
         try:
             return model.model_validate(self._data)
         except ValidationError as error:
@@ -76,6 +83,17 @@ class YamlDocument:
                 for detail in error.errors(include_input=False, include_url=False)
             )
             raise ConfigurationError(f"{self._path} does not match its manifest schema: {issues}") from error
+
+    def _validate_schema(self, schema_text: str) -> None:
+        """Validate the parsed YAML against its packaged Draft 2020-12 schema.
+
+        Args:
+            schema_text (str): Versioned JSON Schema document used by editor tooling.
+        """
+        try:
+            JsonSchemaValidator.validate(self._data, schema_text, path=self._path)
+        except ValueError as error:
+            raise ConfigurationError(str(error)) from error
 
     def text(self, key: str) -> str:
         """Return a mandatory text field.
@@ -189,7 +207,7 @@ class SkillManifestLoader:
             package (Path): Python package root containing the manifest and its declared resources.
         """
         path = self._manifest_path(package)
-        source = YamlDocument(path).validate(SkillManifestInput)
+        source = YamlDocument(path).validate(SkillManifestInput, schema=ManifestSchemas.skill())
         operation = ToolOperationDescriptor(
             tool_name=source.tool_name,
             operation_type=source.operation.type,
@@ -203,6 +221,7 @@ class SkillManifestLoader:
             implementation=source.implementation,
             description=source.description,
             operation=operation,
+            mcp_server=source.mcp_server,
             mcp_tools=source.mcp_tools,
             prompt=self._prompt(package),
         )
@@ -260,7 +279,7 @@ class AgentManifestLoader:
         """
         folder = self._directory.require(_AGENTS, agent)
         document = YamlDocument(folder / AGENT_MANIFEST)
-        source = document.validate(AgentManifestInput)
+        source = document.validate(AgentManifestInput, schema=ManifestSchemas.agent())
         return AgentManifest(
             name=source.name,
             description=source.description,

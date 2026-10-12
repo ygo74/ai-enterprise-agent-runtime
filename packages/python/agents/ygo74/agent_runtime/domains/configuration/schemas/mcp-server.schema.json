@@ -1,0 +1,442 @@
+{
+  "$defs": {
+    "McpApiKeyInput": {
+      "additionalProperties": false,
+      "description": "YAML fields for a single API-key header.",
+      "properties": {
+        "header_name": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Header Name",
+          "type": "string"
+        },
+        "value": {
+          "pattern": "^\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}$",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "header_name",
+        "value"
+      ],
+      "title": "McpApiKeyInput",
+      "type": "object"
+    },
+    "McpAuthenticationMode": {
+      "description": "Authentication method selected for an HTTP MCP server.",
+      "enum": [
+        "none",
+        "api_key",
+        "oauth"
+      ],
+      "title": "McpAuthenticationMode",
+      "type": "string"
+    },
+    "McpNetworkInput": {
+      "additionalProperties": false,
+      "description": "Optional network settings for a streamable HTTP connection.",
+      "properties": {
+        "proxy_url": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Proxy Url"
+        }
+      },
+      "title": "McpNetworkInput",
+      "type": "object"
+    },
+    "McpOAuthInput": {
+      "additionalProperties": false,
+      "description": "YAML fields for an OAuth client using the runtime's loopback flow.",
+      "properties": {
+        "client_id": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Client Id",
+          "type": "string"
+        },
+        "client_secret": {
+          "pattern": "^\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}$",
+          "title": "Client Secret",
+          "type": "string"
+        },
+        "callback_port": {
+          "default": 8765,
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Callback Port",
+          "type": "integer"
+        },
+        "scopes": {
+          "items": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Scopes",
+          "type": "array"
+        },
+        "token_file": {
+          "default": ".secrets/mcp-token.json",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Token File",
+          "type": "string"
+        },
+        "client_name": {
+          "default": "MCP client",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Client Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "client_id",
+        "client_secret",
+        "scopes"
+      ],
+      "title": "McpOAuthInput",
+      "type": "object"
+    },
+    "McpTransport": {
+      "description": "How a client reaches a server.",
+      "enum": [
+        "stdio",
+        "http"
+      ],
+      "title": "McpTransport",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "transport": {
+            "const": "http"
+          }
+        },
+        "required": [
+          "transport"
+        ]
+      },
+      "then": {
+        "properties": {
+          "url": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "transport": {
+            "const": "stdio"
+          }
+        },
+        "required": [
+          "transport"
+        ]
+      },
+      "then": {
+        "properties": {
+          "command": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "command"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "authentication_mode": {
+            "const": "api_key"
+          }
+        },
+        "required": [
+          "authentication_mode"
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "authentication_oauth"
+          ]
+        },
+        "required": [
+          "authentication_api_key"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "authentication_mode": {
+            "const": "oauth"
+          }
+        },
+        "required": [
+          "authentication_mode"
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "authentication_api_key"
+          ]
+        },
+        "required": [
+          "authentication_oauth"
+        ]
+      }
+    },
+    {
+      "if": {
+        "anyOf": [
+          {
+            "not": {
+              "required": [
+                "authentication_mode"
+              ]
+            }
+          },
+          {
+            "properties": {
+              "authentication_mode": {
+                "const": "none"
+              }
+            }
+          }
+        ]
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "authentication_api_key"
+              ]
+            },
+            {
+              "required": [
+                "authentication_oauth"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "transport": {
+            "const": "stdio"
+          }
+        },
+        "required": [
+          "transport"
+        ]
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {
+              "properties": {
+                "authentication_mode": {
+                  "enum": [
+                    "api_key",
+                    "oauth"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "network": {
+                  "properties": {
+                    "proxy_url": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "description": "Strict typed representation of one MCP server YAML file.",
+  "properties": {
+    "server": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Server"
+    },
+    "transport": {
+      "$ref": "#/$defs/McpTransport"
+    },
+    "url": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Url"
+    },
+    "command": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Command"
+    },
+    "args": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Args",
+      "type": "array"
+    },
+    "env": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Env",
+      "type": "object"
+    },
+    "capabilities": {
+      "items": {
+        "minLength": 1,
+        "pattern": "\\S",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Capabilities",
+      "type": "array"
+    },
+    "tools": {
+      "patternProperties": {
+        "\\S": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        }
+      },
+      "propertyNames": {
+        "minLength": 1
+      },
+      "title": "Tools",
+      "type": "object"
+    },
+    "dialect": {
+      "default": "native",
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Dialect",
+      "type": "string"
+    },
+    "read_only_variable": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Read Only Variable"
+    },
+    "request_timeout_seconds": {
+      "default": 30,
+      "minimum": 1,
+      "title": "Request Timeout Seconds",
+      "type": "integer"
+    },
+    "authentication_mode": {
+      "$ref": "#/$defs/McpAuthenticationMode",
+      "default": "none"
+    },
+    "authentication_api_key": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/McpApiKeyInput"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "authentication_oauth": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/McpOAuthInput"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "network": {
+      "$ref": "#/$defs/McpNetworkInput"
+    }
+  },
+  "required": [
+    "transport",
+    "capabilities"
+  ],
+  "title": "McpServerConfigurationInput",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ygo74:agent-runtime:mcp-server-configuration:1"
+}

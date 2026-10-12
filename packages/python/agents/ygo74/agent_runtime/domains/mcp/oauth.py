@@ -30,6 +30,7 @@ where the token file lives.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import webbrowser
@@ -38,17 +39,23 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from ygo74.agent_runtime.domains.mcp.configuration import McpOAuthSettings
 from ygo74.agent_runtime.domains.mcp.mcp_errors import McpToolUnavailableError
 
 try:  # pragma: no cover - depends on the optional `mcp` extra
     from mcp.client.auth import OAuthClientProvider, TokenStorage
-    from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
+    from mcp.shared.auth import (
+        OAuthClientInformationFull,
+        OAuthClientMetadata,
+        OAuthToken,
+    )
 
     _MCP_AVAILABLE = True
 except Exception:  # noqa: BLE001  # pragma: no cover - the extra is optional by design
     OAuthClientProvider = object  # type: ignore[assignment,misc]
     TokenStorage = object  # type: ignore[assignment,misc]
     OAuthClientInformationFull = Any  # type: ignore[assignment,misc]
+    OAuthClientMetadata = Any  # type: ignore[assignment,misc]
     OAuthToken = Any  # type: ignore[assignment,misc]
     _MCP_AVAILABLE = False
 
@@ -99,6 +106,27 @@ class LoopbackConsent:
         Args:
             authorisation_url (str): OAuth authorization endpoint advertised to the MCP client.
         """
+        await self.open_authorization_page(authorisation_url)
+        return await self.await_code()
+
+    async def open_authorization_page(self, authorisation_url: str) -> None:
+        """Open the MCP authorization page without logging its state or URL.
+
+        Args:
+            authorisation_url (str): Authorization endpoint URL created by the MCP SDK.
+        """
+        webbrowser.open(authorisation_url)
+
+    async def await_code(self) -> tuple[str, str | None]:
+        """Wait for one loopback redirect without blocking the event loop."""
+        captured = await asyncio.to_thread(self._serve_once)
+        code = captured.get("code")
+        if not code:
+            raise McpToolUnavailableError("authorisation was not granted")
+        return code, captured.get("state")
+
+    def _serve_once(self) -> dict[str, str]:
+        """Capture a single authorization redirect on loopback and stop listening."""
         captured: dict[str, str] = {}
 
         class Handler(BaseHTTPRequestHandler):
@@ -122,15 +150,10 @@ class LoopbackConsent:
                 """
 
 
-        webbrowser.open(authorisation_url)
         with HTTPServer((LOOPBACK_HOST, self._port), Handler) as server:
             server.timeout = self._timeout
             server.handle_request()
-
-        code = captured.get("code")
-        if not code:
-            raise McpToolUnavailableError("authorisation was not granted")
-        return code, captured.get("state")
+        return captured
 
 
 class FileTokenStorage(TokenStorage):  # type: ignore[misc]
@@ -224,6 +247,48 @@ class PinnedScopeOAuthProvider(OAuthClientProvider):  # type: ignore[misc]
         """Ask for the pinned scopes, whatever the server advertised."""
         self.context.client_metadata.scope = self._pinned_scope
         return await super()._perform_authorization_code_grant()  # type: ignore[misc,no-any-return]
+
+
+class McpOAuthProviderFactory:
+    """Build the runtime's pinned-scope OAuth provider from server YAML settings."""
+
+    def build(self, server_url: str, settings: McpOAuthSettings) -> OAuthClientProvider:
+        """Create the pre-registered OAuth provider for one MCP server.
+
+        Args:
+            server_url (str): HTTP endpoint of the protected MCP server.
+            settings (McpOAuthSettings): Validated client identity, scopes, callback, and token file.
+        """
+        if not _MCP_AVAILABLE:
+            raise RuntimeError("the 'mcp' extra of ygo74-agent-runtime is required for OAuth MCP connections")
+
+        redirect_uri = loopback_redirect_uri(settings.callback_port)
+        scope = " ".join(settings.scopes)
+        client_info = OAuthClientInformationFull(
+            client_id=settings.client_id,
+            client_secret=settings.client_secret.get_secret_value(),
+            redirect_uris=[redirect_uri],
+            token_endpoint_auth_method="client_secret_post",
+            scope=scope,
+            client_name=settings.client_name,
+        )
+        client_metadata = OAuthClientMetadata(
+            redirect_uris=[redirect_uri],
+            grant_types=["authorization_code", "refresh_token"],
+            response_types=["code"],
+            scope=scope,
+            client_name=settings.client_name,
+            token_endpoint_auth_method="client_secret_post",
+        )
+        consent = LoopbackConsent(settings.callback_port)
+        return PinnedScopeOAuthProvider(
+            server_url=server_url,
+            client_metadata=client_metadata,
+            storage=FileTokenStorage(settings.token_file, client_info),
+            redirect_handler=consent.open_authorization_page,
+            callback_handler=consent.await_code,
+            pinned_scope=scope,
+        )
 
 
 def describe_scopes(scopes: str) -> str:

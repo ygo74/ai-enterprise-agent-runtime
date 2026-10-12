@@ -15,10 +15,12 @@ import inspect
 from contextlib import asynccontextmanager
 from enum import StrEnum
 from pathlib import Path
+from typing import Self
 
 import pytest
 from ygo74.agent_runtime.domains.mcp.binding import (
     McpConnection,
+    McpNetworkSettings,
     McpServerBinding,
     McpServerBindingLoader,
     McpTransport,
@@ -280,6 +282,64 @@ def test_http_headers_reach_only_the_http_transport(monkeypatch: pytest.MonkeyPa
     assert received["headers"] == headers
     assert "secret-value" not in repr(connection)
     assert "secret-value" not in caplog.text
+
+
+def test_http_connection_builds_an_httpx_client_with_configured_proxy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The configured proxy reaches the pinned SDK's HTTP client factory."""
+    from ygo74.agent_runtime.domains.mcp import binding as binding_module
+
+    received: dict[str, object] = {}
+
+    class FakeHttpClient:
+        async def aclose(self) -> None:
+            return None
+
+    def fake_httpx_client(**kwargs: object) -> FakeHttpClient:
+        received.update(kwargs)
+        return FakeHttpClient()
+
+    @asynccontextmanager
+    async def fake_transport(url: str, **kwargs: object):
+        received["url"] = url
+        factory = kwargs["httpx_client_factory"]
+        client = factory(headers=None, timeout=None, auth=None)
+        await client.aclose()
+        yield object(), object(), None
+
+    monkeypatch.setattr(binding_module.httpx, "AsyncClient", fake_httpx_client)
+    monkeypatch.setattr(binding_module, "streamablehttp_client", fake_transport)
+    monkeypatch.setattr(binding_module, "ClientSession", lambda *args, **kwargs: _FakeSession())
+    connection = McpConnection(
+        _binding(),
+        network=McpNetworkSettings(proxy_url="http://proxy.example.test:8080"),
+    )
+
+    async def scenario() -> None:
+        await connection.session()
+        await connection.aclose()
+
+    import asyncio
+
+    asyncio.run(scenario())
+
+    assert received["url"] == "https://example.test/mcp"
+    assert received["proxy"] == "http://proxy.example.test:8080"
+
+
+class _FakeSession:
+    """No-op MCP session for transport setup tests."""
+
+    async def __aenter__(self) -> Self:
+        """Enter the fake MCP session context."""
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        """Exit the fake MCP session context."""
+
+    async def initialize(self) -> None:
+        """Accept initialization without network traffic."""
 
 
 def test_the_redirect_stays_on_the_loopback_interface() -> None:

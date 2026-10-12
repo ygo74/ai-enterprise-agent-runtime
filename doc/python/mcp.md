@@ -17,6 +17,80 @@ dialect can fail before its first tool call; the latter applies when capability
 names are also keys in the alias map. An application keeps that choice with its
 own catalog and dialect rules.
 
+### Declarative client configuration
+
+Install the `mcp` extra to use `McpServerConfigurationLoader` and
+`McpAgentRegistryLoader`. Each skill can declare a server name and a non-empty
+list of logical tool aliases. The matching server file lives under
+`config/mcp/<name>.yaml`; only names referenced by the loaded agent are read.
+The packaged server schema is available through
+`ManifestSchemas.mcp_server()` (`urn:ygo74:agent-runtime:mcp-server:1`) and is
+used by the runtime loader as well as YAML editor tooling.
+
+```yaml
+# skill.yaml
+mcp_server: mail-http
+mcp_tools:
+  - search_mail
+```
+
+```yaml
+# config/mcp/mail-http.yaml
+server: mail-http
+transport: http
+url: https://mail.example.test/mcp
+capabilities: [search_mail, send_mail]
+tools:
+  search_mail: messages_search
+  send_mail: messages_send
+request_timeout_seconds: 30
+authentication_mode: api_key
+authentication_api_key:
+  header_name: X-API-Key
+  value: ${MAIL_MCP_API_KEY}
+network:
+  proxy_url: http://proxy.example.test:8080
+```
+
+The server file supports `http` and `stdio`. HTTP authentication can be
+`none`, `api_key`, or `oauth`; stdio accepts no HTTP authentication or proxy.
+Timeouts and proxy settings apply only to HTTP. Proxy URLs must use HTTP or
+HTTPS and cannot contain credentials. API-key values and OAuth client secrets
+must be references in the form `${ENV_VAR}`; literal credentials in YAML,
+missing variables, and empty values are rejected. Only those two credential
+fields are interpolated. Put variables in the process environment or in the
+`.env` file beside the delivered `config/` directory. The agent registry
+entrypoint loads that file without overriding process values; callers can
+inject an environment mapping for deterministic configuration loading.
+
+OAuth settings include a client ID, client-secret reference, pinned scopes,
+callback port, client name, and token-file path. Relative token paths resolve
+from the directory beside `config/`. The registry constructs the existing
+loopback OAuth provider but does not open a browser or make a network request
+while loading configuration.
+
+`McpAgentRegistryLoader(configuration_directory, capabilities).load(agent)`
+loads each referenced server once and keeps its `McpConnection` lazy. Call
+`registry.for_skill(tool_name)` to get that skill's view; its `tools` mapping
+contains only that skill's allow-listed aliases and `remote_tool(alias)` rejects
+all others, even when another skill shares the same server. The registry owns
+the shared connection lifecycle and should be closed with `await
+registry.aclose()` when the agent stops. Existing direct use of
+`McpServerBinding`, `McpServerBindingLoader`, and `McpConnection` remains
+available for application-controlled composition.
+
+The agents `configuration` extra includes PyYAML, python-dotenv, and JSON Schema
+validation for manifests. The `mcp` extra installs those configuration
+dependencies together with the MCP SDK and HTTPX; they remain optional for
+unrelated runtime domains. Existing skill manifests without `mcp_server` remain
+valid. Skills that add `mcp_server` must also add at least one `mcp_tools`
+alias, and server YAML must now match the strict packaged schema, including its
+known fields.
+
+See the [configuration example](../../samples/examples/python-langchain-fastapi/08-mcp-configuration/README.md)
+for shared and distinct server references and a local loader smoke path that
+does not connect to a server.
+
 `McpConnection` manages one lazily opened client session and its transport. For
 HTTP, applications may pass request-scoped headers; the runtime does not log
 header values and its header mapping representation redacts them. The

@@ -27,6 +27,7 @@ class SkillManifest(BaseModel):
         description: What the capability does and does not do. The model selects
             tools from this text, so it is part of the contract.
         operation: Security metadata driving the confirmation policy.
+        mcp_server: Optional name of the configured MCP server used by this skill.
         mcp_tools: Logical tools the capability is allowed to use.
         prompt: Reasoning instructions. Empty for a deterministic capability.
     """
@@ -36,6 +37,7 @@ class SkillManifest(BaseModel):
     implementation: str = Field(min_length=1)
     description: str = Field(min_length=1)
     operation: ToolOperationDescriptor
+    mcp_server: str | None = Field(default=None, min_length=1)
     mcp_tools: tuple[str, ...] = ()
     prompt: str = ""
 
@@ -44,6 +46,10 @@ class SkillManifest(BaseModel):
         """Reject a manifest declaring the security posture of another tool."""
         if self.operation.tool_name != self.tool_name:
             raise ValueError(f"skill {self.tool_name!r} declares the operation of {self.operation.tool_name!r}")
+        if self.mcp_tools and not self.mcp_server:
+            raise ValueError(f"skill {self.tool_name!r} declares MCP tools without an MCP server")
+        if self.mcp_server and not self.mcp_tools:
+            raise ValueError(f"skill {self.tool_name!r} declares an MCP server without MCP tools")
         return self
 
     @property
