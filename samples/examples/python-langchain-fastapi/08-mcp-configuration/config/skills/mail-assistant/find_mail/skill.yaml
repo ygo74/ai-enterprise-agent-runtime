@@ -7,6 +7,5 @@ operation:
   risk: LOW
   permission: mail:read
   confirmation_required: false
-mcp_server: mail
 mcp_tools:
   - search_mail

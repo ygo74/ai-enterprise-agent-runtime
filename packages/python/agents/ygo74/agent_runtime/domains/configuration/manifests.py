@@ -42,6 +42,7 @@ class YamlDocument:
     Args:
         path (Path): Dotted claim path or filesystem path being resolved, as indicated by this API.
     """
+
     def __init__(self, path: Path) -> None:
         """Initialize the instance runtime data with the supplied collaborators and configuration.
 
@@ -66,7 +67,9 @@ class YamlDocument:
             raise ConfigurationError(f"{path} must contain a mapping")
         return loaded
 
-    def validate(self, model: type[ManifestInputT], *, schema: str | None = None) -> ManifestInputT:
+    def validate(
+        self, model: type[ManifestInputT], *, schema: str | None = None
+    ) -> ManifestInputT:
         """Validate this raw YAML mapping against its typed input contract.
 
         Args:
@@ -82,7 +85,9 @@ class YamlDocument:
                 f"{'.'.join(str(part) for part in detail['loc'])}: {detail['msg']}"
                 for detail in error.errors(include_input=False, include_url=False)
             )
-            raise ConfigurationError(f"{self._path} does not match its manifest schema: {issues}") from error
+            raise ConfigurationError(
+                f"{self._path} does not match its manifest schema: {issues}"
+            ) from error
 
     def _validate_schema(self, schema_text: str) -> None:
         """Validate the parsed YAML against its packaged Draft 2020-12 schema.
@@ -103,7 +108,9 @@ class YamlDocument:
         """
         value = self._data.get(key)
         if not isinstance(value, str) or not value.strip():
-            raise ConfigurationError(f"{self._path}: field {key!r} must be a non-empty string")
+            raise ConfigurationError(
+                f"{self._path}: field {key!r} must be a non-empty string"
+            )
         return value.strip()
 
     def flag(self, key: str) -> bool:
@@ -114,7 +121,9 @@ class YamlDocument:
         """
         value = self._data.get(key)
         if not isinstance(value, bool):
-            raise ConfigurationError(f"{self._path}: field {key!r} must be true or false")
+            raise ConfigurationError(
+                f"{self._path}: field {key!r} must be true or false"
+            )
         return value
 
     def texts(self, key: str) -> tuple[str, ...]:
@@ -124,8 +133,12 @@ class YamlDocument:
             key (str): The identifier or key used to locate the corresponding registered value.
         """
         value = self._data.get(key, [])
-        if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-            raise ConfigurationError(f"{self._path}: field {key!r} must be a list of strings")
+        if not isinstance(value, list) or not all(
+            isinstance(item, str) for item in value
+        ):
+            raise ConfigurationError(
+                f"{self._path}: field {key!r} must be a list of strings"
+            )
         return tuple(item.strip() for item in value)
 
     def section(self, key: str) -> YamlSection:
@@ -148,6 +161,7 @@ class YamlSection:
         name (str): The name used to locate or label the value being processed.
         data (dict[str, Any]): The structured input whose fields are being read or validated.
     """
+
     def __init__(self, path: Path, name: str, data: dict[str, Any]) -> None:
         """Initialize the instance runtime data with the supplied collaborators and configuration.
 
@@ -168,7 +182,9 @@ class YamlSection:
         """
         value = self._data.get(key)
         if not isinstance(value, str) or not value.strip():
-            raise ConfigurationError(f"{self._path}: {self._name}.{key} must be a non-empty string")
+            raise ConfigurationError(
+                f"{self._path}: {self._name}.{key} must be a non-empty string"
+            )
         return value.strip()
 
     def flag(self, key: str) -> bool:
@@ -179,7 +195,9 @@ class YamlSection:
         """
         value = self._data.get(key)
         if not isinstance(value, bool):
-            raise ConfigurationError(f"{self._path}: {self._name}.{key} must be true or false")
+            raise ConfigurationError(
+                f"{self._path}: {self._name}.{key} must be true or false"
+            )
         return value
 
 
@@ -190,6 +208,7 @@ class SkillManifestLoader:
         permissions (PermissionRegistry): Permissions granted to the user or required by the operation.
         floor (SecurityFloor): Configured approval or authorization threshold for the operation.
     """
+
     def __init__(self, permissions: PermissionRegistry, floor: SecurityFloor) -> None:
         """Initialize the instance runtime data with the supplied collaborators and configuration.
 
@@ -207,7 +226,9 @@ class SkillManifestLoader:
             package (Path): Python package root containing the manifest and its declared resources.
         """
         path = self._manifest_path(package)
-        source = YamlDocument(path).validate(SkillManifestInput, schema=ManifestSchemas.skill())
+        source = YamlDocument(path).validate(
+            SkillManifestInput, schema=ManifestSchemas.skill()
+        )
         operation = ToolOperationDescriptor(
             tool_name=source.tool_name,
             operation_type=source.operation.type,
@@ -235,7 +256,9 @@ class SkillManifestLoader:
         """
         path = package / SKILL_MANIFEST
         if not path.is_file():
-            raise ConfigurationError(f"skill package {package.name!r} has no {SKILL_MANIFEST}")
+            raise ConfigurationError(
+                f"skill package {package.name!r} has no {SKILL_MANIFEST}"
+            )
         return path
 
     @staticmethod
@@ -261,7 +284,10 @@ class AgentManifestLoader:
         directory (ConfigurationDirectory): Repository-backed configuration directory used to load agent manifests.
         skills (SkillManifestLoader): Declared agent skills checked against descriptor capabilities.
     """
-    def __init__(self, directory: ConfigurationDirectory, skills: SkillManifestLoader) -> None:
+
+    def __init__(
+        self, directory: ConfigurationDirectory, skills: SkillManifestLoader
+    ) -> None:
         """Initialize the instance runtime data with the supplied collaborators and configuration.
 
         Args:
@@ -280,12 +306,18 @@ class AgentManifestLoader:
         folder = self._directory.require(_AGENTS, agent)
         document = YamlDocument(folder / AGENT_MANIFEST)
         source = document.validate(AgentManifestInput, schema=ManifestSchemas.agent())
-        return AgentManifest(
-            name=source.name,
-            description=source.description,
-            instructions=self._instructions(folder),
-            skills=self._declared_skills(agent, source.skills),
-        )
+        try:
+            return AgentManifest(
+                name=source.name,
+                description=source.description,
+                instructions=self._instructions(folder),
+                mcp_server=source.mcp_server,
+                skills=self._declared_skills(agent, source.skills),
+            )
+        except ValidationError as error:
+            raise ConfigurationError(
+                f"{folder / AGENT_MANIFEST} has an invalid MCP skill configuration: {error}"
+            ) from error
 
     @staticmethod
     def _instructions(folder: Path) -> str:
@@ -305,17 +337,24 @@ class AgentManifestLoader:
             raise ConfigurationError(f"{path} is empty")
         return instructions
 
-    def _declared_skills(self, agent: str, names: tuple[str, ...]) -> tuple[SkillManifest, ...]:
+    def _declared_skills(
+        self, agent: str, names: tuple[str, ...]
+    ) -> tuple[SkillManifest, ...]:
         """Load the packages declared by the agent, in their declared order.
 
         Args:
             agent (str): The agent configuration or descriptor being processed.
             names (tuple[str, ...]): Tool call IDs and names used to correlate related blocks.
         """
-        available = {package.name: package for package in self._directory.children(_SKILLS, agent)}
+        available = {
+            package.name: package
+            for package in self._directory.children(_SKILLS, agent)
+        }
         return tuple(self._declared_skill(agent, name, available) for name in names)
 
-    def _declared_skill(self, agent: str, name: str, available: dict[str, Path]) -> SkillManifest:
+    def _declared_skill(
+        self, agent: str, name: str, available: dict[str, Path]
+    ) -> SkillManifest:
         """Load a declared package, or report which packages are available.
 
         Args:
@@ -326,5 +365,7 @@ class AgentManifestLoader:
         package = available.get(name)
         if package is None:
             known = ", ".join(sorted(available)) or "none"
-            raise ConfigurationError(f"agent {agent!r} declares skill {name!r}; delivered packages: {known}")
+            raise ConfigurationError(
+                f"agent {agent!r} declares skill {name!r}; delivered packages: {known}"
+            )
         return self._skills.load(package)

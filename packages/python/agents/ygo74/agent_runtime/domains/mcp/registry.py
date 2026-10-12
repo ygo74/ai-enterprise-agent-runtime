@@ -229,7 +229,7 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
             agent (AgentManifest): Validated agent and its ordered skill declarations.
         """
         skills = self._validate_skills(agent)
-        server_skills = self._skills_by_server(skills)
+        server_skills = self._skills_by_server(agent, skills)
         if not server_skills:
             return McpAgentRegistry({}, {}, _RegistryState(), self._error_factory)
 
@@ -292,9 +292,13 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
                     f"agent {agent.name!r} has duplicate skill {skill.tool_name!r}"
                 )
             seen.add(skill.tool_name)
-            if skill.mcp_server is None and skill.mcp_tools:
+            if (
+                skill.mcp_server is None
+                and agent.mcp_server is None
+                and skill.mcp_tools
+            ):
                 raise self._error_factory(
-                    f"skill {skill.tool_name!r} declares MCP tools without a server"
+                    f"skill {skill.tool_name!r} declares MCP tools without a skill or agent MCP server"
                 )
             if skill.mcp_server is not None and not skill.mcp_tools:
                 raise self._error_factory(
@@ -303,18 +307,24 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
         return agent.skills
 
     def _skills_by_server(
-        self, skills: tuple[SkillManifest, ...]
+        self,
+        agent: AgentManifest,
+        skills: tuple[SkillManifest, ...],
     ) -> dict[str, tuple[SkillManifest, ...]]:
-        """Group MCP-enabled skills while preserving first-reference order.
+        """Group skills by explicit server or agent default in reference order.
 
         Args:
+            agent (AgentManifest): Agent whose MCP server is the default when a skill omits one.
             skills (tuple[SkillManifest, ...]): Ordered agent skills to group.
         """
         grouped: dict[str, list[SkillManifest]] = {}
         for skill in skills:
-            if skill.mcp_server is None:
+            if not skill.mcp_tools:
                 continue
-            grouped.setdefault(skill.mcp_server, []).append(skill)
+            server_name = skill.mcp_server or agent.mcp_server
+            if server_name is None:
+                continue
+            grouped.setdefault(server_name, []).append(skill)
         return {name: tuple(server_skills) for name, server_skills in grouped.items()}
 
     def _server_path(self, name: str) -> Path:

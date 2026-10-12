@@ -53,30 +53,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "The fixed YAML fields accepted for one skill package.",
   "allOf": [
-    {
-      "if": {
-        "properties": {
-          "mcp_tools": {
-            "minItems": 1
-          }
-        },
-        "required": [
-          "mcp_tools"
-        ]
-      },
-      "then": {
-        "properties": {
-          "mcp_server": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "mcp_server"
-        ]
-      }
-    },
     {
       "if": {
         "properties": {
@@ -101,6 +78,7 @@
       }
     }
   ],
+  "description": "The fixed YAML fields accepted for one skill package.",
   "properties": {
     "tool_name": {
       "minLength": 1,

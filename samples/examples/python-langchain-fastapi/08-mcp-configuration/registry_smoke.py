@@ -60,13 +60,19 @@ async def main() -> None:
         delegated_token_source=OfflineOAuthOnBehalfOfTokenSource(),
     ).load(manifest_loader.load("mail-assistant"))
     try:
-        for tool_name in (
-            "find_mail",
-            "send_mail",
-            "search_archive",
-            "delegated_lookup",
-        ):
+        expected_servers = {
+            "find_mail": "mail",
+            "send_mail": "mail",
+            "search_archive": "archive",
+            "delegated_lookup": "delegated",
+        }
+        for tool_name, expected_server in expected_servers.items():
             view = registry.for_skill(tool_name)
+            if view.server_name != expected_server:
+                raise AssertionError(
+                    f"{tool_name} resolved to {view.server_name!r}, "
+                    f"expected {expected_server!r}"
+                )
             print(f"{tool_name}: server={view.server_name}, tools={dict(view.tools)}")
         print(f"loaded servers: {', '.join(registry.server_names)}")
     finally:

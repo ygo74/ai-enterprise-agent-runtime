@@ -31,6 +31,7 @@ class SkillManifest(BaseModel):
         mcp_tools: Logical tools the capability is allowed to use.
         prompt: Reasoning instructions. Empty for a deterministic capability.
     """
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     tool_name: str = Field(min_length=1)
@@ -45,11 +46,13 @@ class SkillManifest(BaseModel):
     def _check_operation_matches(self) -> SkillManifest:
         """Reject a manifest declaring the security posture of another tool."""
         if self.operation.tool_name != self.tool_name:
-            raise ValueError(f"skill {self.tool_name!r} declares the operation of {self.operation.tool_name!r}")
-        if self.mcp_tools and not self.mcp_server:
-            raise ValueError(f"skill {self.tool_name!r} declares MCP tools without an MCP server")
+            raise ValueError(
+                f"skill {self.tool_name!r} declares the operation of {self.operation.tool_name!r}"
+            )
         if self.mcp_server and not self.mcp_tools:
-            raise ValueError(f"skill {self.tool_name!r} declares an MCP server without MCP tools")
+            raise ValueError(
+                f"skill {self.tool_name!r} declares an MCP server without MCP tools"
+            )
         return self
 
     @property
@@ -61,15 +64,31 @@ class SkillManifest(BaseModel):
 class AgentManifest(BaseModel):
     """What configuration declares about one agent.
 
-    ``skills`` lists the capabilities the agent exposes, in the order they are
-    offered to the model.
+    Attributes:
+        name: Agent name used by discovery and routing.
+        description: User-facing summary of the agent.
+        instructions: Agent-level instructions supplied to its orchestrator.
+        mcp_server: Optional default MCP server for skills without an override.
+        skills: Capabilities the agent exposes, in the order offered to the model.
     """
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     name: str = Field(min_length=1)
     description: str = Field(min_length=1)
     instructions: str = Field(min_length=1)
+    mcp_server: str | None = Field(default=None, min_length=1)
     skills: tuple[SkillManifest, ...] = ()
+
+    @model_validator(mode="after")
+    def _require_effective_mcp_server(self) -> AgentManifest:
+        """Require a server for every MCP-enabled skill after applying the default."""
+        for skill in self.skills:
+            if skill.mcp_tools and skill.mcp_server is None and self.mcp_server is None:
+                raise ValueError(
+                    f"skill {skill.tool_name!r} declares MCP tools without a skill or agent MCP server"
+                )
+        return self
 
     def skill(self, tool_name: str) -> SkillManifest:
         """Return one declared capability by name.

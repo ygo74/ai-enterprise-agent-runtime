@@ -20,18 +20,33 @@ own catalog and dialect rules.
 ### Declarative client configuration
 
 Install the `mcp` extra to use `McpServerConfigurationLoader` and
-`McpAgentRegistryLoader`. Each skill can declare a server name and a non-empty
-list of logical tool aliases. The matching server file lives under
-`config/mcp/<name>.yaml`; only names referenced by the loaded agent are read.
+`McpAgentRegistryLoader`. An agent can optionally declare a default `mcp_server`
+in `agent.yaml`. An MCP-enabled skill can inherit that default by omitting its
+own `mcp_server`, or override it with a skill-level value. Each MCP skill keeps
+its own non-empty list of logical tool aliases. A skill without an explicit or
+inherited server is rejected. The matching server file lives under
+`config/mcp/<name>.yaml`; only effective server names referenced by the loaded
+agent are read.
 The packaged server schema is available through
 `ManifestSchemas.mcp_server()` (`urn:ygo74:agent-runtime:mcp-server:1`) and is
 used by the runtime loader as well as YAML editor tooling.
 
 ```yaml
-# skill.yaml
+# agent.yaml
 mcp_server: mail-http
+```
+
+```yaml
+# skill.yaml: inherits mail-http
 mcp_tools:
   - search_mail
+```
+
+```yaml
+# another skill.yaml: overrides the agent default
+mcp_server: archive-http
+mcp_tools:
+  - search_archive
 ```
 
 ```yaml
@@ -137,9 +152,12 @@ available for application-controlled composition.
 The agents `configuration` extra includes PyYAML, python-dotenv, and JSON Schema
 validation for manifests. The `mcp` extra installs those configuration
 dependencies together with the MCP SDK and HTTPX; they remain optional for
-unrelated runtime domains. Existing skill manifests without `mcp_server` remain
-valid. Skills that add `mcp_server` must also add at least one `mcp_tools`
-alias, and server YAML must now match the strict packaged schema, including its
+unrelated runtime domains. Existing skill-level server declarations remain
+valid. Non-MCP skills need neither `mcp_server` nor `mcp_tools`; MCP skills must
+declare `mcp_tools` and resolve a server from either the skill or its agent.
+Skills that declare a local `mcp_server` must also add at least one `mcp_tools`
+alias. The packaged agent and skill schemas reflect their respective parts of
+this contract, and server YAML must match the strict schema, including its
 known fields.
 
 See the [configuration example](../../samples/examples/python-langchain-fastapi/08-mcp-configuration/README.md)
