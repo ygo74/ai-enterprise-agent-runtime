@@ -26,7 +26,8 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from types import TracebackType
+from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar
 from urllib.parse import urlsplit
 
 from ygo74.agent_runtime.domains.auth.tokens import OAuthOnBehalfOfTokenSource
@@ -762,6 +763,26 @@ class _ContextualMcpWriteStream:
         self._contexts = contexts
         self._current_context = current_context
         self._request_id_for_message = request_id_for_message
+
+    async def __aenter__(self) -> Self:
+        """Enter the SDK stream while retaining request-context interception."""
+        await self._stream.__aenter__()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> bool | None:
+        """Delegate SDK stream cleanup and exception handling.
+
+        Args:
+            exc_type (type[BaseException] | None): Exception type on session exit.
+            exc_value (BaseException | None): Exception raised by the session.
+            traceback (TracebackType | None): Traceback associated with the error.
+        """
+        return await self._stream.__aexit__(exc_type, exc_value, traceback)
 
     async def send(self, message: Any) -> None:
         """Associate a request's current turn before the persistent writer task receives it.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
+import anyio
 import httpx
 import pytest
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
@@ -147,6 +148,37 @@ def test_persistent_writer_correlates_each_message_before_the_http_hook_runs() -
 
     assert len(sent) == 2
     assert (lin_user, ada_user) == ("lin", "ada")
+
+
+@pytest.mark.parametrize("raise_inside", [False, True])
+def test_contextual_writer_preserves_the_sdk_async_context_lifecycle(
+    raise_inside: bool,
+) -> None:
+    """The MCP session can enter and close its wrapped write stream.
+
+    Args:
+        raise_inside (bool): Whether session cleanup must propagate an error.
+    """
+    async def scenario() -> None:
+        """Verify SDK stream cleanup on normal exit and session failure."""
+        sender, receiver = anyio.create_memory_object_stream[object](1)
+        wrapper = _ContextualMcpWriteStream(
+            sender, McpRequestContextRegistry(), lambda: None, lambda message: None
+        )
+        try:
+            async with wrapper as entered:
+                assert entered is wrapper
+                await entered.send("message")
+                if raise_inside:
+                    raise ValueError("session failure")
+        except ValueError as error:
+            assert raise_inside
+            assert str(error) == "session failure"
+        with pytest.raises(anyio.ClosedResourceError):
+            await sender.send("after cleanup")
+        await receiver.aclose()
+
+    asyncio.run(scenario())
 
 
 def test_obo_exchanges_the_verified_subject_and_sends_only_the_downstream_token() -> (
