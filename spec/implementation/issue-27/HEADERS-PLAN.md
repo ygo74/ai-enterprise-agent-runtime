@@ -1,6 +1,6 @@
 # Issue 27 Follow-up: MCP Headers and OBO Implementation Plan
 
-**Status**: Validated; PR update pending.
+**Status**: Validated; PR #28 updated and unmerged.
 
 ## Issue and specification
 
