@@ -8,6 +8,7 @@ from enum import StrEnum
 from pathlib import Path
 
 import pytest
+from ygo74.agent_runtime.domains.auth.tokens import AccessToken, DelegatedTokenRequest
 from ygo74.agent_runtime.domains.configuration.directory import ConfigurationDirectory
 from ygo74.agent_runtime.domains.contracts.manifests import AgentManifest, SkillManifest
 from ygo74.agent_runtime.domains.mcp.mcp_errors import McpBindingError
@@ -47,7 +48,12 @@ def _skill(tool_name: str, server: str, tools: tuple[str, ...]) -> SkillManifest
 
 def _agent(*skills: SkillManifest) -> AgentManifest:
     """Build one agent manifest from ordered skills."""
-    return AgentManifest(name="mail", description="Mail agent", instructions="Use tools safely.", skills=skills)
+    return AgentManifest(
+        name="mail",
+        description="Mail agent",
+        instructions="Use tools safely.",
+        skills=skills,
+    )
 
 
 def _write_server(config_root: Path, name: str, *, server: str | None = None) -> None:
@@ -67,12 +73,16 @@ def _write_server(config_root: Path, name: str, *, server: str | None = None) ->
     )
 
 
-def test_registry_reuses_one_connection_for_skills_sharing_a_server(tmp_path: Path) -> None:
+def test_registry_reuses_one_connection_for_skills_sharing_a_server(
+    tmp_path: Path,
+) -> None:
     """Two skills share one lazy connection and receive separate allowed tools."""
     config_root = tmp_path / "config"
     _write_server(config_root, "gmail-http")
     _write_server(config_root, "archive-http")
-    loader = McpAgentRegistryLoader(ConfigurationDirectory(config_root), Capability, environment={})
+    loader = McpAgentRegistryLoader(
+        ConfigurationDirectory(config_root), Capability, environment={}
+    )
 
     registry = loader.load(
         _agent(
@@ -90,6 +100,49 @@ def test_registry_reuses_one_connection_for_skills_sharing_a_server(tmp_path: Pa
     assert lookup.tools == {"search_mail": "remote_search"}
     assert archive.tools == {"send_mail": "remote_send"}
     assert history.server_name == "archive-http"
+
+
+def test_registry_requires_and_injects_the_delegated_token_source(
+    tmp_path: Path,
+) -> None:
+    """OBO configuration fails closed without a host source and wires one when supplied."""
+    config_root = tmp_path / "config"
+    server_directory = config_root / "mcp"
+    server_directory.mkdir(parents=True)
+    (server_directory / "delegated.yaml").write_text(
+        "server: delegated\n"
+        "transport: http\n"
+        "url: https://mcp.example.test/mcp\n"
+        "capabilities: [search_mail]\n"
+        "tools: {search_mail: search}\n"
+        "authentication_mode: oauth_on_behalf_of\n"
+        "authentication_oauth_on_behalf_of:\n"
+        "  audience: https://mcp.example.test\n"
+        "  scopes: [mail.read]\n",
+        encoding="utf-8",
+    )
+    agent = _agent(_skill("lookup", "delegated", ("search_mail",)))
+
+    with pytest.raises(McpBindingError, match="delegated token source"):
+        McpAgentRegistryLoader(
+            ConfigurationDirectory(config_root), Capability, environment={}
+        ).load(agent)
+
+    class FakeDelegatedTokenSource:
+        """Return an MCP token for a future request without making network calls."""
+
+        async def token_for(self, request: DelegatedTokenRequest) -> AccessToken:
+            return AccessToken("mcp-token", audience=request.audience)
+
+    source = FakeDelegatedTokenSource()
+    registry = McpAgentRegistryLoader(
+        ConfigurationDirectory(config_root),
+        Capability,
+        environment={},
+        delegated_token_source=source,
+    ).load(agent)
+
+    assert registry.for_skill("lookup").connection._delegated_token_source is source
 
 
 def test_skill_view_rejects_an_alias_outside_its_allow_list(tmp_path: Path) -> None:
@@ -121,11 +174,15 @@ def test_registry_ignores_unreferenced_server_files(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("name", ["absent", "../secret", "/tmp/secret"])
-def test_registry_refuses_missing_or_unsafe_server_names(tmp_path: Path, name: str) -> None:
+def test_registry_refuses_missing_or_unsafe_server_names(
+    tmp_path: Path, name: str
+) -> None:
     """Server references cannot escape the MCP configuration directory."""
     config_root = tmp_path / "config"
     config_root.mkdir()
-    loader = McpAgentRegistryLoader(ConfigurationDirectory(config_root), Capability, environment={})
+    loader = McpAgentRegistryLoader(
+        ConfigurationDirectory(config_root), Capability, environment={}
+    )
 
     with pytest.raises(McpBindingError):
         loader.load(_agent(_skill("lookup", name, ("search_mail",))))
@@ -135,7 +192,9 @@ def test_registry_refuses_duplicate_skill_identities(tmp_path: Path) -> None:
     """Two entries with the same skill name cannot shadow each other."""
     config_root = tmp_path / "config"
     _write_server(config_root, "gmail-http")
-    loader = McpAgentRegistryLoader(ConfigurationDirectory(config_root), Capability, environment={})
+    loader = McpAgentRegistryLoader(
+        ConfigurationDirectory(config_root), Capability, environment={}
+    )
 
     with pytest.raises(McpBindingError, match="duplicate skill"):
         loader.load(
@@ -146,11 +205,15 @@ def test_registry_refuses_duplicate_skill_identities(tmp_path: Path) -> None:
         )
 
 
-def test_registry_refuses_a_skill_tool_missing_from_the_server_mapping(tmp_path: Path) -> None:
+def test_registry_refuses_a_skill_tool_missing_from_the_server_mapping(
+    tmp_path: Path,
+) -> None:
     """A skill's allow-list must be satisfied before the agent starts."""
     config_root = tmp_path / "config"
     _write_server(config_root, "gmail-http")
-    loader = McpAgentRegistryLoader(ConfigurationDirectory(config_root), Capability, environment={})
+    loader = McpAgentRegistryLoader(
+        ConfigurationDirectory(config_root), Capability, environment={}
+    )
 
     with pytest.raises(McpBindingError, match="missing MCP tools"):
         loader.load(_agent(_skill("lookup", "gmail-http", ("missing_tool",))))
@@ -203,16 +266,18 @@ def test_registry_loads_delivered_env_without_overriding_process_values(
     from ygo74.agent_runtime.domains.mcp import registry as registry_module
 
     monkeypatch.setattr(registry_module, "McpConnection", CapturingConnection)
-    registry = McpAgentRegistryLoader(ConfigurationDirectory(config_root), Capability).load(
-        _agent(_skill("lookup", "gmail-http", ("search_mail",)))
-    )
+    registry = McpAgentRegistryLoader(
+        ConfigurationDirectory(config_root), Capability
+    ).load(_agent(_skill("lookup", "gmail-http", ("search_mail",))))
 
     assert registry.server_names == ("gmail-http",)
     assert resolved_headers == {"X-Key": "from-process"}
     assert os.environ["DOTENV_ONLY"] == "loaded-from-dotenv"
 
 
-def test_registry_closes_each_unique_connection_once(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_registry_closes_each_unique_connection_once(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """Closing the agent registry closes each shared server connection once."""
     from ygo74.agent_runtime.domains.mcp import registry as registry_module
 

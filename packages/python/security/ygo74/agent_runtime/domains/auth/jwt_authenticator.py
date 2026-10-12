@@ -22,11 +22,12 @@ from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
 from ygo74.agent_runtime.domains.auth.authenticator import Authenticator
 from ygo74.agent_runtime.domains.auth.claims_projection import ClaimsProjector
 from ygo74.agent_runtime.domains.auth.oidc_discovery import OidcDiscovery
+from ygo74.agent_runtime.domains.auth.tokens import AccessToken
 
 
 class JwtKeyResolver(Protocol):
-    """Resolve JWT credentials from configured sources while enforcing documented selection rules.
-    """
+    """Resolve JWT credentials from configured sources while enforcing documented selection rules."""
+
     def resolve_key(self, token: str, unverified_header: Mapping[str, Any]) -> Any:
         """Resolve key using configuration and registered candidates.
 
@@ -44,6 +45,7 @@ class StaticSymmetricKeyResolver(JwtKeyResolver):
     Args:
         secret (str): Symmetric signing secret held by the configured key resolver.
     """
+
     secret: str
 
     def resolve_key(self, token: str, unverified_header: Mapping[str, Any]) -> Any:
@@ -64,6 +66,7 @@ class StaticPublicKeyResolver(JwtKeyResolver):
     Args:
         public_key (str): Public signing key used to validate JWT signatures.
     """
+
     public_key: str
 
     def resolve_key(self, token: str, unverified_header: Mapping[str, Any]) -> Any:
@@ -85,6 +88,7 @@ class RotatingKeyResolver(JwtKeyResolver):
         keys_by_kid (dict[str, Any]): Signing keys indexed by their JWT key identifier.
         default_key (Any | None): Signing key used when the JWT header has no key identifier.
     """
+
     keys_by_kid: dict[str, Any]
     default_key: Any | None = None
 
@@ -117,6 +121,7 @@ class JwksKeyResolver(JwtKeyResolver):
         cache_ttl_seconds (int): How long resolved signing keys remain in the local cache.
         _client (PyJWKClient | None): HTTP or SDK client used to retrieve signing keys or discovery data.
     """
+
     jwks_url: str
     cache_ttl_seconds: int = 300
     _client: PyJWKClient | None = field(default=None, init=False, repr=False)
@@ -130,7 +135,9 @@ class JwksKeyResolver(JwtKeyResolver):
         """
         _ = unverified_header
         if self._client is None:
-            self._client = PyJWKClient(self.jwks_url, cache_jwk_set=True, lifespan=self.cache_ttl_seconds)
+            self._client = PyJWKClient(
+                self.jwks_url, cache_jwk_set=True, lifespan=self.cache_ttl_seconds
+            )
 
         try:
             signing_key = self._client.get_signing_key_from_jwt(token)
@@ -163,6 +170,7 @@ class DiscoveredJwksKeyResolver(JwtKeyResolver):
         cache_ttl_seconds (int): How long resolved signing keys remain in the local cache.
         _delegate (JwksKeyResolver | None): Underlying resolver delegated the signing-key lookup.
     """
+
     issuer: str
     discovery: OidcDiscovery = field(default_factory=lambda: OidcDiscovery())
     cache_ttl_seconds: int = 300
@@ -197,6 +205,7 @@ class JwtValidationConfig:
         roles_claim_path (str | None): Dotted claim path from which role values are read.
         groups_claim_path (str | None): Dotted claim path from which group values are read.
     """
+
     allowed_algorithms: tuple[str, ...] = ("HS256",)
     required_claims: tuple[str, ...] = ("sub",)
     issuer: str | None = None
@@ -213,6 +222,7 @@ class JwtAuthenticator(Authenticator):
     Args:
         config (JwtValidationConfig | None): The configuration values that constrain this behavior.
     """
+
     HEADER_NAME = "authorization"
     SCHEME = "bearer"
 
@@ -230,14 +240,12 @@ class JwtAuthenticator(Authenticator):
 
     @property
     def auth_type(self) -> str:
-        """Return the authentication mechanism name JWT credentials used for diagnostics and policy decisions.
-        """
+        """Return the authentication mechanism name JWT credentials used for diagnostics and policy decisions."""
         return "jwt"
 
     @property
     def config(self) -> JwtValidationConfig:
-        """Return the immutable JWT validation settings used by this authenticator.
-        """
+        """Return the immutable JWT validation settings used by this authenticator."""
         return self._config
 
     def can_authenticate(self, headers: Mapping[str, Any]) -> bool:
@@ -249,8 +257,7 @@ class JwtAuthenticator(Authenticator):
         return headers.get(self.HEADER_NAME) is not None
 
     def missing_credential_error(self) -> AuthenticationError:
-        """Create the missing-credential error JWT credentials with scheme-specific response details.
-        """
+        """Create the missing-credential error JWT credentials with scheme-specific response details."""
         return AuthenticationError(
             code="authorization_header_missing",
             message="Missing Authorization header",
@@ -264,7 +271,9 @@ class JwtAuthenticator(Authenticator):
         """
         return self.authenticate_header(headers.get(self.HEADER_NAME))
 
-    def authenticate_header(self, authorization_header: str | None) -> AuthenticatedUserContext:
+    def authenticate_header(
+        self, authorization_header: str | None
+    ) -> AuthenticatedUserContext:
         """Authenticate header and return identity context or a structured failure.
 
         Args:
@@ -289,7 +298,9 @@ class JwtAuthenticator(Authenticator):
 
         token = credentials.strip()
         if not token:
-            raise AuthenticationError(code="token_missing", message="Bearer token is missing")
+            raise AuthenticationError(
+                code="token_missing", message="Bearer token is missing"
+            )
 
         return self.authenticate_token(token)
 
@@ -300,7 +311,9 @@ class JwtAuthenticator(Authenticator):
             token (str): The credential token to parse and authenticate.
         """
         if not token:
-            raise AuthenticationError(code="token_missing", message="Bearer token is missing")
+            raise AuthenticationError(
+                code="token_missing", message="Bearer token is missing"
+            )
 
         unverified_header = self._read_header(token)
         algorithm = self._validate_algorithm(unverified_header)
@@ -315,6 +328,7 @@ class JwtAuthenticator(Authenticator):
             groups=self._projector.groups(claims),
             scopes=self._projector.scopes(claims),
             claims=self._projector.context_claims(claims),
+            verified_access_token=AccessToken(token, audience=self._config.audience),
         )
 
     def _read_header(self, token: str) -> Mapping[str, Any]:
@@ -326,7 +340,9 @@ class JwtAuthenticator(Authenticator):
         try:
             return jwt.get_unverified_header(token)
         except DecodeError as ex:
-            raise AuthenticationError(code="token_malformed", message="JWT token is malformed") from ex
+            raise AuthenticationError(
+                code="token_malformed", message="JWT token is malformed"
+            ) from ex
 
     def _validate_algorithm(self, unverified_header: Mapping[str, Any]) -> str:
         """Reject JWT algorithms outside the explicit allow-list before signature validation.
@@ -336,7 +352,9 @@ class JwtAuthenticator(Authenticator):
         """
         algorithm = unverified_header.get("alg")
         if not isinstance(algorithm, str):
-            raise AuthenticationError(code="algorithm_missing", message="JWT header algorithm is missing")
+            raise AuthenticationError(
+                code="algorithm_missing", message="JWT header algorithm is missing"
+            )
 
         if algorithm not in self._config.allowed_algorithms:
             raise AuthenticationError(
@@ -350,7 +368,9 @@ class JwtAuthenticator(Authenticator):
 
         return algorithm
 
-    def _resolve_signing_key(self, token: str, unverified_header: Mapping[str, Any]) -> Any:
+    def _resolve_signing_key(
+        self, token: str, unverified_header: Mapping[str, Any]
+    ) -> Any:
         """Choose a signing key from the token header through the configured key resolver.
 
         Args:
@@ -384,13 +404,21 @@ class JwtAuthenticator(Authenticator):
                 options={"require": list(self._config.required_claims)},
             )
         except ExpiredSignatureError as ex:
-            raise AuthenticationError(code="token_expired", message="JWT token has expired") from ex
+            raise AuthenticationError(
+                code="token_expired", message="JWT token has expired"
+            ) from ex
         except ImmatureSignatureError as ex:
-            raise AuthenticationError(code="token_not_yet_valid", message="JWT token is not active yet") from ex
+            raise AuthenticationError(
+                code="token_not_yet_valid", message="JWT token is not active yet"
+            ) from ex
         except InvalidIssuerError as ex:
-            raise AuthenticationError(code="issuer_invalid", message="JWT issuer is invalid") from ex
+            raise AuthenticationError(
+                code="issuer_invalid", message="JWT issuer is invalid"
+            ) from ex
         except InvalidAudienceError as ex:
-            raise AuthenticationError(code="audience_invalid", message="JWT audience is invalid") from ex
+            raise AuthenticationError(
+                code="audience_invalid", message="JWT audience is invalid"
+            ) from ex
         except MissingRequiredClaimError as ex:
             raise AuthenticationError(
                 code="required_claim_missing",
@@ -398,9 +426,13 @@ class JwtAuthenticator(Authenticator):
                 details={"claim": ex.claim},
             ) from ex
         except InvalidSignatureError as ex:
-            raise AuthenticationError(code="signature_invalid", message="JWT signature is invalid") from ex
+            raise AuthenticationError(
+                code="signature_invalid", message="JWT signature is invalid"
+            ) from ex
         except (InvalidAlgorithmError, DecodeError) as ex:
-            raise AuthenticationError(code="token_malformed", message="JWT token is malformed") from ex
+            raise AuthenticationError(
+                code="token_malformed", message="JWT token is malformed"
+            ) from ex
 
     def _read_subject(self, claims: Mapping[str, Any]) -> str:
         """Require and return the verified subject claim as the principal identity.

@@ -53,21 +53,74 @@ network:
 ```
 
 The server file supports `http` and `stdio`. HTTP authentication can be
-`none`, `api_key`, or `oauth`; stdio accepts no HTTP authentication or proxy.
-Timeouts and proxy settings apply only to HTTP. Proxy URLs must use HTTP or
-HTTPS and cannot contain credentials. API-key values and OAuth client secrets
-must be references in the form `${ENV_VAR}`; literal credentials in YAML,
-missing variables, and empty values are rejected. Only those two credential
-fields are interpolated. Put variables in the process environment or in the
-`.env` file beside the delivered `config/` directory. The agent registry
-entrypoint loads that file without overriding process values; callers can
-inject an environment mapping for deterministic configuration loading.
+`none`, `api_key`, `oauth`, or `oauth_on_behalf_of`; stdio accepts no HTTP
+headers, authentication, or proxy. Timeouts and proxy settings apply only to
+HTTP. Proxy URLs must use HTTP or HTTPS and cannot contain credentials.
+
+HTTP `headers` accept literal values, exact `${ENV_NAME}` references, and
+request-context templates. Environment references use the process environment
+or the `.env` file beside the delivered `config/` directory; they must occupy
+the entire value. Context templates are resolved separately for each outbound
+JSON-RPC request:
+
+| Template | Value |
+| --- | --- |
+| `{{USER_ID}}` | Authenticated principal subject |
+| `{{USER_EMAIL}}` | Authenticated principal email |
+| `{{USER_NAME}}` | Authenticated principal display name |
+| `{{USER_ROLES}}` | Sorted roles joined with commas |
+| `{{REQUEST_ID}}` | Runtime request correlation ID |
+| `{{CONVERSATION_ID}}` | Caller-scoped conversation ID |
+| `{{SESSION_ID}}` | Alias of the conversation ID |
+
+For example:
+
+```yaml
+headers:
+  X-User-ID: '{{USER_ID}}'
+  X-Conversation-ID: '{{CONVERSATION_ID}}'
+  X-Request-ID: 'request={{REQUEST_ID}}'
+  X-Gateway-Key: ${MAIL_MCP_GATEWAY_KEY}
+```
+
+Unknown templates, missing values, partial environment references, invalid
+header names, and authentication-header conflicts fail configuration loading
+or the affected request without exposing configured values. Context values
+come from the runtime's verified `AgentPrincipal` and request metadata; the
+runtime does not forward arbitrary caller headers or authentication claims.
+One shared MCP connection correlates each HTTP POST with its JSON-RPC request
+ID, so overlapping turns keep their own identity and conversation headers.
+
+API-key values and OAuth client secrets must be references in the form
+`${ENV_VAR}`; literal credentials in those dedicated fields, missing variables,
+and empty values are rejected. The agent registry loads `.env` values without
+overriding process values; callers can inject an environment mapping for
+deterministic configuration loading.
 
 OAuth settings include a client ID, client-secret reference, pinned scopes,
 callback port, client name, and token-file path. Relative token paths resolve
 from the directory beside `config/`. The registry constructs the existing
 loopback OAuth provider but does not open a browser or make a network request
 while loading configuration.
+
+`oauth` remains the MCP client's own authorization-code flow. To delegate the
+authenticated user's identity to an MCP resource, configure a separate mode:
+
+```yaml
+authentication_mode: oauth_on_behalf_of
+authentication_oauth_on_behalf_of:
+  audience: https://mail.example.test
+  scopes: [mail.read, mail.send]
+```
+
+The host injects a `DelegatedTokenSource` into `McpAgentRegistryLoader`. Its
+`token_for(DelegatedTokenRequest)` implementation exchanges the verified agent
+bearer token for an `AccessToken` whose audience matches the configured MCP
+audience. The runtime sends only that returned token to MCP. API-key and
+anonymous requests cannot use OBO, and a missing source, failed exchange, or
+wrong-audience token stops the call. Provider-specific exchange and token-cache
+policy stay in the host implementation; caches must be partitioned by caller,
+audience, and scopes.
 
 `McpAgentRegistryLoader(configuration_directory, capabilities).load(agent)`
 loads each referenced server once and keeps its `McpConnection` lazy. Call
@@ -91,13 +144,10 @@ See the [configuration example](../../samples/examples/python-langchain-fastapi/
 for shared and distinct server references and a local loader smoke path that
 does not connect to a server.
 
-`McpConnection` manages one lazily opened client session and its transport. For
-HTTP, applications may pass request-scoped headers; the runtime does not log
-header values and its header mapping representation redacts them. The
-application remains responsible for choosing credentials and ensuring a
-connection is scoped to the right caller. Stdio environment-variable resolution
-and deployment policies such as Wiki's read-only filter also remain application
-responsibilities.
+`McpConnection` manages one lazily opened client session and its transport.
+Configured header values are redacted in representations and diagnostics.
+Stdio environment-variable resolution and deployment policies such as Wiki's
+read-only filter remain application responsibilities.
 
 `DialectRegistry[ToolsT, Params]` dispatches by the binding's dialect and uses a
 typed factory whose first parameter is the binding. Applications retain their

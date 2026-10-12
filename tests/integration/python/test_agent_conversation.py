@@ -3,21 +3,27 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncGenerator
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
+from ygo74.agent_runtime.domains.auth.tokens import AccessToken
 from ygo74.agent_runtime.domains.contracts.agent_output import (
     Termination,
     TerminationStatus,
     TextContent,
 )
-from ygo74.agent_runtime.domains.contracts.conversation import ConversationTurn
+from ygo74.agent_runtime.domains.contracts.conversation import (
+    AgentReply,
+    ConversationTurn,
+)
 from ygo74.agent_runtime.domains.contracts.exchange_models import (
     StandardExchangeResponse,
 )
 from ygo74.agent_runtime.domains.contracts.stream_events import (
+    AgentStreamEvent,
     ContentEvent,
     TerminalEvent,
 )
@@ -33,6 +39,10 @@ from ygo74.agent_runtime.domains.humanapproval.tickets import (
     ConfirmationTicket,
     InMemoryPendingConfirmationStore,
     UnknownTicketError,
+)
+from ygo74.agent_runtime.domains.mcp.request_context import (
+    McpRequestContext,
+    McpRequestContextScope,
 )
 from ygo74.agent_runtime.domains.security.operations import (
     OperationType,
@@ -50,6 +60,68 @@ from ygo74.agent_runtime.domains.sessions.conversation_cache import (
 )
 
 ADA = AgentPrincipal(subject="ada", email="ada@example.test")
+
+
+@pytest.mark.asyncio
+async def test_entrypoint_enriches_internal_request_context_without_changing_the_turn_payload():
+    """The MCP execution context adds verified identity and conversation routing around the engine."""
+    observed: dict[str, object] = {}
+
+    class ContextObservingEngine:
+        """Capture the per-turn context at the framework-neutral conversation port."""
+
+        async def respond(self, turn: ConversationTurn) -> AgentReply:
+            """Return a reply after observing internal MCP context.
+
+            Args:
+                turn (ConversationTurn): Verified typed turn supplied by the entrypoint.
+            """
+            context = McpRequestContextScope.current()
+            observed["principal"] = None if context is None else context.principal
+            observed["conversation_id"] = (
+                None if context is None else context.conversation_id
+            )
+            observed["request_id"] = None if context is None else context.request_id
+            observed["subject_token"] = (
+                None if context is None else context.subject_token
+            )
+            return AgentReply("ok")
+
+        async def stream(
+            self, turn: ConversationTurn
+        ) -> AsyncGenerator[AgentStreamEvent]:
+            """Provide the streaming port required by the conversation engine protocol.
+
+            Args:
+                turn (ConversationTurn): Verified typed turn supplied by the entrypoint.
+            """
+            yield TerminalEvent(Termination(TerminationStatus.SUCCESS))
+
+    token = AccessToken("verified-subject", audience="agent-api")
+    payload = {
+        "request_id": "req-7",
+        "route_key": "mail",
+        "input": [{"role": "user", "content": "hello"}],
+        "auth_context": {
+            "userId": "ada",
+            "identity": {"subject": "ada", "email": "ada@example.test", "name": "Ada"},
+            "roles": ["writer"],
+        },
+        "metadata": {"conversation_id": "mail-session-9"},
+    }
+    entrypoint = ConversationEntrypoint(ContextObservingEngine(), require_email=False)
+
+    with McpRequestContextScope.bind(
+        McpRequestContext(request_id="req-7", subject_token=token)
+    ):
+        result = await entrypoint(payload)
+
+    assert isinstance(result, StandardExchangeResponse)
+    assert observed["principal"].subject == "ada"
+    assert observed["conversation_id"] == "mail-session-9"
+    assert observed["request_id"] == "req-7"
+    assert observed["subject_token"] is token
+    assert payload["auth_context"].get("verified_access_token") is None
 
 
 class FakeRuntime:
@@ -86,7 +158,9 @@ class ConversationFactory:
         self.built: list[AgentConversation[FakeRuntime, FakeSession]] = []
         self.runners: list[FakeRunner] = []
 
-    async def build(self, principal: AgentPrincipal, conversation_id: str) -> AgentConversation[FakeRuntime, FakeSession]:
+    async def build(
+        self, principal: AgentPrincipal, conversation_id: str
+    ) -> AgentConversation[FakeRuntime, FakeSession]:
         runtime = FakeRuntime(principal.subject, conversation_id)
         runner = FakeRunner()
         conversation = AgentConversation(
@@ -101,7 +175,9 @@ class ConversationFactory:
         self.runners.append(runner)
         return conversation
 
-    async def close(self, conversation: AgentConversation[FakeRuntime, FakeSession]) -> None:
+    async def close(
+        self, conversation: AgentConversation[FakeRuntime, FakeSession]
+    ) -> None:
         await conversation.aclose()
 
 
@@ -133,7 +209,11 @@ class StreamingSession(FakeSession):
         yield ContentEvent("text", TextContent("controlled"))
         if self.mode == "missing":
             return
-        status = TerminationStatus.FAILED if self.mode == "failed" else TerminationStatus.SUCCESS
+        status = (
+            TerminationStatus.FAILED
+            if self.mode == "failed"
+            else TerminationStatus.SUCCESS
+        )
         yield TerminalEvent(Termination(status))
         if self.mode == "duplicate":
             yield TerminalEvent()
@@ -145,19 +225,23 @@ class StreamingSession(FakeSession):
 async def test_entrypoint_forwards_usage_ordering_to_capable_sessions():
     """Forward the transport's usage order requirement to capable sessions."""
     factory = StreamingFactory("normal")
-    engine = HttpConversationEngine(ConversationRuntimeCache(factory.build, factory.close))
+    engine = HttpConversationEngine(
+        ConversationRuntimeCache(factory.build, factory.close)
+    )
     entrypoint = ConversationEntrypoint(engine, require_email=False)
 
-    stream = await entrypoint({
-        "request_id": "request",
-        "stream": True,
-        "require_initial_usage": True,
-        "input": [{"role": "user", "content": "controlled"}],
-        "auth_context": {
-            "userId": "ada",
-            "identity": {"subject": "ada", "email": "ada@example.test"},
-        },
-    })
+    stream = await entrypoint(
+        {
+            "request_id": "request",
+            "stream": True,
+            "require_initial_usage": True,
+            "input": [{"role": "user", "content": "controlled"}],
+            "auth_context": {
+                "userId": "ada",
+                "identity": {"subject": "ada", "email": "ada@example.test"},
+            },
+        }
+    )
     assert not isinstance(stream, StandardExchangeResponse)
     events = [event async for event in stream]
 
@@ -256,7 +340,9 @@ async def test_cancel_before_terminal_invalidates_but_native_failure_stays_faile
         await cache.aclose()
 
 
-def _engine(factory: ConversationFactory) -> HttpConversationEngine[AgentConversation[FakeRuntime, FakeSession]]:
+def _engine(
+    factory: ConversationFactory,
+) -> HttpConversationEngine[AgentConversation[FakeRuntime, FakeSession]]:
     cache = ConversationRuntimeCache(factory.build, factory.close)
     return HttpConversationEngine(cache)
 
@@ -266,7 +352,9 @@ def test_confirmation_command_is_handled_before_the_framework_session() -> None:
         factory = ConversationFactory()
         engine = _engine(factory)
 
-        reply = await engine.respond(ConversationTurn(ADA, "thread-1", "CONFIRM cfm-abcdef"))
+        reply = await engine.respond(
+            ConversationTurn(ADA, "thread-1", "CONFIRM cfm-abcdef")
+        )
 
         conversation = factory.built[0]
         assert reply.text == "confirmed operation ran"
@@ -281,7 +369,9 @@ def test_an_unknown_confirmation_ticket_returns_a_safe_message() -> None:
         factory = ConversationFactory()
         engine = _engine(factory)
 
-        reply = await engine.respond(ConversationTurn(ADA, "thread-1", "CONFIRM cfm-123456"))
+        reply = await engine.respond(
+            ConversationTurn(ADA, "thread-1", "CONFIRM cfm-123456")
+        )
 
         assert "not awaiting an answer" in reply.text
         assert not factory.built[0].session.messages

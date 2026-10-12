@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import json
 from enum import StrEnum
 from pathlib import Path
 
 import pytest
+from jsonschema import Draft202012Validator
+from ygo74.agent_runtime.domains.configuration.manifest_schemas import ManifestSchemas
 from ygo74.agent_runtime.domains.mcp.configuration import (
     McpAuthenticationMode,
     McpServerConfigurationLoader,
@@ -44,7 +47,9 @@ def _http_yaml(authentication: str = "authentication_mode: none\n") -> str:
     )
 
 
-def test_server_loader_resolves_api_key_and_keeps_non_secret_settings_in_yaml(tmp_path: Path) -> None:
+def test_server_loader_resolves_api_key_and_keeps_non_secret_settings_in_yaml(
+    tmp_path: Path,
+) -> None:
     """Load API-key credentials and HTTP settings from their declared sources."""
     path = _write(
         tmp_path,
@@ -56,7 +61,9 @@ def test_server_loader_resolves_api_key_and_keeps_non_secret_settings_in_yaml(tm
         ),
     )
 
-    config = McpServerConfigurationLoader(Capability, environment={"MAIL_MCP_API_KEY": "do-not-log"}).load(path)
+    config = McpServerConfigurationLoader(
+        Capability, environment={"MAIL_MCP_API_KEY": "do-not-log"}
+    ).load(path)
 
     assert config.binding.server == "gmail-http"
     assert config.authentication_mode is McpAuthenticationMode.API_KEY
@@ -65,6 +72,179 @@ def test_server_loader_resolves_api_key_and_keeps_non_secret_settings_in_yaml(tm
     assert config.request_timeout_seconds == 17
     assert config.network.proxy_url == "http://proxy.example.test:8080"
     assert "do-not-log" not in repr(config)
+
+
+def test_server_loader_resolves_literal_environment_and_context_headers(
+    tmp_path: Path,
+) -> None:
+    """Configured HTTP headers retain context templates and redact resolved values."""
+    path = _write(
+        tmp_path,
+        _http_yaml().replace(
+            "request_timeout_seconds: 17\n",
+            "request_timeout_seconds: 17\n"
+            "headers:\n"
+            "  Content-Type: application/json\n"
+            "  X-User-ID: '{{USER_ID}}'\n"
+            "  X-Request-ID: 'request={{REQUEST_ID}}'\n"
+            "  X-Proxy-Key: ${PROXY_KEY}\n",
+        ),
+    )
+
+    config = McpServerConfigurationLoader(
+        Capability, environment={"PROXY_KEY": "proxy-secret"}
+    ).load(path)
+
+    assert dict(config.headers) == {
+        "Content-Type": "application/json",
+        "X-User-ID": "{{USER_ID}}",
+        "X-Request-ID": "request={{REQUEST_ID}}",
+        "X-Proxy-Key": "proxy-secret",
+    }
+    assert "proxy-secret" not in repr(config.headers)
+    assert "proxy-secret" not in repr(config)
+
+
+@pytest.mark.parametrize(
+    "header_value", ["{{UNKNOWN}}", "prefix-${SECRET}", "{{USER_ID"]
+)
+def test_server_loader_rejects_unknown_malformed_and_partial_environment_header_templates(
+    tmp_path: Path,
+    header_value: str,
+) -> None:
+    """Header interpolation accepts only documented tokens and exact env references."""
+    path = _write(
+        tmp_path,
+        _http_yaml().replace(
+            "request_timeout_seconds: 17\n",
+            f"request_timeout_seconds: 17\nheaders:\n  X-Test: '{header_value}'\n",
+        ),
+    )
+
+    with pytest.raises(McpBindingError):
+        McpServerConfigurationLoader(Capability, environment={"SECRET": "hidden"}).load(
+            path
+        )
+
+
+def test_packaged_server_schema_validates_header_names_and_template_syntax() -> None:
+    """Editor tooling rejects unknown context templates and invalid header names."""
+    schema = Draft202012Validator(json.loads(ManifestSchemas.mcp_server()))
+    base = {
+        "transport": "http",
+        "url": "https://example.test/mcp",
+        "capabilities": ["search_mail"],
+    }
+
+    accepted = {
+        **base,
+        "headers": {"X-User": "{{USER_ID}}", "X-Key": "${DEPLOYMENT_KEY}"},
+    }
+    unknown_token = {**base, "headers": {"X-User": "{{UNKNOWN}}"}}
+    invalid_name = {**base, "headers": {"Bad Header": "literal"}}
+
+    assert not tuple(schema.iter_errors(accepted))
+    assert tuple(schema.iter_errors(unknown_token))
+    assert tuple(schema.iter_errors(invalid_name))
+
+
+def test_server_loader_reports_missing_header_environment_variable_without_value(
+    tmp_path: Path,
+) -> None:
+    """Unresolved header references name the missing variable without echoing content."""
+    path = _write(
+        tmp_path,
+        _http_yaml().replace(
+            "request_timeout_seconds: 17\n",
+            "request_timeout_seconds: 17\nheaders: {X-Key: '${MISSING_GATEWAY_KEY}'}\n",
+        ),
+    )
+
+    with pytest.raises(McpBindingError) as error:
+        McpServerConfigurationLoader(Capability, environment={}).load(path)
+
+    assert "MISSING_GATEWAY_KEY" in str(error.value)
+    assert "${MISSING_GATEWAY_KEY}" not in str(error.value)
+
+
+def test_server_loader_rejects_custom_headers_for_stdio(tmp_path: Path) -> None:
+    """HTTP headers cannot be configured for a stdio transport."""
+    path = _write(
+        tmp_path,
+        "transport: stdio\n"
+        "command: python\n"
+        "capabilities: [search_mail]\n"
+        "headers: {X-User-ID: '{{USER_ID}}'}\n",
+    )
+
+    with pytest.raises(McpBindingError):
+        McpServerConfigurationLoader(Capability).load(path)
+
+
+def test_server_loader_accepts_stdio_without_optional_http_settings(
+    tmp_path: Path,
+) -> None:
+    """The packaged schema permits a stdio server with omitted HTTP-only fields."""
+    document = {
+        "transport": "stdio",
+        "command": "python",
+        "capabilities": ["search_mail"],
+    }
+    schema = Draft202012Validator(json.loads(ManifestSchemas.mcp_server()))
+    path = _write(
+        tmp_path,
+        "transport: stdio\ncommand: python\ncapabilities: [search_mail]\n",
+    )
+
+    config = McpServerConfigurationLoader(Capability).load(path)
+
+    assert not tuple(schema.iter_errors(document))
+    assert config.binding.command == "python"
+    assert config.authentication_mode is McpAuthenticationMode.NONE
+    assert config.network.proxy_url is None
+
+
+def test_server_loader_rejects_authorization_header_conflicts(tmp_path: Path) -> None:
+    """Explicit Authorization headers cannot shadow runtime authentication."""
+    path = _write(
+        tmp_path,
+        _http_yaml(
+            "authentication_mode: api_key\n"
+            "authentication_api_key:\n"
+            "  header_name: X-API-Key\n"
+            "  value: ${MAIL_MCP_API_KEY}\n"
+        ).replace(
+            "request_timeout_seconds: 17\n",
+            "request_timeout_seconds: 17\nheaders: {authorization: bearer-overridden}\n",
+        ),
+    )
+
+    with pytest.raises(McpBindingError, match="Authorization"):
+        McpServerConfigurationLoader(
+            Capability, environment={"MAIL_MCP_API_KEY": "api-secret"}
+        ).load(path)
+
+
+def test_server_loader_accepts_delegated_oauth_audience_and_scopes(
+    tmp_path: Path,
+) -> None:
+    """On-behalf-of settings describe the downstream audience without storing tokens."""
+    path = _write(
+        tmp_path,
+        _http_yaml(
+            "authentication_mode: oauth_on_behalf_of\n"
+            "authentication_oauth_on_behalf_of:\n"
+            "  audience: https://mail.example.test\n"
+            "  scopes: [mail.read, mail.send]\n"
+        ),
+    )
+
+    config = McpServerConfigurationLoader(Capability).load(path)
+
+    assert config.authentication_mode.value == "oauth_on_behalf_of"
+    assert config.delegated_oauth is not None
+    assert config.delegated_oauth.audience == "https://mail.example.test"
+    assert config.delegated_oauth.scopes == ("mail.read", "mail.send")
 
 
 @pytest.mark.parametrize("reference", ["${MISSING_KEY}", "${}", "literal-secret"])
@@ -89,7 +269,9 @@ def test_server_loader_rejects_unresolved_or_literal_api_key_without_echoing_it(
     assert "literal-secret" not in str(error.value)
 
 
-def test_server_loader_rejects_authentication_fields_that_conflict_with_mode(tmp_path: Path) -> None:
+def test_server_loader_rejects_authentication_fields_that_conflict_with_mode(
+    tmp_path: Path,
+) -> None:
     """Authentication mode and its settings form one valid configuration."""
     path = _write(
         tmp_path,
@@ -102,10 +284,14 @@ def test_server_loader_rejects_authentication_fields_that_conflict_with_mode(tmp
     )
 
     with pytest.raises(McpBindingError, match="authentication"):
-        McpServerConfigurationLoader(Capability, environment={"MAIL_MCP_API_KEY": "secret"}).load(path)
+        McpServerConfigurationLoader(
+            Capability, environment={"MAIL_MCP_API_KEY": "secret"}
+        ).load(path)
 
 
-def test_server_loader_rejects_unknown_yaml_fields_with_file_and_field(tmp_path: Path) -> None:
+def test_server_loader_rejects_unknown_yaml_fields_with_file_and_field(
+    tmp_path: Path,
+) -> None:
     """The runtime schema rejects misspelled configuration keys."""
     path = _write(tmp_path, _http_yaml().replace("proxy_url:", "proxy: "))
 
@@ -132,7 +318,9 @@ def test_server_loader_resolves_oauth_client_secret_and_scopes(tmp_path: Path) -
         ),
     )
 
-    config = McpServerConfigurationLoader(Capability, environment={"MAIL_OAUTH_SECRET": "oauth-secret"}).load(path)
+    config = McpServerConfigurationLoader(
+        Capability, environment={"MAIL_OAUTH_SECRET": "oauth-secret"}
+    ).load(path)
 
     assert config.authentication_mode is McpAuthenticationMode.OAUTH
     assert config.oauth is not None
@@ -142,7 +330,9 @@ def test_server_loader_resolves_oauth_client_secret_and_scopes(tmp_path: Path) -
     assert "oauth-secret" not in repr(config)
 
 
-def test_oauth_token_file_is_relative_to_the_delivered_configuration_root(tmp_path: Path) -> None:
+def test_oauth_token_file_is_relative_to_the_delivered_configuration_root(
+    tmp_path: Path,
+) -> None:
     """A canonical config/mcp file resolves token storage beside config/."""
     config_root = tmp_path / "config"
     server_directory = config_root / "mcp"
@@ -160,14 +350,18 @@ def test_oauth_token_file_is_relative_to_the_delivered_configuration_root(tmp_pa
         encoding="utf-8",
     )
 
-    config = McpServerConfigurationLoader(Capability, environment={"MAIL_OAUTH_SECRET": "secret"}).load(path)
+    config = McpServerConfigurationLoader(
+        Capability, environment={"MAIL_OAUTH_SECRET": "secret"}
+    ).load(path)
 
     assert config.oauth is not None
     assert config.oauth.token_file == tmp_path / ".secrets" / "mail-mcp-token.json"
 
 
 @pytest.mark.asyncio
-async def test_oauth_provider_uses_configured_client_and_pinned_scopes(tmp_path: Path) -> None:
+async def test_oauth_provider_uses_configured_client_and_pinned_scopes(
+    tmp_path: Path,
+) -> None:
     """The runtime assembles its existing pinned-scope OAuth helper from YAML."""
     path = _write(
         tmp_path,
@@ -179,7 +373,9 @@ async def test_oauth_provider_uses_configured_client_and_pinned_scopes(tmp_path:
             "  scopes: [mail.read, mail.compose]\n"
         ),
     )
-    config = McpServerConfigurationLoader(Capability, environment={"MAIL_OAUTH_SECRET": "oauth-secret"}).load(path)
+    config = McpServerConfigurationLoader(
+        Capability, environment={"MAIL_OAUTH_SECRET": "oauth-secret"}
+    ).load(path)
     assert config.oauth is not None
 
     provider = McpOAuthProviderFactory().build(config.binding.url, config.oauth)

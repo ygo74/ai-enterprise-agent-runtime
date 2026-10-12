@@ -2,7 +2,7 @@
   "$defs": {
     "McpApiKeyInput": {
       "additionalProperties": false,
-      "description": "YAML fields for a single API-key header.",
+      "description": "YAML fields for a single API-key header.\n\nArgs:\n    header_name (_ConfigurationText): HTTP header receiving the resolved key.\n    value (_SecretReference): Environment reference containing the key.",
       "properties": {
         "header_name": {
           "minLength": 1,
@@ -28,14 +28,42 @@
       "enum": [
         "none",
         "api_key",
-        "oauth"
+        "oauth",
+        "oauth_on_behalf_of"
       ],
       "title": "McpAuthenticationMode",
       "type": "string"
     },
+    "McpDelegatedOAuthInput": {
+      "additionalProperties": false,
+      "description": "YAML settings for application-provided OAuth on-behalf-of exchange.\n\nArgs:\n    audience (_ConfigurationText): Downstream MCP resource identifier.\n    scopes (tuple[_ConfigurationText, ...]): Optional scopes requested from the delegated-token source.",
+      "properties": {
+        "audience": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Audience",
+          "type": "string"
+        },
+        "scopes": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "title": "Scopes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "audience"
+      ],
+      "title": "McpDelegatedOAuthInput",
+      "type": "object"
+    },
     "McpNetworkInput": {
       "additionalProperties": false,
-      "description": "Optional network settings for a streamable HTTP connection.",
+      "description": "Optional network settings for a streamable HTTP connection.\n\nArgs:\n    proxy_url (_ConfigurationText | None): Optional credential-free HTTP or HTTPS proxy URL.",
       "properties": {
         "proxy_url": {
           "anyOf": [
@@ -57,7 +85,7 @@
     },
     "McpOAuthInput": {
       "additionalProperties": false,
-      "description": "YAML fields for an OAuth client using the runtime's loopback flow.",
+      "description": "YAML fields for an OAuth client using the runtime's loopback flow.\n\nArgs:\n    client_id (_ConfigurationText): Pre-registered OAuth client identity.\n    client_secret (_SecretReference): Environment reference containing the client secret.\n    callback_port (StrictInt): Local loopback port used for the authorization redirect.\n    scopes (tuple[_ConfigurationText, ...]): Requested scopes pinned by the runtime.\n    token_file (_ConfigurationText): Token storage path, relative to the delivered root by default.\n    client_name (_ConfigurationText): Human-readable OAuth client label.",
       "properties": {
         "client_id": {
           "minLength": 1,
@@ -214,6 +242,37 @@
     },
     {
       "if": {
+        "properties": {
+          "authentication_mode": {
+            "const": "oauth_on_behalf_of"
+          }
+        },
+        "required": [
+          "authentication_mode"
+        ]
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "authentication_api_key"
+              ]
+            },
+            {
+              "required": [
+                "authentication_oauth"
+              ]
+            }
+          ]
+        },
+        "required": [
+          "authentication_oauth_on_behalf_of"
+        ]
+      }
+    },
+    {
+      "if": {
         "anyOf": [
           {
             "not": {
@@ -243,6 +302,11 @@
               "required": [
                 "authentication_oauth"
               ]
+            },
+            {
+              "required": [
+                "authentication_oauth_on_behalf_of"
+              ]
             }
           ]
         }
@@ -267,10 +331,14 @@
                 "authentication_mode": {
                   "enum": [
                     "api_key",
-                    "oauth"
+                    "oauth",
+                    "oauth_on_behalf_of"
                   ]
                 }
-              }
+              },
+              "required": [
+                "authentication_mode"
+              ]
             },
             {
               "properties": {
@@ -279,16 +347,32 @@
                     "proxy_url": {
                       "type": "string"
                     }
-                  }
+                  },
+                  "required": [
+                    "proxy_url"
+                  ]
                 }
-              }
+              },
+              "required": [
+                "network"
+              ]
+            },
+            {
+              "properties": {
+                "headers": {
+                  "minProperties": 1
+                }
+              },
+              "required": [
+                "headers"
+              ]
             }
           ]
         }
       }
     }
   ],
-  "description": "Strict typed representation of one MCP server YAML file.",
+  "description": "Strict typed representation of one MCP server YAML file.\n\nArgs:\n    server (_ConfigurationText | None): Optional server identity, defaulting to the file name.\n    transport (McpTransport): HTTP or stdio transport selected for the server.\n    url (_ConfigurationText | None): HTTP endpoint when using HTTP transport.\n    command (_ConfigurationText | None): Executable when using stdio transport.\n    args (tuple[StrictStr, ...]): Arguments passed to a stdio executable.\n    env (dict[StrictStr, StrictStr]): Additional environment passed to a stdio executable.\n    capabilities (tuple[_ConfigurationText, ...]): Application capabilities declared by the server.\n    tools (dict[_ConfigurationText, _ConfigurationText]): Logical aliases and remote tool names.\n    dialect (_ConfigurationText): Protocol dialect selected by the application.\n    read_only_variable (_ConfigurationText | None): Deployment variable interpreted by the host.\n    request_timeout_seconds (StrictInt): HTTP request and protocol session timeout.\n    headers (dict[StrictStr, StrictStr]): HTTP headers containing literals, env references, or context tokens.\n    authentication_mode (McpAuthenticationMode): Selected HTTP authentication mechanism.\n    authentication_api_key (McpApiKeyInput | None): API-key header settings when selected.\n    authentication_oauth (McpOAuthInput | None): OAuth client settings when selected.\n    authentication_oauth_on_behalf_of (McpDelegatedOAuthInput | None): Audience and scopes for delegated OAuth.\n    network (McpNetworkInput): HTTP proxy options.",
   "properties": {
     "server": {
       "anyOf": [
@@ -401,6 +485,16 @@
       "title": "Request Timeout Seconds",
       "type": "integer"
     },
+    "headers": {
+      "additionalProperties": {
+        "pattern": "^(?:\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}|(?:(?!\\$\\{|\\{\\{|\\}\\}|\\r|\\n)[\\s\\S]|\\{\\{(?:USER_ID|USER_EMAIL|USER_NAME|USER_ROLES|REQUEST_ID|CONVERSATION_ID|SESSION_ID)\\}\\})*)$",
+        "type": "string"
+      },
+      "propertyNames": {
+        "pattern": "^[!#$%&'*+.^_`|~0-9A-Za-z-]+$"
+      },
+      "type": "object"
+    },
     "authentication_mode": {
       "$ref": "#/$defs/McpAuthenticationMode",
       "default": "none"
@@ -420,6 +514,17 @@
       "anyOf": [
         {
           "$ref": "#/$defs/McpOAuthInput"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "authentication_oauth_on_behalf_of": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/McpDelegatedOAuthInput"
         },
         {
           "type": "null"

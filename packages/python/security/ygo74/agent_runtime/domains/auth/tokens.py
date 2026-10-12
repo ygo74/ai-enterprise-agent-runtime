@@ -56,6 +56,7 @@ class AccessToken:
         value (str): The value being converted, checked, or serialized.
         audience (str): Expected JWT audience identifying this API.
     """
+
     value: str
     audience: str = ""
 
@@ -77,9 +78,32 @@ class AccessToken:
         return self.__repr__()
 
 
+@dataclass(frozen=True, slots=True)
+class DelegatedTokenRequest:
+    """Typed input for exchanging a verified caller token for a downstream token.
+
+    Args:
+        principal (AgentPrincipal): Authenticated caller represented by the subject token.
+        subject_token (AccessToken): Verified inbound token used only for exchange.
+        audience (str): Resource identifier for the downstream service.
+        scopes (tuple[str, ...]): Scopes requested for the downstream token.
+    """
+
+    principal: AgentPrincipal
+    subject_token: AccessToken
+    audience: str
+    scopes: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        """Require a concrete audience before any provider exchange is attempted."""
+        if not self.audience.strip():
+            raise ValueError("a delegated token request requires an audience")
+
+
 @runtime_checkable
 class TokenVerifier(Protocol):
     """Establishes who a caller is from a presented bearer token."""
+
     def verify(self, token: AccessToken) -> AgentPrincipal:
         """Return the authenticated caller.
 
@@ -101,14 +125,14 @@ class DelegatedTokenSource(Protocol):
     able to check that the token it receives was issued for it, which it cannot
     do if the agent forwards the token its own caller presented.
     """
-    async def token_for(self, principal: AgentPrincipal, audience: str) -> AccessToken:
+
+    async def token_for(self, request: DelegatedTokenRequest) -> AccessToken:
         """Return a token the given audience will accept for this principal.
 
         Raises:
             TokenExchangeError: the authority refused the exchange.
 
         Args:
-            principal (AgentPrincipal): Authenticated principal whose identity and claims are being projected.
-            audience (str): Expected JWT audience identifying this API.
+            request (DelegatedTokenRequest): Verified subject credential, caller, target audience, and requested scopes.
         """
         ...

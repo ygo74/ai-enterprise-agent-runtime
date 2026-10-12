@@ -17,6 +17,7 @@ is among them.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import sys
 from collections.abc import Callable, Iterable, Iterator, Mapping
@@ -25,9 +26,10 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 from urllib.parse import urlsplit
 
+from ygo74.agent_runtime.domains.auth.tokens import DelegatedTokenSource
 from ygo74.agent_runtime.domains.configuration.manifest_schemas import (
     JsonSchemaValidator,
     ManifestSchemas,
@@ -36,6 +38,9 @@ from ygo74.agent_runtime.domains.mcp.mcp_errors import (
     McpBindingError,
     McpToolUnavailableError,
 )
+
+if TYPE_CHECKING:
+    from ygo74.agent_runtime.domains.mcp.configuration import McpDelegatedOAuthSettings
 
 try:  # pragma: no cover - depends on the optional `mcp` extra
     import httpx
@@ -71,6 +76,7 @@ class _RedactedMapping(Mapping[str, str]):
     Args:
         values (Mapping[str, str]): Candidate values read from the source mapping.
     """
+
     def __init__(self, values: Mapping[str, str]) -> None:
         """Initialize the instance runtime data with supplied collaborators and configuration.
 
@@ -88,18 +94,15 @@ class _RedactedMapping(Mapping[str, str]):
         return self._values[key]
 
     def __iter__(self) -> Iterator[str]:
-        """Iterate over registered entries runtime data in their documented deterministic order.
-        """
+        """Iterate over registered entries runtime data in their documented deterministic order."""
         return iter(self._values)
 
     def __len__(self) -> int:
-        """Return the number of registered entries runtime data without exposing the backing collection.
-        """
+        """Return the number of registered entries runtime data without exposing the backing collection."""
         return len(self._values)
 
     def __repr__(self) -> str:
-        """Return a safe representation that does not expose credential values.
-        """
+        """Return a safe representation that does not expose credential values."""
         return f"{type(self).__name__}(keys={tuple(sorted(self._values))!r})"
 
     def __eq__(self, other: object) -> bool:
@@ -113,6 +116,7 @@ class _RedactedMapping(Mapping[str, str]):
 
 class McpTransport(StrEnum):
     """How a client reaches a server."""
+
     STDIO = "stdio"
     HTTP = "http"
 
@@ -132,8 +136,15 @@ class McpNetworkSettings:
         if self.proxy_url is None:
             return
         parsed = urlsplit(self.proxy_url)
-        if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
-            raise ValueError("network.proxy_url must be a credential-free HTTP or HTTPS URL")
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+        ):
+            raise ValueError(
+                "network.proxy_url must be a credential-free HTTP or HTTPS URL"
+            )
         try:
             if parsed.port is not None and not 1 <= parsed.port <= 65535:
                 raise ValueError("network.proxy_url port is outside the valid range")
@@ -163,6 +174,7 @@ class McpServerBinding(Generic[CapabilityT]):
         read_only_variable (str): Environment variable that must not be changed by this operation.
         error_factory (ErrorFactory): Callback that builds the domain error for this failure path.
     """
+
     def __init__(
         self,
         *,
@@ -280,7 +292,9 @@ class McpServerBinding(Generic[CapabilityT]):
         """
         remote = self._tools.get(alias)
         if remote is None:
-            raise self._error_factory(f"server {self._server!r} declares no tool named {alias!r}")
+            raise self._error_factory(
+                f"server {self._server!r} declares no tool named {alias!r}"
+            )
         return remote
 
     def require_aliases(self, aliases: Iterable[str]) -> None:
@@ -291,7 +305,9 @@ class McpServerBinding(Generic[CapabilityT]):
         """
         missing = sorted(alias for alias in aliases if alias not in self._tools)
         if missing:
-            raise self._error_factory(f"server {self._server!r} is missing tool names {missing}")
+            raise self._error_factory(
+                f"server {self._server!r} is missing tool names {missing}"
+            )
 
     def require_declared_capabilities(self) -> None:
         """Fail now when a declared capability has no tool behind it.
@@ -301,7 +317,9 @@ class McpServerBinding(Generic[CapabilityT]):
         user had already confirmed a write.
         """
         undeclared = sorted(
-            str(capability.value) for capability in self._capabilities if str(capability.value) not in self._tools
+            str(capability.value)
+            for capability in self._capabilities
+            if str(capability.value) not in self._tools
         )
         if undeclared:
             raise self._error_factory(
@@ -320,6 +338,7 @@ class McpServerBindingLoader(Generic[CapabilityT]):
     Where the file *lives* is the host's business - a configuration directory, a
     package resource, a bucket - so a path is passed in rather than resolved here.
     """
+
     def __init__(
         self,
         capabilities: type[CapabilityT],
@@ -349,7 +368,8 @@ class McpServerBindingLoader(Generic[CapabilityT]):
             transport=self._transport(document, path),
             capabilities=self._declared(document, path),
             tools=self._tools(document, path),
-            dialect=str(document.get("dialect", DEFAULT_DIALECT)).strip() or DEFAULT_DIALECT,
+            dialect=str(document.get("dialect", DEFAULT_DIALECT)).strip()
+            or DEFAULT_DIALECT,
             url=str(document.get("url", "")).strip(),
             command=str(document.get("command", "")).strip(),
             args=tuple(str(item) for item in self._list(document, "args", path)),
@@ -373,7 +393,9 @@ class McpServerBindingLoader(Generic[CapabilityT]):
         if not isinstance(document, dict):
             raise self._error_factory(f"{path} must contain a mapping")
         try:
-            JsonSchemaValidator.validate(document, ManifestSchemas.mcp_server(), path=path)
+            JsonSchemaValidator.validate(
+                document, ManifestSchemas.mcp_server(), path=path
+            )
         except ValueError as error:
             raise self._error_factory(str(error)) from error
         return document
@@ -390,7 +412,9 @@ class McpServerBindingLoader(Generic[CapabilityT]):
             return McpTransport(declared)
         except ValueError as error:
             accepted = ", ".join(member.value for member in McpTransport)
-            raise self._error_factory(f"{path}: 'transport' must be one of {accepted}, got {declared!r}") from error
+            raise self._error_factory(
+                f"{path}: 'transport' must be one of {accepted}, got {declared!r}"
+            ) from error
 
     def _list(self, document: dict[str, Any], key: str, path: Path) -> list[Any]:
         """Return an optional list field.
@@ -414,7 +438,9 @@ class McpServerBindingLoader(Generic[CapabilityT]):
         """
         declared = self._list(document, "capabilities", path)
         if not declared:
-            raise self._error_factory(f"{path}: 'capabilities' must list at least one capability")
+            raise self._error_factory(
+                f"{path}: 'capabilities' must list at least one capability"
+            )
         known = {str(name.value): name for name in self._capabilities}
         unknown = sorted(str(item) for item in declared if str(item) not in known)
         if unknown:
@@ -445,7 +471,9 @@ class McpServerBindingLoader(Generic[CapabilityT]):
             raise self._error_factory(f"{path}: field 'env' must be a mapping")
         return {str(key): str(value) for key, value in env.items()}
 
-    def _require_endpoint(self, binding: McpServerBinding[CapabilityT], path: Path) -> None:
+    def _require_endpoint(
+        self, binding: McpServerBinding[CapabilityT], path: Path
+    ) -> None:
         """Refuse a binding that names no way to reach its server.
 
         Args:
@@ -478,7 +506,10 @@ class McpConnection:
         headers (Mapping[str, str] | None): The request headers used for protocol selection, forwarding, or authentication.
         network (McpNetworkSettings | None): HTTP proxy configuration for this connection.
         unavailable (ErrorFactory): Response or fallback used when the underlying service is unavailable.
+        delegated_oauth (McpDelegatedOAuthSettings | None): Downstream audience and scopes for OBO mode.
+        delegated_token_source (DelegatedTokenSource | None): Application-owned provider exchange implementation.
     """
+
     def __init__(
         self,
         binding: McpServerBinding[Any],
@@ -487,6 +518,8 @@ class McpConnection:
         auth: Any | None = None,
         headers: Mapping[str, str] | None = None,
         network: McpNetworkSettings | None = None,
+        delegated_oauth: McpDelegatedOAuthSettings | None = None,
+        delegated_token_source: DelegatedTokenSource | None = None,
         unavailable: ErrorFactory = McpToolUnavailableError,
     ) -> None:
         """Initialize the instance runtime data with supplied collaborators and configuration.
@@ -497,6 +530,8 @@ class McpConnection:
             auth (Any | None): Authentication configuration used by the protected MCP resource.
             headers (Mapping[str, str] | None): The request headers used for protocol selection, forwarding, or authentication.
             network (McpNetworkSettings | None): HTTP proxy configuration for this connection.
+            delegated_oauth (McpDelegatedOAuthSettings | None): Downstream audience and scopes for OBO mode.
+            delegated_token_source (DelegatedTokenSource | None): Application-owned provider exchange implementation.
             unavailable (ErrorFactory): Response or fallback used when the underlying service is unavailable.
         """
         _require_mcp()
@@ -505,10 +540,13 @@ class McpConnection:
         self._auth = auth
         self._headers = _RedactedMapping(headers or {})
         self._network = network or McpNetworkSettings()
+        self._delegated_oauth = delegated_oauth
+        self._delegated_token_source = delegated_token_source
         self._unavailable = unavailable
         self._stack: AsyncExitStack | None = None
         self._session: ClientSession | None = None
         self._opening = asyncio.Lock()
+        self._request_contexts: Any | None = None
 
     async def session(self) -> ClientSession:
         """Return the open session, connecting the first time it is needed.
@@ -526,6 +564,9 @@ class McpConnection:
     async def aclose(self) -> None:
         """Close the session and release the transport."""
         stack, self._stack, self._session = self._stack, None, None
+        contexts, self._request_contexts = self._request_contexts, None
+        if contexts is not None:
+            contexts.clear()
         if stack is None:
             return
         try:
@@ -535,7 +576,10 @@ class McpConnection:
                 raise
             # The conversation is over; a server that already went away must not
             # turn a clean exit into a crash.
-            _logger.debug("connection was already unavailable while closing: %s", type(error).__name__)
+            _logger.debug(
+                "connection was already unavailable while closing: %s",
+                type(error).__name__,
+            )
             return
 
     async def _connect(self) -> ClientSession:
@@ -565,22 +609,56 @@ class McpConnection:
             stack (AsyncExitStack): Ordered middleware or execution stack.
         """
         if self._binding.transport is McpTransport.HTTP:
-            transport_options: dict[str, Any] = {}
-            if self._network.proxy_url is not None:
-                transport_options["httpx_client_factory"] = _ProxyHttpClientFactory(self._network.proxy_url)
+            from ygo74.agent_runtime.domains.mcp.request_context import (
+                McpOutboundHeaderResolver,
+                McpRequestContextRegistry,
+                McpRequestContextScope,
+                json_rpc_request_id,
+            )
+
+            contexts = McpRequestContextRegistry()
+            self._request_contexts = contexts
+            resolver = McpOutboundHeaderResolver(
+                self._headers,
+                contexts,
+                delegated_oauth=self._delegated_oauth,
+                delegated_token_source=self._delegated_token_source,
+                error_factory=self._unavailable,
+            )
+            static_headers = {
+                name: value
+                for name, value in self._headers.items()
+                if "{{" not in value
+            }
+            transport_options: dict[str, Any] = {
+                "httpx_client_factory": _McpHttpClientFactory(
+                    self._network,
+                    resolver,
+                )
+            }
             read, write, _ = await stack.enter_async_context(
                 streamablehttp_client(
                     self._binding.url,
-                    headers=dict(self._headers) or None,
+                    headers=static_headers or None,
                     timeout=self._timeout,
                     auth=self._auth,
                     **transport_options,
                 )
             )
+            write = _ContextualMcpWriteStream(
+                write,
+                contexts,
+                McpRequestContextScope.current,
+                request_id_for_message=json_rpc_request_id,
+            )
         else:
-            read, write = await stack.enter_async_context(stdio_client(self._stdio_parameters()))
+            read, write = await stack.enter_async_context(
+                stdio_client(self._stdio_parameters())
+            )
         return await stack.enter_async_context(
-            ClientSession(read, write, read_timeout_seconds=timedelta(seconds=self._timeout))
+            ClientSession(
+                read, write, read_timeout_seconds=timedelta(seconds=self._timeout)
+            )
         )
 
     def _stdio_parameters(self) -> StdioServerParameters:
@@ -653,3 +731,135 @@ class _ProxyHttpClientFactory:
             timeout=timeout,
             auth=auth,
         )
+
+
+class _ContextualMcpWriteStream:
+    """Register the active agent context before forwarding each JSON-RPC message.
+
+    Args:
+        stream (Any): SDK-owned asynchronous message stream.
+        contexts (Any): Connection-local registry keyed by JSON-RPC request ID.
+        current_context (Callable[[], Any]): Returns the request context inherited by this task.
+        request_id_for_message (Callable[[Any], str | int | None]): Extracts the JSON-RPC ID from an SDK message.
+    """
+
+    def __init__(
+        self,
+        stream: Any,
+        contexts: Any,
+        current_context: Callable[[], Any],
+        request_id_for_message: Callable[[Any], str | int | None],
+    ) -> None:
+        """Retain the SDK stream and the request correlation collaborators.
+
+        Args:
+            stream (Any): SDK-owned asynchronous message stream.
+            contexts (Any): Connection-local registry keyed by JSON-RPC request ID.
+            current_context (Callable[[], Any]): Returns the request context inherited by this task.
+            request_id_for_message (Callable[[Any], str | int | None]): Extracts the JSON-RPC ID from an SDK message.
+        """
+        self._stream = stream
+        self._contexts = contexts
+        self._current_context = current_context
+        self._request_id_for_message = request_id_for_message
+
+    async def send(self, message: Any) -> None:
+        """Associate a request's current turn before the persistent writer task receives it.
+
+        Args:
+            message (Any): MCP SDK session message sent to the transport.
+        """
+        request_id = self._request_id_for_message(message)
+        context = self._current_context()
+        if request_id is not None and context is not None:
+            self._contexts.register(request_id, context)
+        try:
+            await self._stream.send(message)
+        except BaseException:
+            if request_id is not None:
+                self._contexts.discard(request_id)
+            raise
+
+    def __getattr__(self, name: str) -> Any:
+        """Delegate non-send stream operations to the SDK-owned stream.
+
+        Args:
+            name (str): Attribute requested by the MCP SDK session implementation.
+        """
+        return getattr(self._stream, name)
+
+
+class _McpHttpClientFactory:
+    """Create an MCP HTTP client with request-ID-correlated header injection.
+
+    Args:
+        network (McpNetworkSettings): Optional proxy setting for the HTTP client.
+        resolver (Any): Renders headers and obtains OBO tokens per JSON-RPC request.
+    """
+
+    _TRANSPORT_HEADERS = frozenset(
+        {
+            "accept",
+            "content-type",
+            "mcp-session-id",
+            "mcp-protocol-version",
+            "last-event-id",
+        }
+    )
+
+    def __init__(self, network: McpNetworkSettings, resolver: Any) -> None:
+        """Retain the network and dynamic header collaborators without exposing values.
+
+        Args:
+            network (McpNetworkSettings): Optional proxy setting for the HTTP client.
+            resolver (Any): Renders headers and obtains OBO tokens per JSON-RPC request.
+        """
+        self._network = network
+        self._resolver = resolver
+
+    async def _apply_request_headers(self, request: Any) -> None:
+        """Apply dynamic headers to one JSON-RPC POST after the MCP transport prepares it.
+
+        Args:
+            request (Any): HTTPX request prepared by the Streamable HTTP transport.
+        """
+        if request.method != "POST":
+            return
+        try:
+            payload = json.loads(request.content)
+        except (UnicodeDecodeError, ValueError):
+            return
+        if not isinstance(payload, dict):
+            return
+        request_id = payload.get("id")
+        if not isinstance(request_id, (str, int)):
+            return
+        headers = await self._resolver.for_request(request_id)
+        for name, value in headers.items():
+            if name.casefold() not in self._TRANSPORT_HEADERS:
+                request.headers[name] = value
+
+    def __call__(
+        self,
+        headers: dict[str, str] | None = None,
+        timeout: Any = None,
+        auth: Any = None,
+    ) -> Any:
+        """Create an HTTPX client while preserving SDK timeouts and OAuth auth.
+
+        Args:
+            headers (dict[str, str] | None): Configured headers shared by the connection.
+            timeout (Any): HTTPX timeout selected by the MCP transport.
+            auth (Any): Existing OAuth handler, when the client performs interactive OAuth.
+        """
+        if httpx is None:
+            raise RuntimeError("the 'mcp' extra is required for HTTP MCP connections")
+        options: dict[str, Any] = {
+            "headers": headers,
+            "timeout": timeout,
+            "auth": auth,
+            "event_hooks": {"request": [self._apply_request_headers]},
+        }
+        if self._network.proxy_url is not None:
+            options["proxy"] = self._network.proxy_url
+        return httpx.AsyncClient(**options)

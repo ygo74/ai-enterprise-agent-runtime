@@ -23,6 +23,7 @@ except Exception as exc:  # noqa: BLE001  # pragma: no cover - depends on web ru
     _FASTAPI_AVAILABLE = False
     _FASTAPI_IMPORT_ERROR = exc
 
+from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
 from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
     ApiKeyAuthenticator,
     ApiKeyUserResolver,
@@ -39,6 +40,7 @@ from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
     JwtAuthenticator,
     JwtValidationConfig,
 )
+from ygo74.agent_runtime.domains.auth.tokens import AccessToken
 from ygo74.agent_runtime.domains.contracts.agent_output import (
     AgentOutput,
     Termination,
@@ -61,6 +63,9 @@ from ygo74.agent_runtime.domains.discovery.model_route_resolver import (
     ModelRouteResolver,
 )
 from ygo74.agent_runtime.domains.discovery.pagination import PaginationRequest
+from ygo74.agent_runtime.domains.endpoints.conversation_payloads import (
+    ConversationPayloadReader,
+)
 from ygo74.agent_runtime.domains.endpoints.header_forwarding import (
     DEFAULT_CONVERSATION_HEADER,
     RequestHeaderForwarder,
@@ -79,6 +84,10 @@ from ygo74.agent_runtime.domains.mapping.response_mapper import (
     ResponseMapper,
     map_response,
 )
+from ygo74.agent_runtime.domains.mcp.request_context import (
+    McpRequestContext,
+    McpRequestContextScope,
+)
 from ygo74.agent_runtime.domains.streaming.stream_processor import (
     AgentInvocation,
     StreamProcessor,
@@ -89,6 +98,7 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 logger = logging.getLogger(__name__)
+_VERIFIED_ACCESS_TOKEN_STATE_KEY = "_agent_runtime_verified_access_token"
 
 
 def _with_deprecation_warning(function: Callable[P, R], message: str) -> Callable[P, R]:
@@ -98,6 +108,7 @@ def _with_deprecation_warning(function: Callable[P, R], message: str) -> Callabl
         function (Callable[P, R]): Wrapped callable receiving the original invocation arguments.
         message (str): Framework message or protocol message being converted.
     """
+
     @wraps(function)
     @deprecated(message)
     def deprecated_function(*args: P.args, **kwargs: P.kwargs) -> R:
@@ -250,6 +261,14 @@ def add_ai_endpoints(
                 authorization_policy=authorization_policy,
                 header_forwarder=header_forwarder,
             )
+            request_state = getattr(request, "state", None)
+            subject_token = getattr(
+                request_state, _VERIFIED_ACCESS_TOKEN_STATE_KEY, None
+            )
+            if request_state is not None and hasattr(
+                request_state, _VERIFIED_ACCESS_TOKEN_STATE_KEY
+            ):
+                delattr(request_state, _VERIFIED_ACCESS_TOKEN_STATE_KEY)
             exchange_request = map_to_exchange(endpoint_type, payload)
             protocol = OutputProtocol(endpoint_type)
 
@@ -266,7 +285,6 @@ def add_ai_endpoints(
             if endpoint_type == "openai.responses":
                 uniform_payload["provider_options"] = exchange_request.provider_options
 
-            result = agent_entrypoint(uniform_payload)
             context = ProjectionContext(
                 protocol,
                 exchange_request.request_id,
@@ -275,6 +293,24 @@ def add_ai_endpoints(
                 payload.get("provider_options") or {},
                 payload.get("response_metadata") or {},
             )
+            principal = (
+                AgentPrincipal.from_auth_context(
+                    exchange_request.auth_context, require_email=False
+                )
+                if exchange_request.auth_context is not None
+                else None
+            )
+            conversation_id = ConversationPayloadReader(
+                require_email=False
+            ).conversation_of(uniform_payload)
+            request_context = McpRequestContext(
+                principal=principal,
+                request_id=exchange_request.request_id,
+                conversation_id=conversation_id,
+                subject_token=subject_token
+                if isinstance(subject_token, AccessToken)
+                else None,
+            )
 
             if exchange_request.stream:
                 if (
@@ -282,13 +318,18 @@ def add_ai_endpoints(
                 ):  # pragma: no cover - guarded by _FASTAPI_AVAILABLE check above
                     raise RuntimeError("fastapi is required to use streaming responses")
 
+                with McpRequestContextScope.bind(request_context):
+                    result = agent_entrypoint(uniform_payload)
+                stream = StreamProcessor().stream(result, context)
                 return StreamingResponse(
-                    StreamProcessor().stream(result, context),
+                    McpRequestContextScope.iterate(stream, request_context),
                     media_type="text/event-stream",
                 )
 
-            if inspect.isawaitable(result):
-                result = await result
+            with McpRequestContextScope.bind(request_context):
+                result = agent_entrypoint(uniform_payload)
+                if inspect.isawaitable(result):
+                    result = await result
 
             exchange_response = OutputNormalizer().normalize(
                 result, request_id=exchange_request.request_id
@@ -803,6 +844,17 @@ def _build_raw_payload(
         normalized_input = body.get("messages", body.get("input"))
 
     user_context = request_authenticator.authenticate(getattr(request, "headers", None))
+    request_state = getattr(request, "state", None)
+    if (
+        user_context is not None
+        and user_context.verified_access_token is not None
+        and request_state is not None
+    ):
+        setattr(
+            request_state,
+            _VERIFIED_ACCESS_TOKEN_STATE_KEY,
+            user_context.verified_access_token,
+        )
 
     # The same policy that filters discovery listings gates invocation here, so
     # a caller never invokes an agent it would not have seen listed. A raising

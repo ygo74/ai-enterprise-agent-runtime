@@ -9,11 +9,17 @@ import time
 from enum import StrEnum
 from pathlib import Path
 
+from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
 from ygo74.agent_runtime.domains.configuration.directory import ConfigurationDirectory
 from ygo74.agent_runtime.domains.contracts.manifests import AgentManifest, SkillManifest
 from ygo74.agent_runtime.domains.mcp.registry import (
     McpAgentRegistry,
     McpAgentRegistryLoader,
+)
+from ygo74.agent_runtime.domains.mcp.request_context import (
+    McpOutboundHeaderResolver,
+    McpRequestContext,
+    McpRequestContextRegistry,
 )
 from ygo74.agent_runtime.domains.security.operations import (
     OperationType,
@@ -77,8 +83,7 @@ def test_mcp_registry_construction_stays_within_p95_budget(tmp_path: Path) -> No
             encoding="utf-8",
         )
     skills = tuple(
-        _skill(f"search_{index}", f"server-{index // 2}")
-        for index in range(20)
+        _skill(f"search_{index}", f"server-{index // 2}") for index in range(20)
     )
     agent = AgentManifest(
         name="benchmark",
@@ -86,7 +91,9 @@ def test_mcp_registry_construction_stays_within_p95_budget(tmp_path: Path) -> No
         instructions="Search the configured sources.",
         skills=skills,
     )
-    loader = McpAgentRegistryLoader(ConfigurationDirectory(config_root), Capability, environment={})
+    loader = McpAgentRegistryLoader(
+        ConfigurationDirectory(config_root), Capability, environment={}
+    )
     elapsed_ms: list[float] = []
     registries: list[McpAgentRegistry[Capability]] = []
 
@@ -125,7 +132,9 @@ def test_mcp_skill_view_lookup_stays_within_p95_budget(tmp_path: Path) -> None:
         instructions="Search mail.",
         skills=(_skill("search_mail", "mail"),),
     )
-    registry = McpAgentRegistryLoader(ConfigurationDirectory(config_root), Capability, environment={}).load(agent)
+    registry = McpAgentRegistryLoader(
+        ConfigurationDirectory(config_root), Capability, environment={}
+    ).load(agent)
     elapsed_ms: list[float] = []
     for _ in range(1000):
         started = time.perf_counter()
@@ -136,3 +145,44 @@ def test_mcp_skill_view_lookup_stays_within_p95_budget(tmp_path: Path) -> None:
     asyncio.run(registry.aclose())
     p95 = statistics.quantiles(elapsed_ms, n=100)[94]
     assert p95 < _budget("mcp_skill_tool_lookup_p95_ms")
+
+
+def test_mcp_context_header_rendering_stays_within_p95_budget() -> None:
+    """Rendering identity and correlation templates stays under the per-request budget."""
+    contexts = McpRequestContextRegistry()
+    principal = AgentPrincipal(
+        subject="benchmark-user",
+        email="benchmark@example.test",
+        display_name="Benchmark User",
+        roles=frozenset({"reader", "writer"}),
+    )
+    for request_id in range(1000):
+        contexts.register(
+            request_id,
+            McpRequestContext(
+                principal=principal,
+                request_id=f"req-{request_id}",
+                conversation_id=f"conversation-{request_id}",
+            ),
+        )
+    resolver = McpOutboundHeaderResolver(
+        {
+            "X-User-ID": "{{USER_ID}}",
+            "X-User-Roles": "{{USER_ROLES}}",
+            "X-Request-ID": "{{REQUEST_ID}}",
+            "X-Conversation-ID": "{{CONVERSATION_ID}}",
+        },
+        contexts,
+    )
+    elapsed_ms: list[float] = []
+
+    async def measure() -> None:
+        """Resolve a unique context for each timed header-render operation."""
+        for request_id in range(1000):
+            started = time.perf_counter()
+            await resolver.for_request(request_id)
+            elapsed_ms.append((time.perf_counter() - started) * 1000)
+
+    asyncio.run(measure())
+    p95 = statistics.quantiles(elapsed_ms, n=100)[94]
+    assert p95 < _budget("mcp_header_rendering_p95_ms")

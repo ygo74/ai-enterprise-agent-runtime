@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ygo74.agent_runtime.domains.auth.tokens import AccessToken
 
 
 @dataclass(slots=True)
@@ -18,6 +21,7 @@ class UserIdentity:
         email (str | None): Email claim associated with the authenticated principal.
         email_verified (bool | None): Whether the identity provider verified the email claim.
     """
+
     user_id: str
     subject: str | None = None
     username: str | None = None
@@ -28,8 +32,7 @@ class UserIdentity:
     email_verified: bool | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the instance runtime data into its documented dictionary representation.
-        """
+        """Serialize the instance runtime data into its documented dictionary representation."""
         return {
             "userId": self.user_id,
             "subject": self.subject or self.user_id,
@@ -64,6 +67,7 @@ class ResolvedUser:
         tenant_id (str | None): Optional tenant identifier projected from the identity.
         claims (dict[str, Any]): The validated identity claims to project into runtime context.
     """
+
     user_id: str
     username: str | None = None
     name: str | None = None
@@ -78,8 +82,7 @@ class ResolvedUser:
     claims: dict[str, Any] = field(default_factory=dict)
 
     def to_identity(self) -> UserIdentity:
-        """Project an authenticated user context into the identity fields consumed by authorization.
-        """
+        """Project an authenticated user context into the identity fields consumed by authorization."""
         return UserIdentity(
             user_id=self.user_id,
             subject=self.user_id,
@@ -107,7 +110,9 @@ class AuthenticatedUserContext:
         scopes (list[str]): OAuth scopes projected from the authenticated claims.
         claims (dict[str, Any]): The validated identity claims to project into runtime context.
         tenant_id (str | None): Optional tenant identifier projected from the identity.
+        verified_access_token (AccessToken | None): Internal validated bearer token retained only for downstream token exchange.
     """
+
     auth_type: str
     identity: UserIdentity
     roles: list[str] = field(default_factory=list)
@@ -115,11 +120,13 @@ class AuthenticatedUserContext:
     scopes: list[str] = field(default_factory=list)
     claims: dict[str, Any] = field(default_factory=dict)
     tenant_id: str | None = None
+    verified_access_token: AccessToken | None = field(
+        default=None, repr=False, compare=False
+    )
 
     @property
     def user_id(self) -> str:
-        """Return the stable user identifier runtime data from authenticated identity context.
-        """
+        """Return the stable user identifier runtime data from authenticated identity context."""
         return self.identity.user_id
 
     def has_role(self, role: str) -> bool:
@@ -139,8 +146,7 @@ class AuthenticatedUserContext:
         return scope in self.scopes
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the instance runtime data into its documented dictionary representation.
-        """
+        """Serialize the instance runtime data into its documented dictionary representation."""
         context: dict[str, Any] = {
             "authType": self.auth_type,
             "userId": self.identity.user_id,

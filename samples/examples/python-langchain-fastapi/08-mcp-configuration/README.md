@@ -1,19 +1,24 @@
 # 08 - Declarative MCP client configuration
 
-This example loads two MCP server files through the Python agent runtime. Two
-skills share the mail server, and a third skill uses an archive server. The
-smoke script prints the aliases available to each skill and closes the registry
-without opening an MCP connection, contacting a remote service, or starting OAuth
-consent.
+This example loads three MCP server files through the Python agent runtime.
+Two skills share the mail server, a third uses an archive server, and a fourth
+uses the delegated-OAuth server definition. The smoke script
+prints each skill's aliases and closes the registry without opening an MCP
+connection, contacting a remote service, or starting OAuth consent. Its fake
+delegated-token source is injected only to demonstrate the host integration
+point.
 
 ## Files
 
-- `config/mcp/mail.yaml`: shared HTTP server using an API-key reference and an
-  optional proxy.
+- `config/mcp/mail.yaml`: shared HTTP server using an API-key reference,
+  environment-backed gateway header, identity templates, and an optional proxy.
 - `config/mcp/archive.yaml`: distinct HTTP server using OAuth client settings.
+- `config/mcp/delegated.yaml`: separate OBO server with an audience and scopes.
 - `config/agents/mail-assistant/agent.yaml` and `config/skills/mail-assistant/`:
-  three delivered skills, with two referencing the shared mail server.
-- `.env.example`: placeholder values for the API key and OAuth client secret.
+  four delivered skills, with two referencing the shared mail server.
+- `.env.sample`: placeholder values for the API key, gateway header, and OAuth client secret.
+- `OfflineDelegatedTokenSource`: fake source proving the OBO provider port can
+  be supplied without contacting an identity provider.
 - `registry_smoke.py`: loads the delivered agent and skill manifests, then loads
   the server configuration through `McpAgentRegistryLoader`.
 
@@ -26,13 +31,14 @@ MCP extra, and copy the placeholder environment file:
 cd samples/examples/python-langchain-fastapi/08-mcp-configuration
 python -m pip install -e ../../../../packages/python/security
 python -m pip install -e '../../../../packages/python/agents[mcp]'
-cp .env.example .env
+cp .env.sample .env
 python registry_smoke.py
 ```
 
 The placeholder credentials are enough to validate and compose the registry.
 Replace them with real values only when the application later opens a remote
-connection. To use a proxy, edit `config/mcp/mail.yaml` and set
+connection. The OBO fake token is never requested during configuration loading.
+To use a proxy, edit `config/mcp/mail.yaml` and set
 `network.proxy_url`; the registry validates it before any connection is opened.
 
 The `# yaml-language-server: $schema=...` annotations point to the packaged

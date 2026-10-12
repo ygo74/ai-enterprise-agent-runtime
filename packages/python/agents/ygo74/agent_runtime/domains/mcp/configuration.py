@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any, Generic, TypeVar
@@ -37,8 +37,19 @@ from ygo74.agent_runtime.domains.mcp.mcp_errors import McpBindingError
 
 CapabilityT = TypeVar("CapabilityT", bound=StrEnum)
 _SECRET_REFERENCE = re.compile(r"^\$\{(?P<name>[A-Za-z_][A-Za-z0-9_]*)\}$")
-_SecretReference = Annotated[StrictStr, StringConstraints(pattern=r"^\$\{[A-Za-z_][A-Za-z0-9_]*\}$")]
-_ConfigurationText = Annotated[StrictStr, StringConstraints(strip_whitespace=True, min_length=1, pattern=r"\S")]
+_HEADER_NAME = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
+_HEADER_TOKEN = re.compile(r"\{\{(?P<name>[^{}]+)\}\}")
+_HEADER_VALUE_PATTERN = (
+    r"^(?:\$\{[A-Za-z_][A-Za-z0-9_]*\}|"
+    r"(?:(?!\$\{|\{\{|\}\}|\r|\n)[\s\S]|"
+    r"\{\{(?:USER_ID|USER_EMAIL|USER_NAME|USER_ROLES|REQUEST_ID|CONVERSATION_ID|SESSION_ID)\}\})*)$"
+)
+_SecretReference = Annotated[
+    StrictStr, StringConstraints(pattern=r"^\$\{[A-Za-z_][A-Za-z0-9_]*\}$")
+]
+_ConfigurationText = Annotated[
+    StrictStr, StringConstraints(strip_whitespace=True, min_length=1, pattern=r"\S")
+]
 
 
 class McpAuthenticationMode(StrEnum):
@@ -47,6 +58,19 @@ class McpAuthenticationMode(StrEnum):
     NONE = "none"
     API_KEY = "api_key"
     OAUTH = "oauth"
+    OAUTH_ON_BEHALF_OF = "oauth_on_behalf_of"
+
+
+class McpHeaderContextToken(StrEnum):
+    """Request-scoped values that configured MCP headers may interpolate."""
+
+    USER_ID = "USER_ID"
+    USER_EMAIL = "USER_EMAIL"
+    USER_NAME = "USER_NAME"
+    USER_ROLES = "USER_ROLES"
+    REQUEST_ID = "REQUEST_ID"
+    CONVERSATION_ID = "CONVERSATION_ID"
+    SESSION_ID = "SESSION_ID"
 
 
 class McpApiKeyInput(BaseModel):
@@ -85,6 +109,20 @@ class McpOAuthInput(BaseModel):
     client_name: _ConfigurationText = "MCP client"
 
 
+class McpDelegatedOAuthInput(BaseModel):
+    """YAML settings for application-provided OAuth on-behalf-of exchange.
+
+    Args:
+        audience (_ConfigurationText): Downstream MCP resource identifier.
+        scopes (tuple[_ConfigurationText, ...]): Optional scopes requested from the delegated-token source.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    audience: _ConfigurationText
+    scopes: tuple[_ConfigurationText, ...] = ()
+
+
 class McpNetworkInput(BaseModel):
     """Optional network settings for a streamable HTTP connection.
 
@@ -105,31 +143,58 @@ def _mcp_server_json_schema(schema: dict[str, Any]) -> None:
     """
     schema["allOf"] = [
         {
-            "if": {"properties": {"transport": {"const": "http"}}, "required": ["transport"]},
+            "if": {
+                "properties": {"transport": {"const": "http"}},
+                "required": ["transport"],
+            },
             "then": {
                 "required": ["url"],
                 "properties": {"url": {"type": "string", "minLength": 1}},
             },
         },
         {
-            "if": {"properties": {"transport": {"const": "stdio"}}, "required": ["transport"]},
+            "if": {
+                "properties": {"transport": {"const": "stdio"}},
+                "required": ["transport"],
+            },
             "then": {
                 "required": ["command"],
                 "properties": {"command": {"type": "string", "minLength": 1}},
             },
         },
         {
-            "if": {"properties": {"authentication_mode": {"const": "api_key"}}, "required": ["authentication_mode"]},
+            "if": {
+                "properties": {"authentication_mode": {"const": "api_key"}},
+                "required": ["authentication_mode"],
+            },
             "then": {
                 "required": ["authentication_api_key"],
                 "not": {"required": ["authentication_oauth"]},
             },
         },
         {
-            "if": {"properties": {"authentication_mode": {"const": "oauth"}}, "required": ["authentication_mode"]},
+            "if": {
+                "properties": {"authentication_mode": {"const": "oauth"}},
+                "required": ["authentication_mode"],
+            },
             "then": {
                 "required": ["authentication_oauth"],
                 "not": {"required": ["authentication_api_key"]},
+            },
+        },
+        {
+            "if": {
+                "properties": {"authentication_mode": {"const": "oauth_on_behalf_of"}},
+                "required": ["authentication_mode"],
+            },
+            "then": {
+                "required": ["authentication_oauth_on_behalf_of"],
+                "not": {
+                    "anyOf": [
+                        {"required": ["authentication_api_key"]},
+                        {"required": ["authentication_oauth"]},
+                    ]
+                },
             },
         },
         {
@@ -140,21 +205,54 @@ def _mcp_server_json_schema(schema: dict[str, Any]) -> None:
                 ]
             },
             "then": {
-                "not": {"anyOf": [{"required": ["authentication_api_key"]}, {"required": ["authentication_oauth"]}]}
+                "not": {
+                    "anyOf": [
+                        {"required": ["authentication_api_key"]},
+                        {"required": ["authentication_oauth"]},
+                        {"required": ["authentication_oauth_on_behalf_of"]},
+                    ]
+                }
             },
         },
         {
-            "if": {"properties": {"transport": {"const": "stdio"}}, "required": ["transport"]},
+            "if": {
+                "properties": {"transport": {"const": "stdio"}},
+                "required": ["transport"],
+            },
             "then": {
                 "not": {
                     "anyOf": [
-                        {"properties": {"authentication_mode": {"enum": ["api_key", "oauth"]}}},
-                        {"properties": {"network": {"properties": {"proxy_url": {"type": "string"}}}}},
+                        {
+                            "properties": {
+                                "authentication_mode": {
+                                    "enum": ["api_key", "oauth", "oauth_on_behalf_of"]
+                                }
+                            },
+                            "required": ["authentication_mode"],
+                        },
+                        {
+                            "properties": {
+                                "network": {
+                                    "properties": {"proxy_url": {"type": "string"}},
+                                    "required": ["proxy_url"],
+                                }
+                            },
+                            "required": ["network"],
+                        },
+                        {
+                            "properties": {"headers": {"minProperties": 1}},
+                            "required": ["headers"],
+                        },
                     ]
                 }
             },
         },
     ]
+    schema["properties"]["headers"] = {
+        "type": "object",
+        "propertyNames": {"pattern": r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$"},
+        "additionalProperties": {"type": "string", "pattern": _HEADER_VALUE_PATTERN},
+    }
 
 
 class McpServerConfigurationInput(BaseModel):
@@ -172,13 +270,17 @@ class McpServerConfigurationInput(BaseModel):
         dialect (_ConfigurationText): Protocol dialect selected by the application.
         read_only_variable (_ConfigurationText | None): Deployment variable interpreted by the host.
         request_timeout_seconds (StrictInt): HTTP request and protocol session timeout.
+        headers (dict[StrictStr, StrictStr]): HTTP headers containing literals, env references, or context tokens.
         authentication_mode (McpAuthenticationMode): Selected HTTP authentication mechanism.
         authentication_api_key (McpApiKeyInput | None): API-key header settings when selected.
         authentication_oauth (McpOAuthInput | None): OAuth client settings when selected.
+        authentication_oauth_on_behalf_of (McpDelegatedOAuthInput | None): Audience and scopes for delegated OAuth.
         network (McpNetworkInput): HTTP proxy options.
     """
 
-    model_config = ConfigDict(extra="forbid", frozen=True, json_schema_extra=_mcp_server_json_schema)
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, json_schema_extra=_mcp_server_json_schema
+    )
 
     server: _ConfigurationText | None = None
     transport: McpTransport
@@ -191,9 +293,11 @@ class McpServerConfigurationInput(BaseModel):
     dialect: _ConfigurationText = "native"
     read_only_variable: _ConfigurationText | None = None
     request_timeout_seconds: StrictInt = Field(default=30, ge=1)
+    headers: dict[StrictStr, StrictStr] = Field(default_factory=dict)
     authentication_mode: McpAuthenticationMode = McpAuthenticationMode.NONE
     authentication_api_key: McpApiKeyInput | None = None
     authentication_oauth: McpOAuthInput | None = None
+    authentication_oauth_on_behalf_of: McpDelegatedOAuthInput | None = None
     network: McpNetworkInput = Field(default_factory=McpNetworkInput)
 
     @model_validator(mode="after")
@@ -207,18 +311,76 @@ class McpServerConfigurationInput(BaseModel):
             self.authentication_mode is not McpAuthenticationMode.NONE
             or self.authentication_api_key is not None
             or self.authentication_oauth is not None
+            or self.authentication_oauth_on_behalf_of is not None
             or self.network.proxy_url is not None
+            or self.headers
         ):
-            raise ValueError("authentication and network proxy settings require HTTP transport")
+            raise ValueError(
+                "authentication, headers, and network proxy settings require HTTP transport"
+            )
         McpNetworkSettings(proxy_url=self.network.proxy_url)
+        self._validate_headers()
         expected = {
-            McpAuthenticationMode.NONE: (None, None),
-            McpAuthenticationMode.API_KEY: (self.authentication_api_key, None),
-            McpAuthenticationMode.OAUTH: (None, self.authentication_oauth),
+            McpAuthenticationMode.NONE: (None, None, None),
+            McpAuthenticationMode.API_KEY: (self.authentication_api_key, None, None),
+            McpAuthenticationMode.OAUTH: (None, self.authentication_oauth, None),
+            McpAuthenticationMode.OAUTH_ON_BEHALF_OF: (
+                None,
+                None,
+                self.authentication_oauth_on_behalf_of,
+            ),
         }[self.authentication_mode]
-        if (self.authentication_api_key, self.authentication_oauth) != expected:
-            raise ValueError(f"authentication settings do not match mode {self.authentication_mode.value!r}")
+        if (
+            self.authentication_api_key,
+            self.authentication_oauth,
+            self.authentication_oauth_on_behalf_of,
+        ) != expected:
+            raise ValueError(
+                f"authentication settings do not match mode {self.authentication_mode.value!r}"
+            )
+        if self.authentication_mode is not McpAuthenticationMode.NONE and any(
+            name.casefold() == "authorization" for name in self.headers
+        ):
+            raise ValueError(
+                "headers.Authorization conflicts with configured authentication"
+            )
+        if self.authentication_api_key is not None and any(
+            name.casefold() == self.authentication_api_key.header_name.casefold()
+            for name in self.headers
+        ):
+            raise ValueError("headers contains the configured API-key header")
         return self
+
+    def _validate_headers(self) -> None:
+        """Validate header names and interpolation syntax without exposing values."""
+        names: set[str] = set()
+        for name, value in self.headers.items():
+            normalized_name = name.casefold()
+            if not _HEADER_NAME.fullmatch(name) or normalized_name in names:
+                raise ValueError(
+                    "headers contains an invalid or duplicate HTTP header name"
+                )
+            names.add(normalized_name)
+            if "\r" in value or "\n" in value:
+                raise ValueError(f"headers.{name} must not contain a line break")
+            env_reference = _SECRET_REFERENCE.fullmatch(value)
+            if "${" in value and env_reference is None:
+                raise ValueError(
+                    f"headers.{name} environment references must occupy the entire value"
+                )
+            tokens = tuple(_HEADER_TOKEN.finditer(value))
+            if ("{{" in value or "}}" in value) and not tokens:
+                raise ValueError(f"headers.{name} contains a malformed context token")
+            for token in tokens:
+                try:
+                    McpHeaderContextToken(token.group("name"))
+                except ValueError as error:
+                    raise ValueError(
+                        f"headers.{name} contains an unsupported context token"
+                    ) from error
+            remainder = _HEADER_TOKEN.sub("", value)
+            if "{{" in remainder or "}}" in remainder:
+                raise ValueError(f"headers.{name} contains a malformed context token")
 
 
 @dataclass(frozen=True, slots=True)
@@ -255,6 +417,19 @@ class McpOAuthSettings:
     client_name: str
 
 
+@dataclass(frozen=True, slots=True)
+class McpDelegatedOAuthSettings:
+    """Resolved target resource settings for an injected delegated-token source.
+
+    Args:
+        audience (str): Downstream MCP resource identifier.
+        scopes (tuple[str, ...]): Requested scopes for the exchanged access token.
+    """
+
+    audience: str
+    scopes: tuple[str, ...] = ()
+
+
 @dataclass(frozen=True, slots=True, repr=False)
 class McpServerConfiguration(Generic[CapabilityT]):
     """Validated binding and connection settings for one configured MCP server.
@@ -266,6 +441,8 @@ class McpServerConfiguration(Generic[CapabilityT]):
         api_key (McpApiKeySettings | None): Optional API-key header with redacted value.
         oauth (McpOAuthSettings | None): Optional OAuth configuration with redacted client secret.
         network (McpNetworkSettings): HTTP proxy settings.
+        delegated_oauth (McpDelegatedOAuthSettings | None): Optional downstream audience and delegated scopes.
+        headers (Mapping[str, str]): Resolved headers and deferred context templates, redacted in representations.
     """
 
     binding: McpServerBinding[CapabilityT]
@@ -274,13 +451,10 @@ class McpServerConfiguration(Generic[CapabilityT]):
     api_key: McpApiKeySettings | None
     oauth: McpOAuthSettings | None
     network: McpNetworkSettings
-
-    @property
-    def headers(self) -> Mapping[str, str]:
-        """Return headers with secret values hidden from their representation."""
-        if self.api_key is None:
-            return _RedactedMapping({})
-        return _RedactedMapping({self.api_key.header_name: self.api_key.value.get_secret_value()})
+    delegated_oauth: McpDelegatedOAuthSettings | None = None
+    headers: Mapping[str, str] = field(
+        default_factory=lambda: _RedactedMapping({}), repr=False
+    )
 
     def __repr__(self) -> str:
         """Return a safe representation that never includes credentials or proxy URLs."""
@@ -320,7 +494,9 @@ class McpServerConfigurationLoader(Generic[CapabilityT]):
         self._environment = environment
         self._error_factory = error_factory
 
-    def load(self, path: Path, *, name: str = "") -> McpServerConfiguration[CapabilityT]:
+    def load(
+        self, path: Path, *, name: str = ""
+    ) -> McpServerConfiguration[CapabilityT]:
         """Load and validate configuration at ``path`` without opening a connection.
 
         Args:
@@ -338,6 +514,10 @@ class McpServerConfigurationLoader(Generic[CapabilityT]):
             ).load(path, name=name)
             api_key = self._resolve_api_key(source, path)
             oauth = self._resolve_oauth(source, path)
+            delegated_oauth = self._resolve_delegated_oauth(source)
+            headers = self._resolve_headers(source.headers, path)
+            if api_key is not None:
+                headers[api_key.header_name] = api_key.value.get_secret_value()
             return McpServerConfiguration(
                 binding=binding,
                 request_timeout_seconds=source.request_timeout_seconds,
@@ -345,6 +525,8 @@ class McpServerConfigurationLoader(Generic[CapabilityT]):
                 api_key=api_key,
                 oauth=oauth,
                 network=McpNetworkSettings(proxy_url=source.network.proxy_url),
+                delegated_oauth=delegated_oauth,
+                headers=_RedactedMapping(headers),
             )
         except ConfigurationError as error:
             raise self._error_factory(str(error)) from error
@@ -365,10 +547,16 @@ class McpServerConfigurationLoader(Generic[CapabilityT]):
             return None
         return McpApiKeySettings(
             header_name=credential.header_name,
-            value=SecretStr(self._resolve_secret(credential.value, "authentication_api_key.value", path)),
+            value=SecretStr(
+                self._resolve_secret(
+                    credential.value, "authentication_api_key.value", path
+                )
+            ),
         )
 
-    def _resolve_oauth(self, source: McpServerConfigurationInput, path: Path) -> McpOAuthSettings | None:
+    def _resolve_oauth(
+        self, source: McpServerConfigurationInput, path: Path
+    ) -> McpOAuthSettings | None:
         """Resolve OAuth client credentials and configuration-relative token path.
 
         Args:
@@ -380,16 +568,51 @@ class McpServerConfigurationLoader(Generic[CapabilityT]):
             return None
         token_path = Path(oauth.token_file)
         if not token_path.is_absolute():
-            configuration_root = path.parent.parent.parent if path.parent.name == "mcp" else path.parent
+            configuration_root = (
+                path.parent.parent.parent if path.parent.name == "mcp" else path.parent
+            )
             token_path = configuration_root / token_path
         return McpOAuthSettings(
             client_id=oauth.client_id,
-            client_secret=SecretStr(self._resolve_secret(oauth.client_secret, "authentication_oauth.client_secret", path)),
+            client_secret=SecretStr(
+                self._resolve_secret(
+                    oauth.client_secret, "authentication_oauth.client_secret", path
+                )
+            ),
             callback_port=oauth.callback_port,
             scopes=oauth.scopes,
             token_file=token_path,
             client_name=oauth.client_name,
         )
+
+    def _resolve_delegated_oauth(
+        self,
+        source: McpServerConfigurationInput,
+    ) -> McpDelegatedOAuthSettings | None:
+        """Copy the validated downstream audience and scopes into runtime settings.
+
+        Args:
+            source (McpServerConfigurationInput): Validated fields from the YAML document.
+        """
+        settings = source.authentication_oauth_on_behalf_of
+        if settings is None:
+            return None
+        return McpDelegatedOAuthSettings(settings.audience, settings.scopes)
+
+    def _resolve_headers(self, values: Mapping[str, str], path: Path) -> dict[str, str]:
+        """Resolve environment-only header values and retain context templates.
+
+        Args:
+            values (Mapping[str, str]): Validated configured header names and values.
+            path (Path): Source YAML file named in safe diagnostics.
+        """
+        resolved: dict[str, str] = {}
+        for name, value in values.items():
+            if _SECRET_REFERENCE.fullmatch(value) is None:
+                resolved[name] = value
+                continue
+            resolved[name] = self._resolve_secret(value, f"headers.{name}", path)
+        return resolved
 
     def _resolve_secret(self, reference: str, field: str, path: Path) -> str:
         """Resolve one `${ENV_VAR}` reference and report only its field and name.
@@ -401,7 +624,9 @@ class McpServerConfigurationLoader(Generic[CapabilityT]):
         """
         match = _SECRET_REFERENCE.fullmatch(reference)
         if match is None:
-            raise self._error_factory(f"{path}: {field} must reference a secret as ${{ENV_VAR}}")
+            raise self._error_factory(
+                f"{path}: {field} must reference a secret as ${{ENV_VAR}}"
+            )
         environment = self._environment if self._environment is not None else os.environ
         variable_name = match.group("name")
         value = environment.get(variable_name, "")

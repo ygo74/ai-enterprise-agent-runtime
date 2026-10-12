@@ -11,6 +11,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Generic, TypeVar
 
+from ygo74.agent_runtime.domains.auth.tokens import DelegatedTokenSource
 from ygo74.agent_runtime.domains.configuration.directory import ConfigurationDirectory
 from ygo74.agent_runtime.domains.configuration.environment import EnvironmentFile
 from ygo74.agent_runtime.domains.contracts.manifests import AgentManifest, SkillManifest
@@ -116,7 +117,9 @@ class McpSkillServerView:
     def _ensure_open(self) -> None:
         """Reject use of a view after its owner has closed all connections."""
         if self._state.closed:
-            raise self._error_factory(f"MCP registry is closed; skill {self._tool_name!r} is unavailable")
+            raise self._error_factory(
+                f"MCP registry is closed; skill {self._tool_name!r} is unavailable"
+            )
 
 
 class McpAgentRegistry(Generic[CapabilityT]):
@@ -164,7 +167,9 @@ class McpAgentRegistry(Generic[CapabilityT]):
             raise self._error_factory("MCP registry is closed")
         view = self._views.get(tool_name)
         if view is None:
-            raise self._error_factory(f"agent declares no MCP-enabled skill named {tool_name!r}")
+            raise self._error_factory(
+                f"agent declares no MCP-enabled skill named {tool_name!r}"
+            )
         return view
 
     async def aclose(self) -> None:
@@ -189,6 +194,7 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
         configuration_directory (ConfigurationDirectory): Delivered ``config/`` root.
         capabilities (type[CapabilityT]): Application capabilities valid in server declarations.
         environment (Mapping[str, str] | None): Optional deterministic secret source; absent uses process values and ``.env``.
+        delegated_token_source (DelegatedTokenSource | None): Application-owned OAuth on-behalf-of exchange port.
         error_factory (ErrorFactory): Callback that builds the domain error for this failure path.
     """
 
@@ -198,6 +204,7 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
         capabilities: type[CapabilityT],
         *,
         environment: Mapping[str, str] | None = None,
+        delegated_token_source: DelegatedTokenSource | None = None,
         error_factory: ErrorFactory = McpBindingError,
     ) -> None:
         """Keep the configuration root and typed server loader inputs.
@@ -206,11 +213,13 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
             configuration_directory (ConfigurationDirectory): Delivered ``config/`` root.
             capabilities (type[CapabilityT]): Application capabilities valid in server declarations.
             environment (Mapping[str, str] | None): Optional deterministic source for secret references.
+            delegated_token_source (DelegatedTokenSource | None): Application-owned OAuth on-behalf-of exchange port.
             error_factory (ErrorFactory): Callback that builds the domain error for this failure path.
         """
         self._directory = configuration_directory
         self._capabilities = capabilities
         self._environment = environment
+        self._delegated_token_source = delegated_token_source
         self._error_factory = error_factory
 
     def load(self, agent: AgentManifest) -> McpAgentRegistry[CapabilityT]:
@@ -258,7 +267,10 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
                 tool_name=skill.tool_name,
                 server_name=server_name,
                 connection=connections[server_name],
-                tools={alias: configurations[server_name].binding.remote(alias) for alias in skill.mcp_tools},
+                tools={
+                    alias: configurations[server_name].binding.remote(alias)
+                    for alias in skill.mcp_tools
+                },
                 state=state,
                 error_factory=self._error_factory,
             )
@@ -276,15 +288,23 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
         seen: set[str] = set()
         for skill in agent.skills:
             if skill.tool_name in seen:
-                raise self._error_factory(f"agent {agent.name!r} has duplicate skill {skill.tool_name!r}")
+                raise self._error_factory(
+                    f"agent {agent.name!r} has duplicate skill {skill.tool_name!r}"
+                )
             seen.add(skill.tool_name)
             if skill.mcp_server is None and skill.mcp_tools:
-                raise self._error_factory(f"skill {skill.tool_name!r} declares MCP tools without a server")
+                raise self._error_factory(
+                    f"skill {skill.tool_name!r} declares MCP tools without a server"
+                )
             if skill.mcp_server is not None and not skill.mcp_tools:
-                raise self._error_factory(f"skill {skill.tool_name!r} must declare at least one MCP tool")
+                raise self._error_factory(
+                    f"skill {skill.tool_name!r} must declare at least one MCP tool"
+                )
         return agent.skills
 
-    def _skills_by_server(self, skills: tuple[SkillManifest, ...]) -> dict[str, tuple[SkillManifest, ...]]:
+    def _skills_by_server(
+        self, skills: tuple[SkillManifest, ...]
+    ) -> dict[str, tuple[SkillManifest, ...]]:
         """Group MCP-enabled skills while preserving first-reference order.
 
         Args:
@@ -312,9 +332,13 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
             resolved_candidate = candidate.resolve(strict=True)
             resolved_candidate.relative_to(resolved_directory)
         except (OSError, ValueError) as error:
-            raise self._error_factory(f"MCP server configuration {name!r} is missing or outside config/mcp") from error
+            raise self._error_factory(
+                f"MCP server configuration {name!r} is missing or outside config/mcp"
+            ) from error
         if not resolved_candidate.is_file():
-            raise self._error_factory(f"MCP server configuration {name!r} is not a file")
+            raise self._error_factory(
+                f"MCP server configuration {name!r} is not a file"
+            )
         return resolved_candidate
 
     def _create_connection(
@@ -329,12 +353,30 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
         auth = None
         if configuration.authentication_mode is McpAuthenticationMode.OAUTH:
             if configuration.oauth is None:
-                raise self._error_factory(f"server {configuration.binding.server!r} is missing OAuth settings")
-            auth = McpOAuthProviderFactory().build(configuration.binding.url, configuration.oauth)
+                raise self._error_factory(
+                    f"server {configuration.binding.server!r} is missing OAuth settings"
+                )
+            auth = McpOAuthProviderFactory().build(
+                configuration.binding.url, configuration.oauth
+            )
+        if (
+            configuration.authentication_mode
+            is McpAuthenticationMode.OAUTH_ON_BEHALF_OF
+        ):
+            if configuration.delegated_oauth is None:
+                raise self._error_factory(
+                    f"server {configuration.binding.server!r} is missing delegated OAuth settings"
+                )
+            if self._delegated_token_source is None:
+                raise self._error_factory(
+                    f"server {configuration.binding.server!r} requires an injected delegated token source"
+                )
         return McpConnection(
             configuration.binding,
             timeout_seconds=configuration.request_timeout_seconds,
             auth=auth,
             headers=configuration.headers,
             network=configuration.network,
+            delegated_oauth=configuration.delegated_oauth,
+            delegated_token_source=self._delegated_token_source,
         )
