@@ -60,8 +60,8 @@ agent.
 
 Add a separate `authentication_mode: oauth_on_behalf_of` for HTTP MCP servers.
 Its typed configuration names the downstream `audience` and optional `scopes`.
-The application supplies a `DelegatedTokenSource` implementation. For each
-outbound MCP JSON-RPC request, the runtime provides that source with a typed
+The application supplies an `OAuthOnBehalfOfTokenSource` implementation. For
+each outbound MCP JSON-RPC request, the runtime provides that source with a typed
 request containing:
 
 - the verified `AgentPrincipal`;
@@ -69,11 +69,11 @@ request containing:
   only as the subject token for exchange;
 - the configured downstream audience and scopes.
 
-The source exchanges the subject token according to the host's identity
+The OBO source exchanges the subject token according to the host's identity
 provider, and returns an `AccessToken` intended for the configured MCP audience.
 The runtime sends only this returned token as `Authorization: Bearer ...` on the
 matching MCP HTTP request. The incoming token is never forwarded to the MCP
-server. The source owns provider-specific exchange details and token caching;
+server. The OBO source owns provider-specific exchange details and token caching;
 the Python runtime does not ship an identity-provider-specific OBO client in
 this follow-up.
 
@@ -85,9 +85,11 @@ API-key-authenticated, anonymous, or otherwise tokenless request cannot use
 exchange, or a returned token whose declared audience does not match the
 configured audience also fails closed without sending the MCP request.
 
-The source abstraction may need a typed request shape that includes the
-subject-token and scopes; extend the existing `AccessToken` and
-`DelegatedTokenSource` contracts rather than introducing a second token model.
+The OBO source uses a typed request shape that includes the subject token and
+scopes. Preserve the existing credential-free
+`DelegatedTokenSource(principal, audience)` contract, and introduce a separate
+`OAuthOnBehalfOfTokenSource` port. Reuse `AccessToken` rather than introducing
+a second token model.
 
 ## Example
 
@@ -122,7 +124,7 @@ the audience/scopes for the application-provided token source. In that mode,
   request, and conversation values. Parallel turns with different callers or
   request IDs do not leak values into one another.
 - The `oauth_on_behalf_of` mode requires an HTTP transport, target audience,
-  and an injected `DelegatedTokenSource`. It exchanges the validated caller
+  and an injected `OAuthOnBehalfOfTokenSource`. It exchanges the validated caller
   token for the configured MCP audience and attaches only the returned token
   to the corresponding outbound request.
 - No inbound token is serialized, logged, placed in a prompt, or sent to the MCP
@@ -167,7 +169,7 @@ by the injected source and must be measured by its host application.
 
 Add schema and loader contract tests first, followed by fake-transport tests for
 environment resolution, context propagation, authentication conflicts, and
-parallel turns using one shared connection. Add fake `DelegatedTokenSource`
+parallel turns using one shared connection. Add fake `OAuthOnBehalfOfTokenSource`
 tests proving the verified subject token is exchanged for the configured
 audience, only the returned token is sent, and failures never fall back to the
 subject token. Exercise the internal credential boundary to prove the subject
@@ -178,10 +180,12 @@ the documented configuration without a remote server.
 
 ## Decisions for approval
 
-The generic `DelegatedTokenSource` is the provider boundary: the host supplies
+The `OAuthOnBehalfOfTokenSource` is the OBO provider boundary: the host supplies
 its identity-provider-specific exchange implementation, while the runtime
 validates caller context and sends the resulting audience-specific MCP token.
-No Microsoft Entra or other provider-specific OBO client is included unless
-requested separately. Additional claims such as tenant ID, groups, arbitrary
-metadata, and parent-message IDs remain outside the header-token vocabulary;
-they can be added later as named, typed values for a concrete use case.
+The existing `DelegatedTokenSource(principal, audience)` remains credential-free
+and unchanged. No Microsoft Entra or other provider-specific OBO client is
+included unless requested separately. Additional claims such as tenant ID,
+groups, arbitrary metadata, and parent-message IDs remain outside the
+header-token vocabulary; they can be added later as named, typed values for a
+concrete use case.

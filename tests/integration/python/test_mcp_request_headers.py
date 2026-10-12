@@ -156,7 +156,7 @@ def test_obo_exchanges_the_verified_subject_and_sends_only_the_downstream_token(
     contexts = McpRequestContextRegistry()
     contexts.register(9, _context("ada", "req-ada", "chat-1", "incoming-subject-token"))
 
-    class FakeDelegatedTokenSource:
+    class FakeOAuthOnBehalfOfTokenSource:
         """Return a token explicitly minted for the configured MCP audience."""
 
         def __init__(self) -> None:
@@ -166,7 +166,7 @@ def test_obo_exchanges_the_verified_subject_and_sends_only_the_downstream_token(
             self.requests.append(request)
             return AccessToken("mcp-audience-token", audience=request.audience)
 
-    source = FakeDelegatedTokenSource()
+    source = FakeOAuthOnBehalfOfTokenSource()
     resolver = McpOutboundHeaderResolver(
         {"X-User": "{{USER_ID}}"},
         contexts,
@@ -198,7 +198,7 @@ def test_obo_rejects_missing_subject_token_without_falling_back() -> None:
     contexts = McpRequestContextRegistry()
     contexts.register(4, _context("ada", "req-ada", "chat-1"))
 
-    class UnusedDelegatedTokenSource:
+    class UnusedOAuthOnBehalfOfTokenSource:
         """Fail if the runtime attempts an exchange without a verified subject token."""
 
         async def token_for(self, request: DelegatedTokenRequest) -> AccessToken:
@@ -208,7 +208,7 @@ def test_obo_rejects_missing_subject_token_without_falling_back() -> None:
         {},
         contexts,
         delegated_oauth=McpDelegatedOAuthSettings("https://mcp.example.test"),
-        delegated_token_source=UnusedDelegatedTokenSource(),
+        delegated_token_source=UnusedOAuthOnBehalfOfTokenSource(),
     )
 
     with pytest.raises(TokenExchangeError):

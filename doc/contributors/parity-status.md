@@ -189,10 +189,12 @@ incomplete, it is wrong.
   value through `repr` or `str`; the raw value is reachable only through an
   explicit `expose()`, which is what makes every dereference greppable in review.
   An empty credential is refused rather than carried.
-- **A token is exchanged, never relayed.** `DelegatedTokenSource` exists because
-  the MCP specification forbids passthrough and requires a server to check that a
-  token was issued for it - which it cannot do if the agent forwards the one its
-  own caller presented.
+- **A token is exchanged, never relayed.** `OAuthOnBehalfOfTokenSource` exists
+  because the MCP specification forbids passthrough and requires a server to
+  check that a token was issued for it. The runtime gives the verified subject
+  token only to that identity-provider exchange port and forwards only the
+  audience-bound result; the generic `DelegatedTokenSource` remains
+  credential-free.
 - **A descriptor reports the deployment, not an assumption.** The advertised
   security schemes are derived from the authentication actually configured, and
   `toolInvocation` from the skills actually declared. A service accepting only an

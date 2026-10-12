@@ -1,7 +1,11 @@
 """Contracts for provider supplied OAuth token delegation."""
 
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
-from ygo74.agent_runtime.domains.auth.tokens import AccessToken, DelegatedTokenRequest
+from ygo74.agent_runtime.domains.auth.tokens import (
+    AccessToken,
+    DelegatedTokenRequest,
+    OAuthOnBehalfOfTokenSource,
+)
 
 
 def test_delegated_token_request_keeps_the_subject_token_redacted() -> None:
@@ -19,3 +23,15 @@ def test_delegated_token_request_keeps_the_subject_token_redacted() -> None:
     assert request.audience == "https://mcp.example.test"
     assert request.scopes == ("mail.read", "mail.send")
     assert "incoming-secret" not in repr(request)
+
+
+def test_on_behalf_of_source_is_a_separate_provider_contract() -> None:
+    """The OBO port accepts exchange input without changing the credential-free port."""
+
+    class FakeOAuthOnBehalfOfSource:
+        """Return an audience-bound token for the request's verified principal."""
+
+        async def token_for(self, request: DelegatedTokenRequest) -> AccessToken:
+            return AccessToken("downstream-token", audience=request.audience)
+
+    assert isinstance(FakeOAuthOnBehalfOfSource(), OAuthOnBehalfOfTokenSource)

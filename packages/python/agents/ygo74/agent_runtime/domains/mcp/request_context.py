@@ -13,7 +13,7 @@ from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
 from ygo74.agent_runtime.domains.auth.tokens import (
     AccessToken,
     DelegatedTokenRequest,
-    DelegatedTokenSource,
+    OAuthOnBehalfOfTokenSource,
     TokenExchangeError,
 )
 from ygo74.agent_runtime.domains.contracts.conversation import ConversationTurn
@@ -204,7 +204,7 @@ class McpOutboundHeaderResolver:
         configured_headers (Mapping[str, str]): Resolved configured values and context templates.
         contexts (McpRequestContextRegistry): Connection-local map keyed by JSON-RPC request ID.
         delegated_oauth (McpDelegatedOAuthSettings | None): Optional target audience and scopes.
-        delegated_token_source (DelegatedTokenSource | None): Host-owned provider implementation for OBO exchange.
+        delegated_token_source (OAuthOnBehalfOfTokenSource | None): Host-owned provider implementation for OBO exchange.
         error_factory (type[Exception]): Error type for invalid or missing context values.
     """
 
@@ -214,7 +214,7 @@ class McpOutboundHeaderResolver:
         contexts: McpRequestContextRegistry,
         *,
         delegated_oauth: McpDelegatedOAuthSettings | None = None,
-        delegated_token_source: DelegatedTokenSource | None = None,
+        delegated_token_source: OAuthOnBehalfOfTokenSource | None = None,
         error_factory: type[Exception] = McpBindingError,
     ) -> None:
         """Keep connection configuration and its request correlation registry.
@@ -223,7 +223,7 @@ class McpOutboundHeaderResolver:
             configured_headers (Mapping[str, str]): Resolved configured values and context templates.
             contexts (McpRequestContextRegistry): Connection-local map keyed by JSON-RPC request ID.
             delegated_oauth (McpDelegatedOAuthSettings | None): Optional target audience and scopes.
-            delegated_token_source (DelegatedTokenSource | None): Host-owned provider implementation for OBO exchange.
+            delegated_token_source (OAuthOnBehalfOfTokenSource | None): Host-owned provider implementation for OBO exchange.
             error_factory (type[Exception]): Error type for invalid or missing context values.
         """
         self._configured_headers = dict(configured_headers)

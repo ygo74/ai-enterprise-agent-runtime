@@ -113,11 +113,13 @@ authentication_oauth_on_behalf_of:
   scopes: [mail.read, mail.send]
 ```
 
-The host injects a `DelegatedTokenSource` into `McpAgentRegistryLoader`. Its
-`token_for(DelegatedTokenRequest)` implementation exchanges the verified agent
-bearer token for an `AccessToken` whose audience matches the configured MCP
-audience. The runtime sends only that returned token to MCP. API-key and
-anonymous requests cannot use OBO, and a missing source, failed exchange, or
+The host injects an `OAuthOnBehalfOfTokenSource` into `McpAgentRegistryLoader`.
+Its `token_for(DelegatedTokenRequest)` implementation exchanges the verified
+agent bearer token for an `AccessToken` whose audience matches the configured
+MCP audience. The existing `DelegatedTokenSource` contract remains
+credential-free and receives only the principal and audience. The runtime sends
+only the token returned by the OBO source to MCP. API-key and anonymous
+requests cannot use OBO, and a missing source, failed exchange, or
 wrong-audience token stops the call. Provider-specific exchange and token-cache
 policy stay in the host implementation; caches must be partitioned by caller,
 audience, and scopes.

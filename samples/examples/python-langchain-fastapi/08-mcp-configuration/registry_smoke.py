@@ -27,7 +27,7 @@ class MailCapability(StrEnum):
     SEND = "send_mail"
 
 
-class OfflineDelegatedTokenSource:
+class OfflineOAuthOnBehalfOfTokenSource:
     """Provide a fake audience-specific token without contacting an identity provider.
 
     This source is used only to prove the registry accepts the application's
@@ -57,7 +57,7 @@ async def main() -> None:
     registry = McpAgentRegistryLoader(
         configuration_directory,
         MailCapability,
-        delegated_token_source=OfflineDelegatedTokenSource(),
+        delegated_token_source=OfflineOAuthOnBehalfOfTokenSource(),
     ).load(manifest_loader.load("mail-assistant"))
     try:
         for tool_name in (

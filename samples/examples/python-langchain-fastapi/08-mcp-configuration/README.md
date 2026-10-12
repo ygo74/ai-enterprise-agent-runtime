@@ -17,7 +17,7 @@ point.
 - `config/agents/mail-assistant/agent.yaml` and `config/skills/mail-assistant/`:
   four delivered skills, with two referencing the shared mail server.
 - `.env.sample`: placeholder values for the API key, gateway header, and OAuth client secret.
-- `OfflineDelegatedTokenSource`: fake source proving the OBO provider port can
+- `OfflineOAuthOnBehalfOfTokenSource`: fake source proving the OBO provider port can
   be supplied without contacting an identity provider.
 - `registry_smoke.py`: loads the delivered agent and skill manifests, then loads
   the server configuration through `McpAgentRegistryLoader`.

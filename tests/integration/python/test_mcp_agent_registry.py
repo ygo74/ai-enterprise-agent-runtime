@@ -128,13 +128,13 @@ def test_registry_requires_and_injects_the_delegated_token_source(
             ConfigurationDirectory(config_root), Capability, environment={}
         ).load(agent)
 
-    class FakeDelegatedTokenSource:
+    class FakeOAuthOnBehalfOfTokenSource:
         """Return an MCP token for a future request without making network calls."""
 
         async def token_for(self, request: DelegatedTokenRequest) -> AccessToken:
             return AccessToken("mcp-token", audience=request.audience)
 
-    source = FakeDelegatedTokenSource()
+    source = FakeOAuthOnBehalfOfTokenSource()
     registry = McpAgentRegistryLoader(
         ConfigurationDirectory(config_root),
         Capability,

@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 from urllib.parse import urlsplit
 
-from ygo74.agent_runtime.domains.auth.tokens import DelegatedTokenSource
+from ygo74.agent_runtime.domains.auth.tokens import OAuthOnBehalfOfTokenSource
 from ygo74.agent_runtime.domains.configuration.manifest_schemas import (
     JsonSchemaValidator,
     ManifestSchemas,
@@ -507,7 +507,7 @@ class McpConnection:
         network (McpNetworkSettings | None): HTTP proxy configuration for this connection.
         unavailable (ErrorFactory): Response or fallback used when the underlying service is unavailable.
         delegated_oauth (McpDelegatedOAuthSettings | None): Downstream audience and scopes for OBO mode.
-        delegated_token_source (DelegatedTokenSource | None): Application-owned provider exchange implementation.
+        delegated_token_source (OAuthOnBehalfOfTokenSource | None): Application-owned provider exchange implementation.
     """
 
     def __init__(
@@ -519,7 +519,7 @@ class McpConnection:
         headers: Mapping[str, str] | None = None,
         network: McpNetworkSettings | None = None,
         delegated_oauth: McpDelegatedOAuthSettings | None = None,
-        delegated_token_source: DelegatedTokenSource | None = None,
+        delegated_token_source: OAuthOnBehalfOfTokenSource | None = None,
         unavailable: ErrorFactory = McpToolUnavailableError,
     ) -> None:
         """Initialize the instance runtime data with supplied collaborators and configuration.
@@ -531,7 +531,7 @@ class McpConnection:
             headers (Mapping[str, str] | None): The request headers used for protocol selection, forwarding, or authentication.
             network (McpNetworkSettings | None): HTTP proxy configuration for this connection.
             delegated_oauth (McpDelegatedOAuthSettings | None): Downstream audience and scopes for OBO mode.
-            delegated_token_source (DelegatedTokenSource | None): Application-owned provider exchange implementation.
+            delegated_token_source (OAuthOnBehalfOfTokenSource | None): Application-owned provider exchange implementation.
             unavailable (ErrorFactory): Response or fallback used when the underlying service is unavailable.
         """
         _require_mcp()

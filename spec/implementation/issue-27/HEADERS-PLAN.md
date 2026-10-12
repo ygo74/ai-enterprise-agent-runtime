@@ -23,12 +23,12 @@ the configured MCP audience; never forward it directly.
   authorization-code flow for the MCP client and stores that client's token in
   a file. It does not delegate the token used to authenticate the user to the
   agent.
-- `packages/python/security/.../auth/tokens.py` already defines redacted
-  `AccessToken` and the `DelegatedTokenSource` port. It is not wired to MCP, and
-  its current method does not receive the validated subject token or scopes.
-  Extend these existing token contracts with a typed exchange request carrying
-  principal, subject token, audience, and scopes. No identity-provider-specific
-  exchange implementation is included; the host supplies the source.
+- `packages/python/security/.../auth/tokens.py` defines redacted `AccessToken`
+  and the existing credential-free `DelegatedTokenSource(principal, audience)`
+  port. Preserve that public contract. Add a distinct
+  `OAuthOnBehalfOfTokenSource` accepting a typed request with principal, verified
+  subject token, audience, and scopes. No identity-provider-specific exchange
+  implementation is included; the host supplies the OBO source.
 - `JwtAuthenticator` validates the incoming bearer token and currently returns
   only projected identity. `fastapi_endpoints._build_raw_payload` serializes
   `AuthenticatedUserContext.to_dict()` and discards the credential before
@@ -53,10 +53,11 @@ the configured MCP audience; never forward it directly.
   Python-only capability in this repository; this follow-up adds no .NET/Java
   MCP API or parity claim.
 - **Reuse and simplicity:** Extend the existing authentication, access-token,
-  MCP configuration, MCP connection, and conversation seams. Reuse
-  `AccessToken`, `DelegatedTokenSource`, the MCP SDK request IDs, and the
-  `McpConnection` HTTPX factory. Do not create a second token model, parallel
-  MCP transport, or provider-specific OBO implementation.
+  MCP configuration, MCP connection, and conversation seams. Preserve
+  `DelegatedTokenSource`; add a separate OBO source port and reuse `AccessToken`,
+  the MCP SDK request IDs, and the `McpConnection` HTTPX factory. Do not create
+  a second token model, parallel MCP transport, or provider-specific OBO
+  implementation.
 - **Typed contracts:** Represent delegation input, invocation scope, and header
   templates as explicit dataclasses/models. Keep raw payload dictionaries at
   endpoint boundaries only; never use them as an internal token container.
@@ -124,11 +125,12 @@ scopes. Verify token representations redact contents and a source returning an
 unexpected audience is rejected. Preserve the existing `AccessToken` type and
 avoid introducing another credential representation.
 
-**Implementation:** Extend the existing `DelegatedTokenSource` contract with a
-typed exchange request rather than adding a second token source or token type.
-Document that implementations perform provider-specific exchange and caching
-and return a token for the requested audience. Keep the port network-agnostic
-and testable with a fake source.
+**Implementation:** Preserve the existing credential-free
+`DelegatedTokenSource(principal, audience)` API. Add a separate
+`OAuthOnBehalfOfTokenSource` receiving the typed exchange request. Document that
+OBO implementations perform provider-specific exchange and caching and return a
+token for the requested audience. Keep both ports network-agnostic and testable
+with fake sources.
 
 ### 2. Preserve the validated subject token outside serialized request data
 
@@ -161,7 +163,7 @@ exclusive configuration relative to API-key, existing OAuth, and custom
 Pydantic-generated JSON Schema. Resolve static/environment values at load and
 retain typed dynamic templates for request time. Keep the existing
 authorization-code OAuth configuration as a separate mode. Inject the
-`DelegatedTokenSource` through `McpAgentRegistryLoader` to connections that
+`OAuthOnBehalfOfTokenSource` through `McpAgentRegistryLoader` to connections that
 select OBO; fail closed if the source is absent.
 
 ### 4. Propagate per-turn context across the MCP SDK writer task
@@ -179,8 +181,8 @@ subject token, request ID, and conversation ID. Propagate correlation through
 `ConversationEntrypoint` around non-streaming execution and each streaming
 pull. Wrap the MCP session write stream so each JSON-RPC request ID maps to the
 invocation context active when the application issued that request. In the
-HTTPX request hook, resolve the matching context, call
-`DelegatedTokenSource` with the subject token and configured audience/scopes,
+  HTTPX request hook, resolve the matching context, call
+  `OAuthOnBehalfOfTokenSource` with the subject token and configured audience/scopes,
 verify the returned audience, set only that result as `Authorization: Bearer`,
 and render configured templates. Keep static headers on client defaults,
 preserve MCP protocol headers, and bound/clear request-context entries on
@@ -207,7 +209,7 @@ PR #28 with actual behavior and validation results. Keep PR #28 unmerged.
 - **Subject-token leakage:** Keep `AccessToken` in an internal verified request
   context; exclude it from serialized payloads, prompts, logs, representations,
   and errors. Send only the token returned by the delegated source.
-- **Provider-specific protocol differences:** Inject `DelegatedTokenSource`;
+- **Provider-specific protocol differences:** Inject `OAuthOnBehalfOfTokenSource`;
   do not embed Entra, RFC 8693, or another provider's client flow in the MCP
   package.
 - **SDK background task context:** Correlate by JSON-RPC request ID instead of
@@ -239,6 +241,8 @@ PR #28 with actual behavior and validation results. Keep PR #28 unmerged.
   integration tests: 70 passed.
 - MCP configuration and performance budget tests: 22 passed, including the
   stdio schema regression and header-rendering p95 budget.
+- Token-port, delegated-token, MCP request-header, and registry tests: 31
+  passed, including the unchanged credential-free exchange-port signature.
 - Ruff checks and format checks passed for the updated configuration and test
   files; `git diff --check` passed.
 - The offline MCP example loaded all three configured servers without opening a

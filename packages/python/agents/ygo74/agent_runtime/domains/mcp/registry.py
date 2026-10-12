@@ -11,7 +11,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Generic, TypeVar
 
-from ygo74.agent_runtime.domains.auth.tokens import DelegatedTokenSource
+from ygo74.agent_runtime.domains.auth.tokens import OAuthOnBehalfOfTokenSource
 from ygo74.agent_runtime.domains.configuration.directory import ConfigurationDirectory
 from ygo74.agent_runtime.domains.configuration.environment import EnvironmentFile
 from ygo74.agent_runtime.domains.contracts.manifests import AgentManifest, SkillManifest
@@ -194,7 +194,7 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
         configuration_directory (ConfigurationDirectory): Delivered ``config/`` root.
         capabilities (type[CapabilityT]): Application capabilities valid in server declarations.
         environment (Mapping[str, str] | None): Optional deterministic secret source; absent uses process values and ``.env``.
-        delegated_token_source (DelegatedTokenSource | None): Application-owned OAuth on-behalf-of exchange port.
+        delegated_token_source (OAuthOnBehalfOfTokenSource | None): Application-owned OAuth on-behalf-of exchange port.
         error_factory (ErrorFactory): Callback that builds the domain error for this failure path.
     """
 
@@ -204,7 +204,7 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
         capabilities: type[CapabilityT],
         *,
         environment: Mapping[str, str] | None = None,
-        delegated_token_source: DelegatedTokenSource | None = None,
+        delegated_token_source: OAuthOnBehalfOfTokenSource | None = None,
         error_factory: ErrorFactory = McpBindingError,
     ) -> None:
         """Keep the configuration root and typed server loader inputs.
@@ -213,7 +213,7 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
             configuration_directory (ConfigurationDirectory): Delivered ``config/`` root.
             capabilities (type[CapabilityT]): Application capabilities valid in server declarations.
             environment (Mapping[str, str] | None): Optional deterministic source for secret references.
-            delegated_token_source (DelegatedTokenSource | None): Application-owned OAuth on-behalf-of exchange port.
+            delegated_token_source (OAuthOnBehalfOfTokenSource | None): Application-owned OAuth on-behalf-of exchange port.
             error_factory (ErrorFactory): Callback that builds the domain error for this failure path.
         """
         self._directory = configuration_directory

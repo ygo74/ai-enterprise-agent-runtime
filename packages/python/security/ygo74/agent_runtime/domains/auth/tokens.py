@@ -8,8 +8,11 @@ style:
    ``print`` or f-string cannot leak it.
 2. A token received from a caller is never forwarded to a downstream server. The
    MCP specification forbids that passthrough outright and requires a server to
-   check that a token was issued for *it*. :class:`DelegatedTokenSource` exists
-   so an agent exchanges the token instead of relaying it.
+   check that a token was issued for *it*. :class:`DelegatedTokenSource` can mint
+   a token from caller identity without seeing a credential. When a provider
+   requires OAuth on-behalf-of, the separate
+   :class:`OAuthOnBehalfOfTokenSource` receives a verified subject token solely
+   to exchange it; the resulting token is sent downstream.
 3. Verification produces an :class:`AgentPrincipal` and nothing else. An
    application therefore cannot accidentally depend on a claim it has not
    modelled.
@@ -123,11 +126,35 @@ class DelegatedTokenSource(Protocol):
 
     This is what keeps a token scoped to one hop. A downstream server must be
     able to check that the token it receives was issued for it, which it cannot
-    do if the agent forwards the token its own caller presented.
+    do if the agent forwards the token its own caller presented. This port
+    receives identity and audience only; it never receives the caller's token.
+    """
+
+    async def token_for(self, principal: AgentPrincipal, audience: str) -> AccessToken:
+        """Return a token the given audience will accept for this principal.
+
+        Raises:
+            TokenExchangeError: the authority refused the exchange.
+
+        Args:
+            principal (AgentPrincipal): Authenticated caller whose identity is delegated.
+            audience (str): Expected JWT audience identifying the downstream API.
+        """
+        ...
+
+
+@runtime_checkable
+class OAuthOnBehalfOfTokenSource(Protocol):
+    """Exchanges a verified subject token for an OAuth token for another service.
+
+    This credential-bearing port is deliberately separate from
+    :class:`DelegatedTokenSource`. Implementations send the verified subject
+    token only to the configured identity provider's exchange endpoint and
+    return a token for the requested downstream audience.
     """
 
     async def token_for(self, request: DelegatedTokenRequest) -> AccessToken:
-        """Return a token the given audience will accept for this principal.
+        """Exchange the verified subject token for a downstream audience.
 
         Raises:
             TokenExchangeError: the authority refused the exchange.
