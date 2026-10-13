@@ -1,10 +1,10 @@
 # 08 - Declarative MCP client configuration
 
 This example loads three MCP server files through the Python agent runtime.
-Two skills share the mail server, a third uses an archive server, and a fourth
-uses the delegated-OAuth server definition. The smoke script
-prints each skill's aliases and closes the registry without opening an MCP
-connection, contacting a remote service, or starting OAuth consent. Its fake
+The agent declares `mail` as its default: two skills inherit it, a third
+overrides it with `archive`, and a fourth uses the delegated-OAuth server. The
+smoke script prints each skill's aliases and closes the registry without opening
+an MCP connection, contacting a remote service, or starting OAuth consent. Its fake
 delegated-token source is injected only to demonstrate the host integration
 point.
 
@@ -15,8 +15,9 @@ point.
 - `config/mcp/archive.yaml`: distinct HTTP server using OAuth client settings.
 - `config/mcp/delegated.yaml`: separate OBO server with an audience and scopes.
 - `config/agents/mail-assistant/agent.yaml` and `config/skills/mail-assistant/`:
-  four delivered skills, with two referencing the shared mail server.
-- `.env.sample`: placeholder values for the API key, gateway header, and OAuth client secret.
+  four delivered skills, with the two mail skills inheriting the agent default.
+- `.env.sample`: placeholder values for the API key, gateway header, and OAuth
+  client secret.
 - `OfflineOAuthOnBehalfOfTokenSource`: fake source proving the OBO provider port can
   be supplied without contacting an identity provider.
 - `registry_smoke.py`: loads the delivered agent and skill manifests, then loads

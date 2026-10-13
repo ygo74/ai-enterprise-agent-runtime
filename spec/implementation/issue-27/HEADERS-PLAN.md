@@ -249,3 +249,107 @@ PR #28 with actual behavior and validation results. Keep PR #28 unmerged.
   remote connection or requesting an OBO token.
 - Draft 2020-12 schema validation passed, including a valid stdio document with
   HTTP-only settings omitted.
+
+## Approved implementation addendum: Agent-level default MCP server
+
+**Status**: Implemented and validated. This addendum follows the
+approved headers/OBO implementation already recorded above.
+
+### Objective and scope
+
+Add an optional `mcp_server` to the agent YAML and typed agent manifest. For each
+skill, the explicit skill-level `mcp_server` wins; otherwise the agent-level
+value is used. Preserve each skill's own `mcp_tools` allow-list, existing
+skill-level configurations, and lazy shared-connection behavior. An MCP-enabled
+skill without either server reference fails during agent-manifest validation.
+
+The repository search found this MCP manifest and registry path only in the
+Python runtime. No corresponding .NET or Java MCP manifest contract was found;
+this addendum remains scoped to Python and makes no cross-runtime parity claim.
+
+### Constitution check
+
+- **Parity:** PASS for the existing Python-only MCP configuration path; no
+  .NET/Java MCP manifest or registry counterpart is changed.
+- **Reuse:** Extend `AgentManifestInput`, `AgentManifest`, existing skill
+  manifest loading, packaged manifest schemas, and the registry's current
+  grouping by server. Do not add another manifest type or connection layer.
+- **Typed contract:** Keep the optional default on the typed agent model and
+  resolve one effective server for each MCP-enabled skill before grouping.
+- **Test-first:** Cover schema, standalone skill loading, assembled agent
+  validation, default resolution, skill override, mixed servers, and alias
+  isolation before implementation.
+- **Compatibility:** Agent-level `mcp_server` is optional. Existing skill-level
+  declarations continue to resolve as before; non-MCP agents remain valid.
+- **Performance:** Resolution is a string fallback during registry setup. Keep
+  the current registry construction and lookup budgets; add no per-call work.
+
+### Files and work sequence
+
+1. **Add failing contract tests.** Update
+   `tests/integration/python/test_manifest_configuration_schemas.py` for the
+   agent and skill JSON Schemas. Extend agent and skill manifest/loader tests to
+   prove: a skill can omit its own `mcp_server` when the agent has a default;
+   no effective server is rejected; an explicit skill server overrides the
+   default; and a mixture of default and override skills loads both servers
+   while preserving per-skill tool allow-lists. Cover non-MCP agents and the
+   existing skill-level-only configuration.
+
+2. **Extend typed inputs and manifest validation.** Add optional `mcp_server`
+   to `AgentManifestInput` and `AgentManifest`. Let `SkillManifestInput` accept
+   `mcp_tools` without a local server because the parent agent may provide one,
+   while continuing to reject a local server with an empty tool list. Validate
+   the effective server when constructing/loading the complete agent manifest.
+   Update `SkillManifest` invariants only as needed to represent this unresolved
+   skill until its agent context is available.
+
+3. **Regenerate and verify schemas.** Update
+   `packages/python/agents/ygo74/agent_runtime/domains/configuration/schemas/agent.schema.json`
+   and `skill.schema.json` from their typed inputs, preserving each schema's
+   `$schema` and `$id`. Keep editor validation aligned with runtime validation;
+   the standalone skill schema cannot require a local server when the parent
+   agent may provide the default.
+
+4. **Resolve defaults in the registry.** Update
+   `packages/python/agents/ygo74/agent_runtime/domains/mcp/registry.py` so each
+   skill is grouped by `skill.mcp_server or agent.mcp_server`. Fail before
+   opening connections when an MCP skill has neither value. Continue creating
+   one connection per effective server and expose only each skill's declared
+   aliases.
+
+5. **Update docs and the runnable example.** Add the agent-level YAML field to
+   `config/agents/mail-assistant/agent.yaml`, remove the repeated `mail` value
+   from its two mail skill files, and retain `archive` and `delegated` as
+   explicit overrides. Update `doc/python/mcp.md` and the example README with
+   the precedence and validation rules. Keep the offline smoke script showing
+   both default and override resolution.
+
+6. **Validate and review.** Run the manifest-schema, manifest-loader, registry,
+   and MCP integration tests; run Ruff and `git diff --check`; run the offline
+   example smoke path. Verify the packaged schemas match
+   `AgentManifestInput.model_json_schema()` and `SkillManifestInput.model_json_schema()`.
+   Review backward compatibility, effective-server validation, tool allow-list
+   isolation, and shared-connection reuse. Then update PR #28 without merging.
+
+### Risks and completion criteria
+
+- A skill with MCP tools but no effective server must fail before registry
+  construction can open a connection.
+- The agent default must not grant a skill tools declared by another skill.
+- Existing manifests that specify `mcp_server` at the skill level remain valid
+  without any edits; agents with no MCP skills need no new field.
+- The sample demonstrates one default plus explicit per-skill overrides, and
+  both schemas and runtime loaders enforce the same contract.
+- Relevant tests, formatting, smoke loading, and diff checks pass before PR #28
+  is updated; the PR remains unmerged.
+
+### Addendum validation record
+
+- `tests/integration/python/test_manifest_configuration_schemas.py`,
+  `test_mcp_agent_registry.py`, `test_capability_registry.py`, and
+  `tests/performance/python/test_mcp_registry_budget.py`: 36 passed.
+- Ruff lint and format checks passed for all changed Python files.
+- The offline MCP configuration smoke path loaded `mail`, `archive`, and
+  `delegated`; it used only the placeholders from `.env.sample` and opened no
+  remote connections.
+- `git diff --check` passed.

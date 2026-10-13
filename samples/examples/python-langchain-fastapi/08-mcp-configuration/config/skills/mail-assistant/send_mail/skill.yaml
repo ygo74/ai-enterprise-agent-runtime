@@ -7,6 +7,5 @@ operation:
   risk: HIGH
   permission: mail:send
   confirmation_required: true
-mcp_server: mail
 mcp_tools:
   - send_mail

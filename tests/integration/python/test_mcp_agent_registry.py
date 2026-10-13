@@ -28,7 +28,7 @@ class Capability(StrEnum):
     SEND = "send_mail"
 
 
-def _skill(tool_name: str, server: str, tools: tuple[str, ...]) -> SkillManifest:
+def _skill(tool_name: str, server: str | None, tools: tuple[str, ...]) -> SkillManifest:
     """Build one skill manifest with a typed MCP reference."""
     return SkillManifest(
         tool_name=tool_name,
@@ -46,13 +46,14 @@ def _skill(tool_name: str, server: str, tools: tuple[str, ...]) -> SkillManifest
     )
 
 
-def _agent(*skills: SkillManifest) -> AgentManifest:
+def _agent(*skills: SkillManifest, mcp_server: str | None = None) -> AgentManifest:
     """Build one agent manifest from ordered skills."""
     return AgentManifest(
         name="mail",
         description="Mail agent",
         instructions="Use tools safely.",
         skills=skills,
+        mcp_server=mcp_server,
     )
 
 
@@ -100,6 +101,45 @@ def test_registry_reuses_one_connection_for_skills_sharing_a_server(
     assert lookup.tools == {"search_mail": "remote_search"}
     assert archive.tools == {"send_mail": "remote_send"}
     assert history.server_name == "archive-http"
+
+
+def test_registry_uses_agent_default_and_allows_skill_overrides(
+    tmp_path: Path,
+) -> None:
+    """Skills inherit the agent server unless they declare their own override."""
+    config_root = tmp_path / "config"
+    _write_server(config_root, "mail")
+    _write_server(config_root, "archive")
+    agent = _agent(
+        _skill("lookup", None, ("search_mail",)),
+        _skill("send", None, ("send_mail",)),
+        _skill("search_archive", "archive", ("search_mail",)),
+        mcp_server="mail",
+    )
+
+    registry = McpAgentRegistryLoader(
+        ConfigurationDirectory(config_root), Capability, environment={}
+    ).load(agent)
+
+    lookup = registry.for_skill("lookup")
+    send = registry.for_skill("send")
+    archive = registry.for_skill("search_archive")
+    assert registry.server_names == ("mail", "archive")
+    assert lookup.server_name == send.server_name == "mail"
+    assert archive.server_name == "archive"
+    assert lookup.connection is send.connection
+    assert archive.connection is not lookup.connection
+    assert lookup.tools == {"search_mail": "remote_search"}
+    assert send.tools == {"send_mail": "remote_send"}
+    assert archive.tools == {"search_mail": "remote_search"}
+
+
+def test_agent_rejects_mcp_skill_without_skill_or_default_server() -> None:
+    """MCP tools cannot reach the registry without an effective server name."""
+    unresolved_skill = _skill("lookup", None, ("search_mail",))
+
+    with pytest.raises(ValueError, match="mcp_server"):
+        _agent(unresolved_skill)
 
 
 def test_registry_requires_and_injects_the_delegated_token_source(

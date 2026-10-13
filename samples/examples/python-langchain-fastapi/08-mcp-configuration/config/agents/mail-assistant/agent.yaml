@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=../../../../../../../packages/python/agents/ygo74/agent_runtime/domains/configuration/schemas/agent.schema.json
 name: mail-assistant
 description: Example agent using shared and distinct MCP server configuration.
+mcp_server: mail
 skills:
   - find_mail
   - send_mail

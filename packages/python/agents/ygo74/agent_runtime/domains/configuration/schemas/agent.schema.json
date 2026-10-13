@@ -16,6 +16,20 @@
       "title": "Description",
       "type": "string"
     },
+    "mcp_server": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mcp Server"
+    },
     "skills": {
       "items": {
         "minLength": 1,

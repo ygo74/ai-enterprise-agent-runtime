@@ -4,12 +4,55 @@
 **Issue**: [#27 — MCP client configuration](https://github.com/ygo74/ai-enterprise-agent-runtime/issues/27)
 **Implementation branch**: `feature/27-mcp-configuration` (current PR #28)
 
+**Agent default MCP server addendum**: Approved.
+
 ## Goal
 
 Allow an MCP server configuration to define arbitrary HTTP request headers,
 including deployment-specific environment values and explicitly selected
 identity/request context. Also support OAuth delegation on behalf of the user
 when the MCP server requires a downstream token representing that user.
+
+## Agent-level default MCP server
+
+The agent YAML may optionally declare `mcp_server` as the default server for its
+MCP-enabled skills. A skill's own `mcp_server` remains an override and takes
+precedence whenever present. This lets skills using the common server omit the
+repeated field while preserving explicit references for skills using another
+server.
+
+Each MCP-enabled skill continues to declare its own `mcp_tools` allow-list. A
+skill may omit `mcp_server` only when the containing agent declares a default;
+otherwise agent-manifest loading fails with a configuration error. A skill
+declaring `mcp_server` without any `mcp_tools` remains invalid. Agents without
+MCP skills need not declare an agent-level `mcp_server`.
+
+The loader and registry resolve each skill's effective server as its explicit
+skill-level value, falling back to the agent-level default. Grouping, connection
+reuse, and per-skill tool allow-lists continue to use that resolved value. MCP
+configuration files remain under `config/mcp/<name>.yaml`.
+
+### Acceptance criteria
+
+- The agent manifest model and packaged agent JSON Schema accept optional
+  `mcp_server`; omission remains valid.
+- Skills using an agent default may omit their own `mcp_server`, while retaining
+  a non-empty `mcp_tools` list. Skills without an effective server are rejected
+  when the agent manifest is assembled.
+- An explicit skill-level `mcp_server` overrides the agent default, including
+  when other skills in the same agent use the default.
+- Existing skill-level declarations without an agent-level default remain
+  backward compatible.
+- The configuration example declares `mail` once on the agent, omits it from
+  the mail skills, and keeps explicit overrides for the archive and delegated
+  servers.
+
+### Security and validation
+
+The agent default selects only a server configuration name. It does not widen a
+skill's `mcp_tools` allow-list or grant access to another skill's aliases. The
+registry must continue creating one shared connection per effective server and
+present only each skill's declared aliases.
 
 ## Configured headers
 
