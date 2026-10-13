@@ -124,20 +124,36 @@ authenticated user's identity to an MCP resource, configure a separate mode:
 ```yaml
 authentication_mode: oauth_on_behalf_of
 authentication_oauth_on_behalf_of:
+  token_url: https://identity.example.test/realms/agents/protocol/openid-connect/token
+  client_id: mail-agent
+  client_secret: ${MCP_MAIL_OBO_CLIENT_SECRET}
   audience: https://mail.example.test
   scopes: [mail.read, mail.send]
 ```
 
-The host injects an `OAuthOnBehalfOfTokenSource` into `McpAgentRegistryLoader`.
-Its `token_for(DelegatedTokenRequest)` implementation exchanges the verified
-agent bearer token for an `AccessToken` whose audience matches the configured
-MCP audience. The existing `DelegatedTokenSource` contract remains
+The runtime maps these fields to `OAuthTokenExchangeSettings` and uses its
+`Rfc8693OAuthOnBehalfOfTokenSource` by default. The token endpoint and client ID
+stay in YAML; only `client_secret` is an exact `${ENV_VAR}` reference resolved
+from the process environment or the `.env` beside `config/`. The secret is held
+as `SecretStr`, never included in representations or configuration errors, and
+the endpoint must use HTTPS. The three client fields are optional as a group
+for custom injected sources that need only `audience` and `scopes`.
+
+The standard source is constructed locally for each configured server and makes
+no request until an MCP call needs a delegated token. Applications can override
+it with `delegated_token_source_factory` for provider-specific exchanges, or
+continue to inject one shared `OAuthOnBehalfOfTokenSource` with
+`delegated_token_source`.
+
+The source's `token_for(DelegatedTokenRequest)` implementation exchanges the
+verified agent bearer token for an `AccessToken` whose audience matches the
+configured MCP audience. The existing `DelegatedTokenSource` contract remains
 credential-free and receives only the principal and audience. The runtime sends
 only the token returned by the OBO source to MCP. API-key and anonymous
-requests cannot use OBO, and a missing source, failed exchange, or
-wrong-audience token stops the call. Provider-specific exchange and token-cache
-policy stay in the host implementation; caches must be partitioned by caller,
-audience, and scopes.
+requests cannot use OBO, and a missing source, failed exchange, or wrong-audience
+token stops the call. Provider-specific exchange and token-cache policy stay in
+the custom host implementation; caches must be partitioned by caller, audience,
+and scopes.
 
 `McpAgentRegistryLoader(configuration_directory, capabilities).load(agent)`
 loads each referenced server once and keeps its `McpConnection` lazy. Call

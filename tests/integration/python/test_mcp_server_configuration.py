@@ -8,9 +8,13 @@ from pathlib import Path
 
 import pytest
 from jsonschema import Draft202012Validator
+from ygo74.agent_runtime.domains.auth.oauth_token_exchange import (
+    OAuthTokenExchangeSettings,
+)
 from ygo74.agent_runtime.domains.configuration.manifest_schemas import ManifestSchemas
 from ygo74.agent_runtime.domains.mcp.configuration import (
     McpAuthenticationMode,
+    McpDelegatedOAuthSettings,
     McpServerConfigurationLoader,
 )
 from ygo74.agent_runtime.domains.mcp.mcp_errors import McpBindingError
@@ -45,6 +49,11 @@ def _http_yaml(authentication: str = "authentication_mode: none\n") -> str:
         "  proxy_url: http://proxy.example.test:8080\n"
         f"{authentication}"
     )
+
+
+def test_legacy_delegated_settings_name_aliases_generic_exchange_settings() -> None:
+    """The previous settings import remains compatible with the generic contract."""
+    assert McpDelegatedOAuthSettings is OAuthTokenExchangeSettings
 
 
 def test_server_loader_resolves_api_key_and_keeps_non_secret_settings_in_yaml(
@@ -245,6 +254,150 @@ def test_server_loader_accepts_delegated_oauth_audience_and_scopes(
     assert config.delegated_oauth is not None
     assert config.delegated_oauth.audience == "https://mail.example.test"
     assert config.delegated_oauth.scopes == ("mail.read", "mail.send")
+
+
+def test_server_loader_resolves_delegated_oauth_client_settings_from_yaml_and_environment(
+    tmp_path: Path,
+) -> None:
+    """Resolve the OBO client secret while keeping endpoint and identity in YAML."""
+    path = _write(
+        tmp_path,
+        _http_yaml(
+            "authentication_mode: oauth_on_behalf_of\n"
+            "authentication_oauth_on_behalf_of:\n"
+            "  token_url: https://identity.example.test/realms/agents/token\n"
+            "  client_id: mail-agent\n"
+            "  client_secret: ${MCP_MAIL_OBO_CLIENT_SECRET}\n"
+            "  audience: mail-mcp\n"
+            "  scopes: [mail.read]\n"
+        ),
+    )
+
+    config = McpServerConfigurationLoader(
+        Capability,
+        environment={"MCP_MAIL_OBO_CLIENT_SECRET": "private-client-secret"},
+    ).load(path)
+
+    assert config.delegated_oauth is not None
+    assert (
+        config.delegated_oauth.token_url
+        == "https://identity.example.test/realms/agents/token"
+    )
+    assert config.delegated_oauth.client_id == "mail-agent"
+    assert config.delegated_oauth.client_secret is not None
+    assert (
+        config.delegated_oauth.client_secret.get_secret_value()
+        == "private-client-secret"
+    )
+    assert config.delegated_oauth.audience == "mail-mcp"
+    assert config.delegated_oauth.scopes == ("mail.read",)
+    assert "private-client-secret" not in repr(config)
+    assert "private-client-secret" not in repr(config.delegated_oauth)
+
+
+def test_server_loader_reports_missing_delegated_oauth_secret_without_echoing_value(
+    tmp_path: Path,
+) -> None:
+    """A missing OBO credential names its environment variable but not its value."""
+    path = _write(
+        tmp_path,
+        _http_yaml(
+            "authentication_mode: oauth_on_behalf_of\n"
+            "authentication_oauth_on_behalf_of:\n"
+            "  token_url: https://identity.example.test/token\n"
+            "  client_id: mail-agent\n"
+            "  client_secret: ${MCP_MAIL_OBO_CLIENT_SECRET}\n"
+            "  audience: mail-mcp\n"
+        ),
+    )
+
+    with pytest.raises(McpBindingError) as error:
+        McpServerConfigurationLoader(Capability, environment={}).load(path)
+
+    assert "MCP_MAIL_OBO_CLIENT_SECRET" in str(error.value)
+    assert "private-client-secret" not in str(error.value)
+
+
+@pytest.mark.parametrize(
+    "client_settings",
+    [
+        "  token_url: https://identity.example.test/token\n",
+        "  client_id: mail-agent\n",
+        "  client_secret: ${MCP_MAIL_OBO_CLIENT_SECRET}\n",
+    ],
+)
+def test_server_loader_rejects_partial_delegated_oauth_client_settings(
+    tmp_path: Path,
+    client_settings: str,
+) -> None:
+    """OBO endpoint, client identity, and secret are configured as one group."""
+    path = _write(
+        tmp_path,
+        _http_yaml(
+            "authentication_mode: oauth_on_behalf_of\n"
+            "authentication_oauth_on_behalf_of:\n"
+            "  audience: mail-mcp\n"
+            f"{client_settings}"
+        ),
+    )
+
+    with pytest.raises(McpBindingError, match="missing required field"):
+        McpServerConfigurationLoader(
+            Capability, environment={"MCP_MAIL_OBO_CLIENT_SECRET": "secret"}
+        ).load(path)
+
+
+def test_server_loader_rejects_non_https_delegated_oauth_token_endpoint(
+    tmp_path: Path,
+) -> None:
+    """The verified caller token can only be sent to a TLS-protected endpoint."""
+    path = _write(
+        tmp_path,
+        _http_yaml(
+            "authentication_mode: oauth_on_behalf_of\n"
+            "authentication_oauth_on_behalf_of:\n"
+            "  token_url: http://identity.example.test/token\n"
+            "  client_id: mail-agent\n"
+            "  client_secret: ${MCP_MAIL_OBO_CLIENT_SECRET}\n"
+            "  audience: mail-mcp\n"
+        ),
+    )
+
+    with pytest.raises(McpBindingError, match="must be an HTTPS URL"):
+        McpServerConfigurationLoader(
+            Capability, environment={"MCP_MAIL_OBO_CLIENT_SECRET": "secret"}
+        ).load(path)
+
+
+def test_packaged_server_schema_accepts_delegated_oauth_secret_references() -> None:
+    """The editor schema accepts configured OBO clients and rejects literal secrets."""
+    schema = Draft202012Validator(json.loads(ManifestSchemas.mcp_server()))
+    base = {
+        "transport": "http",
+        "url": "https://mcp.example.test",
+        "capabilities": ["search_mail"],
+        "authentication_mode": "oauth_on_behalf_of",
+    }
+    accepted = {
+        **base,
+        "authentication_oauth_on_behalf_of": {
+            "token_url": "https://identity.example.test/token",
+            "client_id": "mail-agent",
+            "client_secret": "${MCP_MAIL_OBO_CLIENT_SECRET}",
+            "audience": "mail-mcp",
+            "scopes": [],
+        },
+    }
+    literal_secret = {
+        **accepted,
+        "authentication_oauth_on_behalf_of": {
+            **accepted["authentication_oauth_on_behalf_of"],
+            "client_secret": "literal-secret",
+        },
+    }
+
+    assert not tuple(schema.iter_errors(accepted))
+    assert tuple(schema.iter_errors(literal_secret))
 
 
 @pytest.mark.parametrize("reference", ["${MISSING_KEY}", "${}", "literal-secret"])

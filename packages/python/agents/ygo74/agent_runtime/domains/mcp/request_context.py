@@ -10,6 +10,9 @@ from dataclasses import dataclass, field, replace
 from typing import Any, TypeVar
 
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
+from ygo74.agent_runtime.domains.auth.oauth_token_exchange import (
+    OAuthTokenExchangeSettings,
+)
 from ygo74.agent_runtime.domains.auth.tokens import (
     AccessToken,
     DelegatedTokenRequest,
@@ -18,7 +21,6 @@ from ygo74.agent_runtime.domains.auth.tokens import (
 )
 from ygo74.agent_runtime.domains.contracts.conversation import ConversationTurn
 from ygo74.agent_runtime.domains.mcp.configuration import (
-    McpDelegatedOAuthSettings,
     McpHeaderContextToken,
 )
 from ygo74.agent_runtime.domains.mcp.mcp_errors import McpBindingError
@@ -203,7 +205,7 @@ class McpOutboundHeaderResolver:
     Args:
         configured_headers (Mapping[str, str]): Resolved configured values and context templates.
         contexts (McpRequestContextRegistry): Connection-local map keyed by JSON-RPC request ID.
-        delegated_oauth (McpDelegatedOAuthSettings | None): Optional target audience and scopes.
+        delegated_oauth (OAuthTokenExchangeSettings | None): Optional target audience and scopes.
         delegated_token_source (OAuthOnBehalfOfTokenSource | None): Host-owned provider implementation for OBO exchange.
         error_factory (type[Exception]): Error type for invalid or missing context values.
     """
@@ -213,7 +215,7 @@ class McpOutboundHeaderResolver:
         configured_headers: Mapping[str, str],
         contexts: McpRequestContextRegistry,
         *,
-        delegated_oauth: McpDelegatedOAuthSettings | None = None,
+        delegated_oauth: OAuthTokenExchangeSettings | None = None,
         delegated_token_source: OAuthOnBehalfOfTokenSource | None = None,
         error_factory: type[Exception] = McpBindingError,
     ) -> None:
@@ -222,7 +224,7 @@ class McpOutboundHeaderResolver:
         Args:
             configured_headers (Mapping[str, str]): Resolved configured values and context templates.
             contexts (McpRequestContextRegistry): Connection-local map keyed by JSON-RPC request ID.
-            delegated_oauth (McpDelegatedOAuthSettings | None): Optional target audience and scopes.
+            delegated_oauth (OAuthTokenExchangeSettings | None): Optional target audience and scopes.
             delegated_token_source (OAuthOnBehalfOfTokenSource | None): Host-owned provider implementation for OBO exchange.
             error_factory (type[Exception]): Error type for invalid or missing context values.
         """

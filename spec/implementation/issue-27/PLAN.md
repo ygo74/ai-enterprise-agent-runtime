@@ -377,3 +377,121 @@ not require live MCP or OAuth services.
 - Python Ruff, targeted MCP/configuration/performance tests, full Python CI
   tests, package-resource checks, and `git diff --check` pass, or their failures
   are reported accurately with remaining risks.
+
+## Proposed plan amendment — OAuth on-behalf-of server configuration
+
+**Dependency order:** Update the runtime contract and loader first, then update
+the Mail consumer in `/data/repos/ai_agents-issue-6` to use that typed contract.
+The runtime change stays on `feature/27-mcp-configuration`; the Mail change
+stays on `refactor/6-generic-conversation-and-mcp`. Keep their histories and
+validations separate. Do not commit, push, publish, or open PRs until the user
+requests delivery.
+
+### Runtime changes
+
+- Extend `McpDelegatedOAuthInput` with the optional client-settings group
+  `token_url`, `client_id`, and `client_secret`; require all three together.
+  Retain `audience` and `scopes` so custom injected sources can omit this group.
+- Require the client-settings group when the registry's source factory is used;
+  keep configurations with only `audience`/`scopes` valid for the existing
+  explicit-source injection path.
+- Resolve the secret with the existing designated-secret resolver into a
+  redacted typed `OAuthTokenExchangeSettings`; reject non-HTTPS token endpoints.
+- Regenerate/update the packaged MCP server JSON Schema from the typed input
+  contract and document the full YAML shape.
+- Add an optional per-server delegated-token-source factory to
+  `McpAgentRegistryLoader`. It receives resolved settings for each OBO server;
+  preserve the current injected-source constructor path for compatibility and
+  reject conflicting factory/source arguments.
+- Add schema, environment resolution, missing/empty secret, secret redaction,
+  HTTPS validation, source-factory delivery and compatibility tests. Factory
+  construction remains local; tests must prove no network exchange occurs while
+  building a registry.
+
+### Mail consumer changes
+
+- Configure the token endpoint, client ID, audience and scopes in
+  `config/mcp/gmail-http.yaml`; put only the client secret in the private Mail
+  environment file and reference it as `${MCP_MAIL_OBO_CLIENT_SECRET}`.
+- Use the runtime's standard RFC 8693 source from resolved server settings.
+  Keep the explicit `OAuthOnBehalfOfTokenSource` injection and custom source
+  factory as overrides for application hosts.
+- Remove the token URL and client ID environment variables and update the sample
+  environment, operator documentation and Issue 6 task record.
+- Test that the configured YAML values reach the source, the secret is resolved
+  only from the environment and stays redacted, and injected-source behavior is
+  still supported.
+
+### Validation results
+
+- Runtime: 63 targeted tests passed across MCP server configuration, agent
+  registry, manifest schemas, and token contracts. Ruff, Ruff format, and
+  `git diff --check` passed. The configuration example smoke run loaded all
+  three servers without opening a network connection.
+- Mail consumer: 21 OBO/MCP authentication tests passed. Ruff, Ruff format, and
+  CRLF-aware staged and unstaged diff checks passed.
+- The tests exercise configuration, source construction, masking, and
+  compatibility locally; they do not contact Keycloak or the Gmail MCP server.
+- The approved amendment was implemented on the existing branches. No commits,
+  pushes, or pull requests were created.
+
+## Approved plan amendment — runtime-owned RFC 8693 source
+
+**Approval status:** Approved by the user on 2026-10-13. This supersedes the
+prior Mail-side placement of the generic RFC 8693 implementation.
+
+### Runtime changes
+
+- Add the public `OAuthTokenExchangeSettings` type for resolved token endpoint,
+  client identity, redacted secret, audience and scopes. Map the MCP YAML OBO
+  block to this type; preserve the existing settings name as a compatibility
+  alias if callers can import it.
+- Put `OAuthTokenExchangeSettings` and `Rfc8693OAuthOnBehalfOfTokenSource` in
+  the runtime's generic `domains.auth` package, outside the MCP package. Keep
+  HTTPS, default TLS verification, safe errors, bearer/audience checks and
+  bounded HTTP client ownership.
+- Make `McpAgentRegistryLoader` use this generic source by default when the
+  server has complete standard exchange settings. Preserve explicit source and
+  custom factory injection for provider-specific integrations.
+- Add runtime tests with a fake HTTP transport for RFC 8693 form contents,
+  client authentication, response validation, audience mismatch, error
+  redaction, and client lifecycle. Keep tests fully offline.
+- Update the runtime MCP docs and configuration example to show the default
+  runtime source and the custom override points.
+
+### Mail consumer changes
+
+- Remove Mail's duplicate `Rfc8693OAuthOnBehalfOfTokenSource` implementation
+  and use the runtime registry default for its standard OBO YAML configuration.
+- Preserve Mail's explicit `OAuthOnBehalfOfTokenSource` injection override.
+- Remove Mail adapter-specific tests and cover the consumer wiring, YAML
+  resolution and override path; keep protocol behavior tests in the runtime.
+- Update Mail OBO docs and the Issue 6 task record to identify the runtime as
+  owner of generic RFC 8693 exchange.
+
+### Validation and dependency order
+
+- Implement and validate the runtime type, source and registry default first.
+  Then update Mail against the local runtime worktree and run its focused tests.
+- Run targeted runtime configuration, registry and RFC 8693 tests; runtime
+  Ruff/format and diff checks; the offline example smoke run; Mail OBO tests,
+  Ruff/format and CRLF-aware diff checks.
+- Verify HTTP dependencies remain in the optional MCP install path and that
+  unrelated runtime imports do not load HTTPX.
+- Keep branches and histories separate. Do not commit, push or open PRs until
+  the user requests delivery.
+
+### Implementation result — 2026-10-13
+
+- Runtime OBO/configuration/registry/token/header tests: 103 passed. Ruff,
+  Ruff format, package-schema parity, optional-HTTPX import check, offline
+  registry smoke example and diff checks passed.
+- Mail OBO/authentication tests: 18 passed. Ruff, Ruff format and CRLF-aware
+  staged/unstaged diff checks passed.
+- RFC 8693 tests use HTTPX mock transports. No Keycloak or MCP server was
+  contacted. No commits, pushes or pull requests were created.
+- Follow-up verification for the configured-scope invariant: 108 targeted
+  runtime MCP/OAuth tests and all 18 Mail OBO/authentication tests passed.
+  Ruff and Ruff format passed for every changed Python file, and staged plus
+  unstaged diff checks passed. A broader runtime Ruff check still reports 36
+  findings in unrelated examples outside this change.

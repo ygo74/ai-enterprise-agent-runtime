@@ -251,3 +251,67 @@ skills continue loading with no server attached.
 - None. The configuration names, API-key header semantics, Python-only scope,
   and secret-reference syntax above are the proposed contract to review;
   changes can be requested before approval.
+
+## Approved amendment — OAuth on-behalf-of client settings
+
+The MCP server YAML is also the source of OAuth on-behalf-of client settings.
+Under `authentication_oauth_on_behalf_of`, the configuration may include
+`token_url`, `client_id`, and `client_secret` alongside `audience` and `scopes`.
+The three client settings are optional as a group so an application with a
+custom injected source can continue to configure only its audience and scopes.
+When the standard client settings are supplied, `client_secret` must be an exact
+`${ENV_VAR}` reference and is resolved from the selected runtime environment
+when the server configuration is loaded. A source factory requires this full
+group. For example:
+
+```yaml
+authentication_mode: oauth_on_behalf_of
+authentication_oauth_on_behalf_of:
+  token_url: https://identity.example.test/realms/agents/protocol/openid-connect/token
+  client_id: mail-agent
+  client_secret: ${MCP_MAIL_OBO_CLIENT_SECRET}
+  audience: mail-mcp
+  scopes: []
+```
+
+The resolved settings object redacts the secret in its representation and
+configuration errors never include its value. The token endpoint must use
+HTTPS. No client ID or token endpoint is required in environment variables.
+
+When complete client settings are present, the runtime constructs its standard
+RFC 8693 `OAuthOnBehalfOfTokenSource`; this does not choose an identity provider
+or perform application policy. `McpAgentRegistryLoader` also accepts a typed
+source factory for provider-specific behavior. The existing single injected
+source remains supported for callers that intentionally share one source.
+Source construction must remain local and must not open a network connection.
+
+Acceptance coverage includes strict schema/editor support for the new fields,
+environment-only secret resolution and redaction, path-aware failures for a
+missing secret, per-server source-factory delivery, and backwards compatibility
+for the existing injected-source path. MCP remains a Python-only runtime
+capability; no .NET or Java parity is claimed.
+
+## Approved amendment — generic RFC 8693 implementation in the runtime
+
+The current implementation places `Rfc8693OAuthOnBehalfOfTokenSource` in the
+Mail application and exposes the configured values as
+`McpDelegatedOAuthSettings`. This keeps a standard OAuth token-exchange protocol
+implementation in one consumer and does not provide the generic settings type
+expected by other MCP clients.
+
+Move the reusable RFC 8693 HTTP exchange implementation into the generic auth
+domain of `ai-enterprise-agent-runtime`, outside the MCP package. Expose its resolved input as
+`OAuthTokenExchangeSettings` (token URL, client ID, redacted client secret,
+audience and scopes), populated by the MCP YAML loader. The runtime registry
+should construct this source by default when those settings are present. Keep
+the existing `OAuthOnBehalfOfTokenSource` port, explicit source injection and
+custom source factory for applications that need provider-specific behavior.
+Preserve `McpDelegatedOAuthSettings` as a compatibility alias if needed by
+callers of the current branch API.
+
+Mail should consume the runtime implementation and retain only application
+composition plus its explicit source override. The runtime implementation must
+keep HTTPS-only token endpoints, TLS certificate validation, redacted provider
+errors, bearer-token and audience validation, and a bounded HTTP client
+lifecycle. Tests use a fake HTTP transport and must not contact an identity
+provider. The user approved this ownership change on 2026-10-13.

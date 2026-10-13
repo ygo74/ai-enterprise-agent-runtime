@@ -36,8 +36,80 @@
     },
     "McpDelegatedOAuthInput": {
       "additionalProperties": false,
-      "description": "YAML settings for application-provided OAuth on-behalf-of exchange.\n\nArgs:\n    audience (_ConfigurationText): Downstream MCP resource identifier.\n    scopes (tuple[_ConfigurationText, ...]): Optional scopes requested from the delegated-token source.",
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              {
+                "required": [
+                  "token_url"
+                ]
+              },
+              {
+                "required": [
+                  "client_id"
+                ]
+              },
+              {
+                "required": [
+                  "client_secret"
+                ]
+              }
+            ]
+          },
+          "then": {
+            "required": [
+              "token_url",
+              "client_id",
+              "client_secret"
+            ]
+          }
+        }
+      ],
+      "description": "YAML settings for OAuth on-behalf-of exchange.\n\nArgs:\n    token_url (_ConfigurationText | None): HTTPS token endpoint for the runtime source or a custom factory.\n    client_id (_ConfigurationText | None): OAuth client identity for the exchange source.\n    client_secret (_SecretReference | None): Environment reference for the OAuth client credential.\n    audience (_ConfigurationText): Downstream MCP resource identifier.\n    scopes (tuple[_ConfigurationText, ...]): Optional scopes requested from the delegated-token source.",
       "properties": {
+        "token_url": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "pattern": "^https://\\S+$",
+          "title": "Token Url"
+        },
+        "client_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Client Id"
+        },
+        "client_secret": {
+          "anyOf": [
+            {
+              "pattern": "^\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Client Secret"
+        },
         "audience": {
           "minLength": 1,
           "pattern": "\\S",

@@ -6,7 +6,14 @@ import asyncio
 from enum import StrEnum
 from pathlib import Path
 
-from ygo74.agent_runtime.domains.auth.tokens import AccessToken, DelegatedTokenRequest
+from ygo74.agent_runtime.domains.auth.oauth_token_exchange import (
+    OAuthTokenExchangeSettings,
+)
+from ygo74.agent_runtime.domains.auth.tokens import (
+    AccessToken,
+    DelegatedTokenRequest,
+    OAuthOnBehalfOfTokenSource,
+)
 from ygo74.agent_runtime.domains.configuration.directory import ConfigurationDirectory
 from ygo74.agent_runtime.domains.configuration.manifests import (
     AgentManifestLoader,
@@ -43,6 +50,19 @@ class OfflineOAuthOnBehalfOfTokenSource:
         return AccessToken("offline-token", audience=request.audience)
 
 
+def offline_source_factory(
+    settings: OAuthTokenExchangeSettings,
+) -> OAuthOnBehalfOfTokenSource:
+    """Build an offline source from a server's resolved OBO settings.
+
+    Args:
+        settings (OAuthTokenExchangeSettings): Resolved target and client configuration.
+    """
+    if settings.client_id != "mail-assistant" or settings.client_secret is None:
+        raise AssertionError("delegated server settings were not loaded")
+    return OfflineOAuthOnBehalfOfTokenSource()
+
+
 async def main() -> None:
     """Load, display, and close the registry without opening any MCP session."""
     root = Path(__file__).resolve().parent
@@ -57,7 +77,13 @@ async def main() -> None:
     registry = McpAgentRegistryLoader(
         configuration_directory,
         MailCapability,
-        delegated_token_source=OfflineOAuthOnBehalfOfTokenSource(),
+        environment={
+            "MAIL_MCP_API_KEY": "placeholder-mail-api-key",
+            "MAIL_MCP_GATEWAY_KEY": "placeholder-gateway-key",
+            "ARCHIVE_MCP_CLIENT_SECRET": "placeholder-archive-client-secret",
+            "OBO_MCP_CLIENT_SECRET": "placeholder-obo-client-secret",
+        },
+        delegated_token_source_factory=offline_source_factory,
     ).load(manifest_loader.load("mail-assistant"))
     try:
         expected_servers = {

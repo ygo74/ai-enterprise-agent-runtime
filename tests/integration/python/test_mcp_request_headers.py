@@ -9,6 +9,9 @@ import anyio
 import httpx
 import pytest
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
+from ygo74.agent_runtime.domains.auth.oauth_token_exchange import (
+    OAuthTokenExchangeSettings,
+)
 from ygo74.agent_runtime.domains.auth.tokens import (
     AccessToken,
     DelegatedTokenRequest,
@@ -19,7 +22,6 @@ from ygo74.agent_runtime.domains.mcp.binding import (
     _ContextualMcpWriteStream,
     _McpHttpClientFactory,
 )
-from ygo74.agent_runtime.domains.mcp.configuration import McpDelegatedOAuthSettings
 from ygo74.agent_runtime.domains.mcp.request_context import (
     McpOutboundHeaderResolver,
     McpRequestContext,
@@ -159,6 +161,7 @@ def test_contextual_writer_preserves_the_sdk_async_context_lifecycle(
     Args:
         raise_inside (bool): Whether session cleanup must propagate an error.
     """
+
     async def scenario() -> None:
         """Verify SDK stream cleanup on normal exit and session failure."""
         sender, receiver = anyio.create_memory_object_stream[object](1)
@@ -202,7 +205,7 @@ def test_obo_exchanges_the_verified_subject_and_sends_only_the_downstream_token(
     resolver = McpOutboundHeaderResolver(
         {"X-User": "{{USER_ID}}"},
         contexts,
-        delegated_oauth=McpDelegatedOAuthSettings(
+        delegated_oauth=OAuthTokenExchangeSettings(
             audience="https://mcp.example.test", scopes=("mail.read",)
         ),
         delegated_token_source=source,
@@ -239,7 +242,7 @@ def test_obo_rejects_missing_subject_token_without_falling_back() -> None:
     resolver = McpOutboundHeaderResolver(
         {},
         contexts,
-        delegated_oauth=McpDelegatedOAuthSettings("https://mcp.example.test"),
+        delegated_oauth=OAuthTokenExchangeSettings("https://mcp.example.test"),
         delegated_token_source=UnusedOAuthOnBehalfOfTokenSource(),
     )
 
@@ -261,7 +264,7 @@ def test_obo_rejects_wrong_audience_and_provider_failures() -> None:
     wrong_audience = McpOutboundHeaderResolver(
         {},
         contexts,
-        delegated_oauth=McpDelegatedOAuthSettings("https://mcp.example.test"),
+        delegated_oauth=OAuthTokenExchangeSettings("https://mcp.example.test"),
         delegated_token_source=WrongAudienceSource(),
     )
     with pytest.raises(TokenExchangeError):
@@ -276,7 +279,7 @@ def test_obo_rejects_wrong_audience_and_provider_failures() -> None:
     failed_exchange = McpOutboundHeaderResolver(
         {},
         contexts,
-        delegated_oauth=McpDelegatedOAuthSettings("https://mcp.example.test"),
+        delegated_oauth=OAuthTokenExchangeSettings("https://mcp.example.test"),
         delegated_token_source=FailedSource(),
     )
     with pytest.raises(TokenExchangeError) as failure:

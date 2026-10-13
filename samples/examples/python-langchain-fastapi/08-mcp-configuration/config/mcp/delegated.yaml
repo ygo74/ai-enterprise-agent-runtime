@@ -8,6 +8,9 @@ tools:
   search_mail: archive_search_as_user
 authentication_mode: oauth_on_behalf_of
 authentication_oauth_on_behalf_of:
+  token_url: https://identity.example.test/realms/agents/protocol/openid-connect/token
+  client_id: mail-assistant
+  client_secret: ${OBO_MCP_CLIENT_SECRET}
   audience: https://archive.example.test
   scopes:
     - archive.read

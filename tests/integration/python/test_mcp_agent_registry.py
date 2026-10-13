@@ -8,7 +8,15 @@ from enum import StrEnum
 from pathlib import Path
 
 import pytest
-from ygo74.agent_runtime.domains.auth.tokens import AccessToken, DelegatedTokenRequest
+from ygo74.agent_runtime.domains.auth.oauth_token_exchange import (
+    OAuthTokenExchangeSettings,
+    Rfc8693OAuthOnBehalfOfTokenSource,
+)
+from ygo74.agent_runtime.domains.auth.tokens import (
+    AccessToken,
+    DelegatedTokenRequest,
+    OAuthOnBehalfOfTokenSource,
+)
 from ygo74.agent_runtime.domains.configuration.directory import ConfigurationDirectory
 from ygo74.agent_runtime.domains.contracts.manifests import AgentManifest, SkillManifest
 from ygo74.agent_runtime.domains.mcp.mcp_errors import McpBindingError
@@ -183,6 +191,203 @@ def test_registry_requires_and_injects_the_delegated_token_source(
     ).load(agent)
 
     assert registry.for_skill("lookup").connection._delegated_token_source is source
+
+
+def test_registry_builds_the_standard_source_without_opening_a_connection(
+    tmp_path: Path,
+) -> None:
+    """Complete server settings select the runtime RFC 8693 source by default."""
+    config_root = tmp_path / "config"
+    server_directory = config_root / "mcp"
+    server_directory.mkdir(parents=True)
+    (server_directory / "delegated.yaml").write_text(
+        "server: delegated\n"
+        "transport: http\n"
+        "url: https://mcp.example.test/mcp\n"
+        "capabilities: [search_mail]\n"
+        "tools: {search_mail: search}\n"
+        "authentication_mode: oauth_on_behalf_of\n"
+        "authentication_oauth_on_behalf_of:\n"
+        "  token_url: https://identity.example.test/token\n"
+        "  client_id: mail-agent\n"
+        "  client_secret: ${CLIENT_SECRET}\n"
+        "  audience: https://mcp.example.test\n"
+        "  scopes: [mail.read]\n",
+        encoding="utf-8",
+    )
+
+    registry = McpAgentRegistryLoader(
+        ConfigurationDirectory(config_root),
+        Capability,
+        environment={"CLIENT_SECRET": "resolved-secret"},
+    ).load(_agent(_skill("lookup", "delegated", ("search_mail",))))
+    connection = registry.for_skill("lookup").connection
+    source = connection._delegated_token_source
+
+    assert isinstance(source, Rfc8693OAuthOnBehalfOfTokenSource)
+    assert source._settings.token_url == "https://identity.example.test/token"
+    assert source._settings.client_id == "mail-agent"
+    assert source._settings.client_secret.get_secret_value() == "resolved-secret"
+    assert source._settings.audience == "https://mcp.example.test"
+    assert source._settings.scopes == ("mail.read",)
+    assert connection._session is None
+
+
+def test_registry_builds_a_distinct_obo_source_from_each_server_configuration(
+    tmp_path: Path,
+) -> None:
+    """The source factory receives redacted settings separately for each OBO server."""
+    config_root = tmp_path / "config"
+    server_directory = config_root / "mcp"
+    server_directory.mkdir(parents=True)
+    for name, audience, client_id, secret_name in (
+        ("mail-a", "mail-mcp", "mail-agent", "MAIL_A_SECRET"),
+        ("mail-b", "mail-archive", "archive-agent", "MAIL_B_SECRET"),
+    ):
+        (server_directory / f"{name}.yaml").write_text(
+            f"server: {name}\n"
+            "transport: http\n"
+            f"url: https://{name}.example.test/mcp\n"
+            "capabilities: [search_mail]\n"
+            "tools: {search_mail: search}\n"
+            "authentication_mode: oauth_on_behalf_of\n"
+            "authentication_oauth_on_behalf_of:\n"
+            "  token_url: https://identity.example.test/token\n"
+            f"  client_id: {client_id}\n"
+            f"  client_secret: ${{{secret_name}}}\n"
+            f"  audience: {audience}\n",
+            encoding="utf-8",
+        )
+
+    created: list[OAuthTokenExchangeSettings] = []
+
+    class FakeOAuthOnBehalfOfTokenSource:
+        """Represent one server-specific source without making network calls."""
+
+        async def token_for(self, request: DelegatedTokenRequest) -> AccessToken:
+            """Return a token for the request audience without using its credentials."""
+            return AccessToken("unused-token", audience=request.audience)
+
+    def source_factory(
+        settings: OAuthTokenExchangeSettings,
+    ) -> OAuthOnBehalfOfTokenSource:
+        """Capture settings and create a source local to one configured server."""
+        created.append(settings)
+        return FakeOAuthOnBehalfOfTokenSource()
+
+    registry = McpAgentRegistryLoader(
+        ConfigurationDirectory(config_root),
+        Capability,
+        environment={"MAIL_A_SECRET": "secret-a", "MAIL_B_SECRET": "secret-b"},
+        delegated_token_source_factory=source_factory,
+    ).load(
+        _agent(
+            _skill("lookup_a", "mail-a", ("search_mail",)),
+            _skill("lookup_b", "mail-b", ("search_mail",)),
+        )
+    )
+
+    connection_a = registry.for_skill("lookup_a").connection
+    connection_b = registry.for_skill("lookup_b").connection
+    assert (
+        connection_a._delegated_token_source is not connection_b._delegated_token_source
+    )
+    assert len(created) == 2
+    assert [settings.client_id for settings in created] == [
+        "mail-agent",
+        "archive-agent",
+    ]
+    assert [settings.client_secret.get_secret_value() for settings in created] == [
+        "secret-a",
+        "secret-b",
+    ]
+
+
+def test_registry_factory_requires_client_settings_and_excludes_shared_source(
+    tmp_path: Path,
+) -> None:
+    """A per-server source factory cannot receive incomplete or ambiguous settings."""
+    config_root = tmp_path / "config"
+    server_directory = config_root / "mcp"
+    server_directory.mkdir(parents=True)
+    (server_directory / "delegated.yaml").write_text(
+        "server: delegated\n"
+        "transport: http\n"
+        "url: https://mcp.example.test/mcp\n"
+        "capabilities: [search_mail]\n"
+        "tools: {search_mail: search}\n"
+        "authentication_mode: oauth_on_behalf_of\n"
+        "authentication_oauth_on_behalf_of: {audience: mail-mcp}\n",
+        encoding="utf-8",
+    )
+
+    class FakeOAuthOnBehalfOfTokenSource:
+        """Satisfy the explicit source type for the mutually-exclusive arguments test."""
+
+        async def token_for(self, request: DelegatedTokenRequest) -> AccessToken:
+            """Return a token without attempting an exchange."""
+            return AccessToken("unused-token", audience=request.audience)
+
+    with pytest.raises(ValueError, match="either.*source"):
+        McpAgentRegistryLoader(
+            ConfigurationDirectory(config_root),
+            Capability,
+            environment={},
+            delegated_token_source=FakeOAuthOnBehalfOfTokenSource(),
+            delegated_token_source_factory=lambda settings: (
+                FakeOAuthOnBehalfOfTokenSource()
+            ),
+        )
+
+    with pytest.raises(McpBindingError, match="complete OAuth token-exchange settings"):
+        McpAgentRegistryLoader(
+            ConfigurationDirectory(config_root),
+            Capability,
+            environment={},
+            delegated_token_source_factory=lambda settings: (
+                FakeOAuthOnBehalfOfTokenSource()
+            ),
+        ).load(_agent(_skill("lookup", "delegated", ("search_mail",))))
+
+
+def test_registry_redacts_errors_from_the_delegated_source_factory(
+    tmp_path: Path,
+) -> None:
+    """A factory exception cannot expose the resolved OBO client secret."""
+    config_root = tmp_path / "config"
+    server_directory = config_root / "mcp"
+    server_directory.mkdir(parents=True)
+    (server_directory / "delegated.yaml").write_text(
+        "server: delegated\n"
+        "transport: http\n"
+        "url: https://mcp.example.test/mcp\n"
+        "capabilities: [search_mail]\n"
+        "tools: {search_mail: search}\n"
+        "authentication_mode: oauth_on_behalf_of\n"
+        "authentication_oauth_on_behalf_of:\n"
+        "  token_url: https://identity.example.test/token\n"
+        "  client_id: mail-agent\n"
+        "  client_secret: ${CLIENT_SECRET}\n"
+        "  audience: mail-mcp\n",
+        encoding="utf-8",
+    )
+    secret = "private-client-secret"
+
+    def failing_factory(
+        settings: OAuthTokenExchangeSettings,
+    ) -> OAuthOnBehalfOfTokenSource:
+        """Simulate a constructor that includes sensitive settings in its exception."""
+        raise RuntimeError(settings.client_secret.get_secret_value())
+
+    with pytest.raises(McpBindingError, match="could not be created") as error:
+        McpAgentRegistryLoader(
+            ConfigurationDirectory(config_root),
+            Capability,
+            environment={"CLIENT_SECRET": secret},
+            delegated_token_source_factory=failing_factory,
+        ).load(_agent(_skill("lookup", "delegated", ("search_mail",))))
+
+    assert secret not in str(error.value)
 
 
 def test_skill_view_rejects_an_alias_outside_its_allow_list(tmp_path: Path) -> None:

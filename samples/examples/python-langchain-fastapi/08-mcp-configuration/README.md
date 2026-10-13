@@ -13,11 +13,12 @@ point.
 - `config/mcp/mail.yaml`: shared HTTP server using an API-key reference,
   environment-backed gateway header, identity templates, and an optional proxy.
 - `config/mcp/archive.yaml`: distinct HTTP server using OAuth client settings.
-- `config/mcp/delegated.yaml`: separate OBO server with an audience and scopes.
+- `config/mcp/delegated.yaml`: separate OBO server with its token endpoint and
+  client ID in YAML, a client-secret environment reference, audience, and scopes.
 - `config/agents/mail-assistant/agent.yaml` and `config/skills/mail-assistant/`:
   four delivered skills, with the two mail skills inheriting the agent default.
-- `.env.sample`: placeholder values for the API key, gateway header, and OAuth
-  client secret.
+- `.env.sample`: placeholder values for API-key, gateway-header, OAuth-client,
+  and OBO-client secrets.
 - `OfflineOAuthOnBehalfOfTokenSource`: fake source proving the OBO provider port can
   be supplied without contacting an identity provider.
 - `registry_smoke.py`: loads the delivered agent and skill manifests, then loads

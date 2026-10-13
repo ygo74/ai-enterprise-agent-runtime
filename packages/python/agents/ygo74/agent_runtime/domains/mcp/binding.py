@@ -27,9 +27,12 @@ from datetime import timedelta
 from enum import StrEnum
 from pathlib import Path
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar
+from typing import Any, Generic, Self, TypeVar
 from urllib.parse import urlsplit
 
+from ygo74.agent_runtime.domains.auth.oauth_token_exchange import (
+    OAuthTokenExchangeSettings,
+)
 from ygo74.agent_runtime.domains.auth.tokens import OAuthOnBehalfOfTokenSource
 from ygo74.agent_runtime.domains.configuration.manifest_schemas import (
     JsonSchemaValidator,
@@ -39,9 +42,6 @@ from ygo74.agent_runtime.domains.mcp.mcp_errors import (
     McpBindingError,
     McpToolUnavailableError,
 )
-
-if TYPE_CHECKING:
-    from ygo74.agent_runtime.domains.mcp.configuration import McpDelegatedOAuthSettings
 
 try:  # pragma: no cover - depends on the optional `mcp` extra
     import httpx
@@ -507,7 +507,7 @@ class McpConnection:
         headers (Mapping[str, str] | None): The request headers used for protocol selection, forwarding, or authentication.
         network (McpNetworkSettings | None): HTTP proxy configuration for this connection.
         unavailable (ErrorFactory): Response or fallback used when the underlying service is unavailable.
-        delegated_oauth (McpDelegatedOAuthSettings | None): Downstream audience and scopes for OBO mode.
+        delegated_oauth (OAuthTokenExchangeSettings | None): Downstream audience and scopes for OBO mode.
         delegated_token_source (OAuthOnBehalfOfTokenSource | None): Application-owned provider exchange implementation.
     """
 
@@ -519,7 +519,7 @@ class McpConnection:
         auth: Any | None = None,
         headers: Mapping[str, str] | None = None,
         network: McpNetworkSettings | None = None,
-        delegated_oauth: McpDelegatedOAuthSettings | None = None,
+        delegated_oauth: OAuthTokenExchangeSettings | None = None,
         delegated_token_source: OAuthOnBehalfOfTokenSource | None = None,
         unavailable: ErrorFactory = McpToolUnavailableError,
     ) -> None:
@@ -531,7 +531,7 @@ class McpConnection:
             auth (Any | None): Authentication configuration used by the protected MCP resource.
             headers (Mapping[str, str] | None): The request headers used for protocol selection, forwarding, or authentication.
             network (McpNetworkSettings | None): HTTP proxy configuration for this connection.
-            delegated_oauth (McpDelegatedOAuthSettings | None): Downstream audience and scopes for OBO mode.
+            delegated_oauth (OAuthTokenExchangeSettings | None): Downstream audience and scopes for OBO mode.
             delegated_token_source (OAuthOnBehalfOfTokenSource | None): Application-owned provider exchange implementation.
             unavailable (ErrorFactory): Response or fallback used when the underlying service is unavailable.
         """

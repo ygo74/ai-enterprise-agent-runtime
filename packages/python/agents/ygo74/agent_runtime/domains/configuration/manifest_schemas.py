@@ -12,6 +12,7 @@ from typing import Any, ClassVar
 
 class ManifestSchemas:
     """Read the stable Draft 2020-12 schemas for delivered YAML manifests."""
+
     _SCHEMAS: ClassVar[dict[str, str]] = {
         "agent": "agent.schema.json",
         "skill": "skill.schema.json",
@@ -28,10 +29,14 @@ class ManifestSchemas:
         filename = cls._SCHEMAS.get(name)
         if filename is None:
             accepted = ", ".join(sorted(cls._SCHEMAS))
-            raise ValueError(f"unknown manifest schema {name!r}; expected one of {accepted}")
-        return files("ygo74.agent_runtime.domains.configuration.manifest_schemas").joinpath(
-            "schemas", filename
-        ).read_text(encoding="utf-8")
+            raise ValueError(
+                f"unknown manifest schema {name!r}; expected one of {accepted}"
+            )
+        return (
+            files("ygo74.agent_runtime.domains.configuration.manifest_schemas")
+            .joinpath("schemas", filename)
+            .read_text(encoding="utf-8")
+        )
 
     @classmethod
     def agent(cls) -> str:
@@ -53,7 +58,9 @@ class JsonSchemaValidator:
     """Validate parsed YAML mappings against the packaged Draft 2020-12 schemas."""
 
     @staticmethod
-    def validate(document: Mapping[str, object], schema_text: str, *, path: Path) -> None:
+    def validate(
+        document: Mapping[str, object], schema_text: str, *, path: Path
+    ) -> None:
         """Validate a document and report only field names and constraint kinds.
 
         Args:
@@ -64,7 +71,9 @@ class JsonSchemaValidator:
         try:
             validator = JsonSchemaValidator._compiled_validator(schema_text)
         except ImportError as error:
-            raise ValueError("JSON Schema validation requires the optional configuration dependencies") from error
+            raise ValueError(
+                "JSON Schema validation requires the optional configuration dependencies"
+            ) from error
         errors = tuple(
             leaf
             for error in validator.iter_errors(document)
@@ -111,12 +120,18 @@ def _describe_error(error: object) -> str:
     Args:
         error (object): Leaf validation error returned by the JSON Schema validator.
     """
-    location = ".".join(str(part) for part in getattr(error, "absolute_path", ())) or "<root>"
+    location = (
+        ".".join(str(part) for part in getattr(error, "absolute_path", ())) or "<root>"
+    )
     validator = getattr(error, "validator", None)
     if validator == "required":
         instance = getattr(error, "instance", {})
         required = getattr(error, "validator_value", ())
-        missing = sorted(set(required) - set(instance)) if isinstance(instance, Mapping) else []
+        missing = (
+            sorted(set(required) - set(instance))
+            if isinstance(instance, Mapping)
+            else []
+        )
         if missing:
             if len(missing) == 1:
                 return f"{location} requires '{missing[0]}'"
@@ -134,6 +149,10 @@ def _describe_error(error: object) -> str:
     if validator == "enum":
         allowed = getattr(error, "validator_value", ())
         return f"field {location} must be one of {', '.join(str(value) for value in allowed)}"
+    if validator == "pattern" and location.endswith(
+        "authentication_oauth_on_behalf_of.token_url"
+    ):
+        return f"field {location} must be an HTTPS URL without embedded credentials"
     if validator == "minItems" and location == "capabilities":
         return "capabilities must list at least one capability"
     if validator == "minItems":

@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import os
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 from types import MappingProxyType
 from typing import Generic, TypeVar
 
+from ygo74.agent_runtime.domains.auth.oauth_token_exchange import (
+    OAuthTokenExchangeSettings,
+    Rfc8693OAuthOnBehalfOfTokenSource,
+)
 from ygo74.agent_runtime.domains.auth.tokens import OAuthOnBehalfOfTokenSource
 from ygo74.agent_runtime.domains.configuration.directory import ConfigurationDirectory
 from ygo74.agent_runtime.domains.configuration.environment import EnvironmentFile
@@ -26,6 +30,9 @@ from ygo74.agent_runtime.domains.mcp.oauth import McpOAuthProviderFactory
 
 CapabilityT = TypeVar("CapabilityT", bound=StrEnum)
 _SERVER_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+DelegatedTokenSourceFactory = Callable[
+    [OAuthTokenExchangeSettings], OAuthOnBehalfOfTokenSource
+]
 
 
 @dataclass(slots=True)
@@ -195,6 +202,7 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
         capabilities (type[CapabilityT]): Application capabilities valid in server declarations.
         environment (Mapping[str, str] | None): Optional deterministic secret source; absent uses process values and ``.env``.
         delegated_token_source (OAuthOnBehalfOfTokenSource | None): Application-owned OAuth on-behalf-of exchange port.
+        delegated_token_source_factory (DelegatedTokenSourceFactory | None): Overrides the runtime's standard source construction for each server.
         error_factory (ErrorFactory): Callback that builds the domain error for this failure path.
     """
 
@@ -205,6 +213,7 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
         *,
         environment: Mapping[str, str] | None = None,
         delegated_token_source: OAuthOnBehalfOfTokenSource | None = None,
+        delegated_token_source_factory: DelegatedTokenSourceFactory | None = None,
         error_factory: ErrorFactory = McpBindingError,
     ) -> None:
         """Keep the configuration root and typed server loader inputs.
@@ -214,12 +223,21 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
             capabilities (type[CapabilityT]): Application capabilities valid in server declarations.
             environment (Mapping[str, str] | None): Optional deterministic source for secret references.
             delegated_token_source (OAuthOnBehalfOfTokenSource | None): Application-owned OAuth on-behalf-of exchange port.
+            delegated_token_source_factory (DelegatedTokenSourceFactory | None): Application factory overriding standard source construction.
             error_factory (ErrorFactory): Callback that builds the domain error for this failure path.
         """
+        if (
+            delegated_token_source is not None
+            and delegated_token_source_factory is not None
+        ):
+            raise ValueError(
+                "provide either a delegated token source or a source factory, not both"
+            )
         self._directory = configuration_directory
         self._capabilities = capabilities
         self._environment = environment
         self._delegated_token_source = delegated_token_source
+        self._delegated_token_source_factory = delegated_token_source_factory
         self._error_factory = error_factory
 
     def load(self, agent: AgentManifest) -> McpAgentRegistry[CapabilityT]:
@@ -361,6 +379,7 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
             configuration (McpServerConfiguration[CapabilityT]): Validated endpoint and connection options.
         """
         auth = None
+        delegated_token_source = self._delegated_token_source
         if configuration.authentication_mode is McpAuthenticationMode.OAUTH:
             if configuration.oauth is None:
                 raise self._error_factory(
@@ -377,7 +396,41 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
                 raise self._error_factory(
                     f"server {configuration.binding.server!r} is missing delegated OAuth settings"
                 )
-            if self._delegated_token_source is None:
+            settings = configuration.delegated_oauth
+            has_client_settings = (
+                settings.token_url is not None
+                and settings.client_id is not None
+                and settings.client_secret is not None
+            )
+            if self._delegated_token_source_factory is not None:
+                if not has_client_settings:
+                    raise self._error_factory(
+                        f"server {configuration.binding.server!r} requires complete OAuth token-exchange settings for the delegated token source factory"
+                    )
+                try:
+                    delegated_token_source = self._delegated_token_source_factory(
+                        settings
+                    )
+                except Exception:  # noqa: BLE001 - factory errors can contain resolved credentials.
+                    raise self._error_factory(
+                        f"server {configuration.binding.server!r} delegated token source could not be created"
+                    ) from None
+                if not isinstance(delegated_token_source, OAuthOnBehalfOfTokenSource):
+                    raise self._error_factory(
+                        f"server {configuration.binding.server!r} delegated token source factory returned an invalid source"
+                    )
+            elif delegated_token_source is None:
+                if not has_client_settings:
+                    raise self._error_factory(
+                        f"server {configuration.binding.server!r} requires either an injected delegated token source or complete OAuth token-exchange settings"
+                    )
+                try:
+                    delegated_token_source = Rfc8693OAuthOnBehalfOfTokenSource(settings)
+                except Exception:  # noqa: BLE001 - Settings must not leak in errors.
+                    raise self._error_factory(
+                        f"server {configuration.binding.server!r} OAuth token-exchange source could not be created"
+                    ) from None
+            if delegated_token_source is None:
                 raise self._error_factory(
                     f"server {configuration.binding.server!r} requires an injected delegated token source"
                 )
@@ -388,5 +441,5 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
             headers=configuration.headers,
             network=configuration.network,
             delegated_oauth=configuration.delegated_oauth,
-            delegated_token_source=self._delegated_token_source,
+            delegated_token_source=delegated_token_source,
         )
