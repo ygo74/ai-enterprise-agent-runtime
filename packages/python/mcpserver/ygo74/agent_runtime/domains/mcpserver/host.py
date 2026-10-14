@@ -210,7 +210,7 @@ class McpServerHost:
             "constructor rather than assigning to settings afterwards"
         )
 
-    def serve(self, server: object) -> None:
+    def serve(self, server: object, *, log_level: str = "info") -> None:
         """Verify, wrap, then serve until stopped.
 
         Takes the ``FastMCP`` server rather than its application, because the
@@ -219,6 +219,7 @@ class McpServerHost:
 
         Args:
             server (object): MCP server instance receiving the registered routes.
+            log_level (str): Uvicorn and MCP application log level.
         """
         import uvicorn
 
@@ -233,7 +234,12 @@ class McpServerHost:
             self._binding.public_host,
             self._policy.describe(),
         )
-        uvicorn.run(application, host=self._binding.host, port=self._binding.port)
+        uvicorn.run(
+            application,
+            host=self._binding.host,
+            port=self._binding.port,
+            log_level=log_level,
+        )
 
     @staticmethod
     def _allowed_hosts(transport_security: object | None) -> list[str] | None:

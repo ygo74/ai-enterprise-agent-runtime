@@ -27,13 +27,16 @@ from datetime import timedelta
 from enum import StrEnum
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Generic, Self, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar
 from urllib.parse import urlsplit
 
 from ygo74.agent_runtime.domains.auth.oauth_token_exchange import (
     OAuthTokenExchangeSettings,
 )
-from ygo74.agent_runtime.domains.auth.tokens import OAuthOnBehalfOfTokenSource
+from ygo74.agent_runtime.domains.auth.tokens import (
+    OAuthOnBehalfOfTokenSource,
+    TokenExchangeError,
+)
 from ygo74.agent_runtime.domains.configuration.manifest_schemas import (
     JsonSchemaValidator,
     ManifestSchemas,
@@ -42,6 +45,9 @@ from ygo74.agent_runtime.domains.mcp.mcp_errors import (
     McpBindingError,
     McpToolUnavailableError,
 )
+
+if TYPE_CHECKING:
+    from ygo74.agent_runtime.domains.mcp.request_context import McpRequestContext
 
 try:  # pragma: no cover - depends on the optional `mcp` extra
     import httpx
@@ -487,18 +493,22 @@ class McpServerBindingLoader(Generic[CapabilityT]):
             raise self._error_factory(f"{path}: a stdio server requires 'command'")
 
 
+@dataclass(slots=True)
+class _McpConnectionSession:
+    """Own one MCP transport, its request contexts, and its opening lock."""
+
+    stack: AsyncExitStack | None = None
+    session: Any | None = None
+    contexts: Any | None = None
+    context: McpRequestContext | None = None
+    opening: asyncio.Lock = field(default_factory=asyncio.Lock)
+
+
 class McpConnection:
-    """Holds one client session, opened on first use.
+    """Holds lazy client sessions, partitioned by caller when using OBO.
 
-    One session, and exactly one. A model routinely calls two tools in the same
-    turn, and a framework runs them concurrently. Without a guard each of them
-    opens its own transport; the losers are then garbage collected from whichever
-    task happens to run last, and anyio refuses to unwind a cancel scope outside
-    the task that entered it. The visible symptom is not a warning: the transport
-    dies mid-turn and the system appears to be unavailable.
-
-    Opening a session per call would instead pay the initialisation handshake -
-    and, over HTTP, a token exchange - on every message the user reads.
+    Each session is guarded so concurrent tool calls from one principal reuse
+    the transport. OBO callers never share a session or its long-lived SSE stream.
 
     Args:
         binding (McpServerBinding[Any]): MCP transport binding and its authentication metadata.
@@ -544,50 +554,82 @@ class McpConnection:
         self._delegated_oauth = delegated_oauth
         self._delegated_token_source = delegated_token_source
         self._unavailable = unavailable
-        self._stack: AsyncExitStack | None = None
-        self._session: ClientSession | None = None
-        self._opening = asyncio.Lock()
-        self._request_contexts: Any | None = None
+        self._sessions: dict[str | None, _McpConnectionSession] = {}
 
     async def session(self) -> ClientSession:
-        """Return the open session, connecting the first time it is needed.
+        """Return the current caller's session, opening it on first use.
 
-        The check is repeated inside the lock: several callers can pass the first
-        one together, and only the first through the door may connect.
+        OBO requires a verified principal and subject token. Its sessions are
+        keyed by principal subject; other modes retain one shared session. The
+        session identity context omits turn metadata that cannot be correlated to
+        the long-lived SSE stream.
         """
-        if self._session is not None:
-            return self._session
-        async with self._opening:
-            if self._session is None:
-                self._session = await self._connect()
-            return self._session
+        from ygo74.agent_runtime.domains.mcp.request_context import (
+            McpRequestContext,
+            McpRequestContextScope,
+        )
+
+        context = McpRequestContextScope.current()
+        principal_key: str | None = None
+        session_context: McpRequestContext | None = None
+        if self._delegated_oauth is not None:
+            if context is None or context.principal is None or context.subject_token is None:
+                raise TokenExchangeError(
+                    "delegated session requires an authenticated caller token"
+                )
+            principal_key = context.principal.subject
+            session_context = McpRequestContext(
+                principal=context.principal,
+                subject_token=context.subject_token,
+            )
+
+        state = self._sessions.setdefault(principal_key, _McpConnectionSession())
+        if session_context is not None:
+            state.context = session_context
+            if state.contexts is not None:
+                state.contexts.set_session_context(session_context)
+        if state.session is not None:
+            return state.session
+        async with state.opening:
+            if state.session is None:
+                state.session = await self._connect(state, session_context)
+            return state.session
 
     async def aclose(self) -> None:
-        """Close the session and release the transport."""
-        stack, self._stack, self._session = self._stack, None, None
-        contexts, self._request_contexts = self._request_contexts, None
-        if contexts is not None:
-            contexts.clear()
-        if stack is None:
-            return
-        try:
-            await stack.aclose()
-        except Exception as error:
-            if not _is_connection_close_error(error):
-                raise
-            # The conversation is over; a server that already went away must not
-            # turn a clean exit into a crash.
-            _logger.debug(
-                "connection was already unavailable while closing: %s",
-                type(error).__name__,
-            )
-            return
+        """Close every principal's session and release all transports."""
+        states, self._sessions = tuple(self._sessions.values()), {}
+        close_error: Exception | None = None
+        for state in states:
+            if state.contexts is not None:
+                state.contexts.clear()
+                state.contexts = None
+            stack, state.stack, state.session = state.stack, None, None
+            state.context = None
+            if stack is None:
+                continue
+            try:
+                await stack.aclose()
+            except Exception as error:  # noqa: BLE001 - close remaining sessions before re-raising.
+                if _is_connection_close_error(error):
+                    _logger.debug(
+                        "connection was already unavailable while closing: %s",
+                        type(error).__name__,
+                    )
+                elif close_error is None:
+                    close_error = error
+        if close_error is not None:
+            raise close_error
 
-    async def _connect(self) -> ClientSession:
+    async def _connect(
+        self,
+        state: _McpConnectionSession,
+        context: McpRequestContext | None,
+    ) -> ClientSession:
         """Open the transport and initialise the protocol session."""
         stack = AsyncExitStack()
         try:
-            session = await self._open(stack)
+            state.context = context
+            session = await self._open(stack, state)
             await session.initialize()
         except Exception as error:
             _logger.warning(
@@ -600,10 +642,12 @@ class McpConnection:
             raise self._unavailable(
                 f"MCP server {self._binding.server!r} could not be reached: {type(error).__name__}"
             ) from error
-        self._stack = stack
+        state.stack = stack
         return session
 
-    async def _open(self, stack: AsyncExitStack) -> ClientSession:
+    async def _open(
+        self, stack: AsyncExitStack, state: _McpConnectionSession
+    ) -> ClientSession:
         """Open the transport the binding asks for.
 
         Args:
@@ -618,7 +662,9 @@ class McpConnection:
             )
 
             contexts = McpRequestContextRegistry()
-            self._request_contexts = contexts
+            state.contexts = contexts
+            if state.context is not None:
+                contexts.set_session_context(state.context)
             resolver = McpOutboundHeaderResolver(
                 self._headers,
                 contexts,
@@ -839,23 +885,29 @@ class _McpHttpClientFactory:
         self._resolver = resolver
 
     async def _apply_request_headers(self, request: Any) -> None:
-        """Apply dynamic headers to one JSON-RPC POST after the MCP transport prepares it.
+        """Apply correlated request headers or session-bound HTTP headers.
 
         Args:
             request (Any): HTTPX request prepared by the Streamable HTTP transport.
         """
-        if request.method != "POST":
+        if request.method not in {"GET", "POST", "DELETE"}:
             return
-        try:
-            payload = json.loads(request.content)
-        except (UnicodeDecodeError, ValueError):
-            return
-        if not isinstance(payload, dict):
-            return
-        request_id = payload.get("id")
-        if not isinstance(request_id, (str, int)):
-            return
-        headers = await self._resolver.for_request(request_id)
+        request_id: str | int | None = None
+        if request.method == "POST":
+            try:
+                payload = json.loads(request.content)
+            except (UnicodeDecodeError, ValueError):
+                return
+            if not isinstance(payload, dict):
+                return
+            candidate = payload.get("id")
+            if isinstance(candidate, (str, int)):
+                request_id = candidate
+        headers = (
+            await self._resolver.for_request(request_id)
+            if request_id is not None
+            else await self._resolver.for_session()
+        )
         for name, value in headers.items():
             if name.casefold() not in self._TRANSPORT_HEADERS:
                 request.headers[name] = value

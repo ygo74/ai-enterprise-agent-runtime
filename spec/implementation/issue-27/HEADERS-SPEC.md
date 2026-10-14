@@ -61,7 +61,12 @@ string values. Each value may be a literal, an exact `${ENV_NAME}` environment
 reference, or a template containing one or more supported `{{TOKEN}}` values.
 Environment references use the existing configuration directory and process
 environment behavior. Context tokens are substituted for each outbound MCP
-JSON-RPC request, so one shared MCP connection can serve concurrent turns.
+JSON-RPC request using its request ID. Session-level HTTP messages without an
+ID use the session-bound context instead. In OBO mode, a shared configured
+connection maintains a separate MCP session for each authenticated principal;
+its GET event stream, DELETE, and notifications cannot inherit another
+principal's bearer. Request and conversation tokens are turn-scoped and are not
+available on session-level messages.
 
 The proposed context tokens are:
 
@@ -166,6 +171,10 @@ the audience/scopes for the application-provided token source. In that mode,
 - Calls through one shared MCP connection send the current turn's identity,
   request, and conversation values. Parallel turns with different callers or
   request IDs do not leak values into one another.
+- OBO sessions are partitioned by authenticated principal. GET streams,
+  session termination, and notifications without request IDs use only that
+  principal's verified subject token; request-ID-bearing POSTs still require
+  their own correlated context and never fall back to session context.
 - The `oauth_on_behalf_of` mode requires an HTTP transport, target audience,
   and an injected `OAuthOnBehalfOfTokenSource`. It exchanges the validated caller
   token for the configured MCP audience and attaches only the returned token

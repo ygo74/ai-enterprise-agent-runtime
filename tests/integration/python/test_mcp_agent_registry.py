@@ -230,7 +230,7 @@ def test_registry_builds_the_standard_source_without_opening_a_connection(
     assert source._settings.client_secret.get_secret_value() == "resolved-secret"
     assert source._settings.audience == "https://mcp.example.test"
     assert source._settings.scopes == ("mail.read",)
-    assert connection._session is None
+    assert connection._sessions == {}
 
 
 def test_registry_builds_a_distinct_obo_source_from_each_server_configuration(

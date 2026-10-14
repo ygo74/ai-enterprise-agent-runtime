@@ -52,6 +52,23 @@ def _context(
     )
 
 
+class _FakeOAuthOnBehalfOfTokenSource:
+    """Capture OBO requests and return a token for the requested audience."""
+
+    def __init__(self) -> None:
+        """Create an empty request log."""
+        self.requests: list[DelegatedTokenRequest] = []
+
+    async def token_for(self, request: DelegatedTokenRequest) -> AccessToken:
+        """Return a token whose audience matches this exchange request.
+
+        Args:
+            request (DelegatedTokenRequest): Caller, subject token, audience, and scopes to exchange.
+        """
+        self.requests.append(request)
+        return AccessToken("mcp-audience-token", audience=request.audience)
+
+
 def test_header_resolver_renders_current_identity_request_and_session_values() -> None:
     """Headers use the values belonging to the JSON-RPC request being sent."""
     contexts = McpRequestContextRegistry()
@@ -226,6 +243,80 @@ def test_obo_exchanges_the_verified_subject_and_sends_only_the_downstream_token(
     assert headers["authorization"] == "Bearer mcp-audience-token"
     assert "incoming-subject-token" not in headers.values()
     assert "incoming-subject-token" not in repr(source.requests[0])
+
+
+def test_session_level_http_requests_use_the_bound_caller_context() -> None:
+    """GET, DELETE, and notifications use the principal-bound session context."""
+    contexts = McpRequestContextRegistry()
+    contexts.set_session_context(
+        _context("ada", "", "", "incoming-subject-token")
+    )
+    source = _FakeOAuthOnBehalfOfTokenSource()
+    resolver = McpOutboundHeaderResolver(
+        {"X-User": "{{USER_ID}}"},
+        contexts,
+        delegated_oauth=OAuthTokenExchangeSettings("https://mcp.example.test"),
+        delegated_token_source=source,
+    )
+    factory = _McpHttpClientFactory(McpNetworkSettings(), resolver)
+    requests = (
+        httpx.Request("GET", "https://mcp.example.test/mcp"),
+        httpx.Request(
+            "POST",
+            "https://mcp.example.test/mcp",
+            json={"jsonrpc": "2.0", "method": "notifications/initialized"},
+        ),
+        httpx.Request("DELETE", "https://mcp.example.test/mcp"),
+    )
+
+    async def scenario() -> None:
+        """Apply session headers to each request shape without a JSON-RPC ID."""
+        for request in requests:
+            await factory._apply_request_headers(request)
+
+    asyncio.run(scenario())
+
+    assert all(request.headers["x-user"] == "ada" for request in requests)
+    assert all(
+        request.headers["authorization"] == "Bearer mcp-audience-token"
+        for request in requests
+    )
+    assert [request.principal.subject for request in source.requests] == [
+        "ada",
+        "ada",
+        "ada",
+    ]
+
+
+def test_obo_request_id_without_a_correlated_context_does_not_use_session_context() -> None:
+    """A session identity cannot substitute for a missing request correlation."""
+    contexts = McpRequestContextRegistry()
+    contexts.set_session_context(
+        _context("ada", "", "", "incoming-subject-token")
+    )
+    resolver = McpOutboundHeaderResolver(
+        {},
+        contexts,
+        delegated_oauth=OAuthTokenExchangeSettings("https://mcp.example.test"),
+        delegated_token_source=_FakeOAuthOnBehalfOfTokenSource(),
+    )
+    factory = _McpHttpClientFactory(McpNetworkSettings(), resolver)
+    request = httpx.Request(
+        "POST", "https://mcp.example.test/mcp", json={"jsonrpc": "2.0", "id": 404}
+    )
+
+    with pytest.raises(TokenExchangeError):
+        asyncio.run(factory._apply_request_headers(request))
+
+
+def test_non_obo_session_headers_skip_unavailable_context_templates() -> None:
+    """A no-ID notification never sends an unresolved caller template."""
+    resolver = McpOutboundHeaderResolver(
+        {"X-Static": "configured", "X-User": "{{USER_ID}}"},
+        McpRequestContextRegistry(),
+    )
+
+    assert asyncio.run(resolver.for_session()) == {"X-Static": "configured"}
 
 
 def test_obo_rejects_missing_subject_token_without_falling_back() -> None:

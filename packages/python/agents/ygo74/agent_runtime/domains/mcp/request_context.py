@@ -168,6 +168,19 @@ class McpRequestContextRegistry:
     def __init__(self) -> None:
         """Create an empty, connection-local map of outbound request contexts."""
         self._contexts: dict[str | int, McpRequestContext] = {}
+        self._session_context: McpRequestContext | None = None
+
+    def set_session_context(self, context: McpRequestContext) -> None:
+        """Bind the authenticated identity used by session-level HTTP requests.
+
+        Args:
+            context (McpRequestContext): Principal-bound identity and subject token for this session.
+        """
+        self._session_context = context
+
+    def session_context(self) -> McpRequestContext | None:
+        """Return the identity context for GET streams and notifications."""
+        return self._session_context
 
     def register(self, request_id: str | int, context: McpRequestContext) -> None:
         """Store a context until the matching HTTP request begins.
@@ -197,6 +210,7 @@ class McpRequestContextRegistry:
     def clear(self) -> None:
         """Release any contexts whose outbound HTTP send was cancelled with the connection."""
         self._contexts.clear()
+        self._session_context = None
 
 
 class McpOutboundHeaderResolver:
@@ -244,6 +258,27 @@ class McpOutboundHeaderResolver:
             TokenExchangeError: the verified subject token or delegated token is invalid or unavailable.
         """
         context = self._contexts.take(request_id)
+        return await self._headers_for_context(context)
+
+    async def for_session(self) -> dict[str, str]:
+        """Resolve headers for session-level HTTP requests without a JSON-RPC ID."""
+        context = self._contexts.session_context()
+        if context is None and self._delegated_oauth is None:
+            return {
+                name: value
+                for name, value in self._configured_headers.items()
+                if not _CONTEXT_TOKEN.search(value)
+            }
+        return await self._headers_for_context(context)
+
+    async def _headers_for_context(
+        self, context: McpRequestContext | None
+    ) -> dict[str, str]:
+        """Render configured values and authenticate one correlated context.
+
+        Args:
+            context (McpRequestContext | None): Request- or session-bound caller context.
+        """
         headers = self._render_headers(context)
         if self._delegated_oauth is not None:
             headers["Authorization"] = await self._delegated_authorization(context)
@@ -259,7 +294,9 @@ class McpOutboundHeaderResolver:
             _CONTEXT_TOKEN.search(value) for value in self._configured_headers.values()
         ):
             return dict(self._configured_headers)
-        values = {} if context is None else context.values()
+        values: Mapping[McpHeaderContextToken, str | None] = (
+            {} if context is None else context.values()
+        )
         rendered: dict[str, str] = {}
         for name, template in self._configured_headers.items():
             rendered[name] = self._render_header(name, template, values)

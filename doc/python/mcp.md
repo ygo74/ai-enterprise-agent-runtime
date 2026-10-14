@@ -103,8 +103,13 @@ header names, and authentication-header conflicts fail configuration loading
 or the affected request without exposing configured values. Context values
 come from the runtime's verified `AgentPrincipal` and request metadata; the
 runtime does not forward arbitrary caller headers or authentication claims.
-One shared MCP connection correlates each HTTP POST with its JSON-RPC request
-ID, so overlapping turns keep their own identity and conversation headers.
+Outside OBO, one shared MCP connection correlates each HTTP POST with its
+JSON-RPC request ID, so overlapping turns keep their own identity and
+conversation headers. In OBO mode the connection opens a separate MCP session
+for each authenticated principal. Its GET event stream, DELETE, and notifications
+without a JSON-RPC ID use that session's principal-bound context; POST requests
+with IDs continue to use their individual turn context. Calling an OBO connection
+without a verified principal and subject token fails closed.
 
 API-key values and OAuth client secrets must be references in the form
 `${ENV_VAR}`; literal credentials in those dedicated fields, missing variables,
@@ -160,8 +165,9 @@ loads each referenced server once and keeps its `McpConnection` lazy. Call
 `registry.for_skill(tool_name)` to get that skill's view; its `tools` mapping
 contains only that skill's allow-listed aliases and `remote_tool(alias)` rejects
 all others, even when another skill shares the same server. The registry owns
-the shared connection lifecycle and should be closed with `await
-registry.aclose()` when the agent stops. Existing direct use of
+the shared connection lifecycle, including all principal-partitioned OBO
+sessions, and should be closed with `await registry.aclose()` when the agent
+stops. Existing direct use of
 `McpServerBinding`, `McpServerBindingLoader`, and `McpConnection` remains
 available for application-controlled composition.
 
