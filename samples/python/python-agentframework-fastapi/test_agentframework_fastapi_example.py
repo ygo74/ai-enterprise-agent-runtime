@@ -10,9 +10,10 @@ from fastapi.testclient import TestClient
 
 
 def _example_app(monkeypatch: pytest.MonkeyPatch) -> FastAPI:
+    directory = Path(__file__).parent / "04-native-agent"
     monkeypatch.setenv("NATIVE_WORKER_API_KEY", "controlled-test-key")
-    monkeypatch.syspath_prepend(str(Path(__file__).parent))
-    spec = importlib.util.spec_from_file_location("agentframework_offline_example", Path(__file__).with_name("app.py"))
+    monkeypatch.syspath_prepend(str(directory))
+    spec = importlib.util.spec_from_file_location("agentframework_offline_example", directory / "app.py")
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

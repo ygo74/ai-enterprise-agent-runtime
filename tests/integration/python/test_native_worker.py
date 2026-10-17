@@ -130,7 +130,7 @@ def test_actual_local_dispatch_performance_budget(example):
     from time import perf_counter
 
     directory, worker = example
-    root = directory.parents[2]
+    root = directory.parents[3]
     budgets = json.loads((root / "tests" / "performance" / "baselines" / "performance_thresholds.json").read_text())
     latencies = []
     with TestClient(worker.build_app()) as client:
@@ -165,7 +165,7 @@ async def test_actual_normalization_and_native_first_event_budgets(example):
     )
 
     directory, _ = example
-    budgets = json.loads((directory.parents[2] / "tests" / "performance" / "baselines" / "performance_thresholds.json").read_text())
+    budgets = json.loads((directory.parents[3] / "tests" / "performance" / "baselines" / "performance_thresholds.json").read_text())
     reader = ConversationPayloadReader(require_email=False)
     normalization, first_events = [], []
     for _ in range(40):
