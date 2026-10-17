@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../../../../../../../../packages/python/agents/ygo74/agent_runtime/domains/configuration/schemas/skill.schema.json
+tool_name: delegated_lookup
+implementation: mail.delegated_lookup
+description: Search the archive using the authenticated caller's identity.
+operation:
+  type: READ
+  risk: LOW
+  permission: mail:read
+  confirmation_required: false
+mcp_server: delegated
+mcp_tools:
+  - search_mail

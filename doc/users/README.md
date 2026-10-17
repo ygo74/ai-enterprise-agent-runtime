@@ -1,30 +1,38 @@
 # User and operator guides
 
-These guides explain how to install, configure, run, and call the runtime. They
-use simple English and link to runnable samples and detailed Python guides.
+Follow these guides in order, from installing the runtime to operating an
+agent. They describe shared runtime concepts and use language-neutral HTTP/JSON
+examples. For implementation code and language-specific setup, use the relevant
+language guide; Python details are in the [Python library guides](../python/README.md).
 
 ## Guides
 
-- [Install and make a first request](getting-started.md)
-- [Endpoints, conversations, and outputs](endpoints-and-outputs.md)
-- [Authentication and agent discovery](security-and-discovery.md)
-- [Human approval](human-approval.md)
-- [MCP tools and MCP servers](mcp.md)
-- [Framework integrations](framework-integrations.md)
-- [Complete agent walkthrough](complete-agent.md): a LangChain agent with an
-  authenticated API, discovery, an MCP tool, and approval across requests
-- [MCP server hosting](mcp-server-hosting.md): configure and run the shared
-  streamable HTTP host
+1. [Install the runtime](getting-started.md)
+2. [Bring your own agent](bring-your-own-agent.md): provide business rules,
+   tools, skills, and the system prompt; choose an integration approach.
+3. [Host an agent](agent-hosting.md): choose application-owned or runtime-owned
+   hosting and understand the hosting options.
+4. [Endpoints and outputs](endpoints-and-outputs.md): call supported provider
+   surfaces and understand response formats.
+5. [Framework integrations](framework-integrations.md): connect an existing
+   agent framework to the runtime.
+6. [Conversations](conversations.md): keep related turns associated and choose
+   state ownership.
+7. [Agent, skill, and MCP configuration](mcp.md): describe agents, tools, and
+   remote MCP services.
+8. [Human approval](human-approval.md): pause a side-effecting operation for a
+   decision.
+9. [Host an MCP server](mcp-server-hosting.md): expose tools over HTTP safely.
+10. [Security](security.md): authenticate callers and enforce authorization.
+11. [Agent discovery](discovery.md): publish and filter agent descriptors.
 
-For package-specific Python APIs and detailed examples, see the
-[Python library guides](../python/README.md).
+## Runnable samples
 
-## Choose a runnable example
+Browse the [language-first sample catalog](../../samples/README.md). The Python
+catalog currently contains a [basic runtime quickstart](../../samples/python/python-fastapi-quickstart/README.md),
+[LangChain examples](../../samples/python/python-langchain-fastapi/README.md),
+[Microsoft Agent Framework examples](../../samples/python/python-agentframework-fastapi/README.md),
+and an [MCP server](../../samples/python/python-mcp-server/README.md).
 
-- [Minimal FastAPI endpoint](../../samples/examples/python-fastapi-quickstart/README.md)
-- [LangChain and FastAPI](../../samples/examples/python-langchain-fastapi/README.md)
-- [Microsoft Agent Framework and FastAPI](../../samples/examples/python-agentframework-fastapi/README.md)
-- [MCP server over HTTP](../../samples/examples/python-mcp-server/README.md)
-
-For contributor architecture, use [`../contributors/README.md`](../contributors/README.md).
-For feature behavior and rationale, use [`../../spec/README.md`](../../spec/README.md).
+For contributor architecture, see [contributor guides](../contributors/README.md).
+For feature behavior and rationale, see the [system specification](../../spec/README.md).

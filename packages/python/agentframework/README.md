@@ -23,6 +23,6 @@ The optional `worker` module uses the `[http]` extra for managed local hosting.
 See `doc/python/native-agents.md` for the factory + declarative-definition path
 and the optional domain approval bridge.
 
-See the repository's `doc/python/agentframework.md` guide and the runnable,
-offline `samples/examples/python-agentframework-fastapi` example (operator-supplied
-local authentication key, no model credentials).
+See the repository's `doc/python/agentframework.md` guide and the runnable
+[MAF sample catalog](../../../samples/python/python-agentframework-fastapi/README.md)
+(operator-supplied local authentication key, no model credentials).

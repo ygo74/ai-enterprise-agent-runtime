@@ -104,7 +104,7 @@ field. A handler returns neutral typed contents rather than constructing
 Responses output items. The runtime projects the supported content into the
 Response envelope and filters unsupported content with a safe diagnostic.
 See the runnable
-[structured Responses example](../../samples/examples/python-fastapi-quickstart/responses_structured_app.py)
+[structured Responses example](../../samples/python/python-fastapi-quickstart/02-structured-outputs/responses_structured_app.py)
 for a complete example.
 
 When streaming, return neutral typed events for text, tools, notifications,
@@ -125,7 +125,7 @@ results with diagnostics. Media is never automatically fetched or transcoded.
 enabled, streaming, and an optional `AgentDescriptor`. Its `from_dict` method
 binds the documented camel-case settings. See
 [`models.py`](../../packages/python/agents/ygo74/agent_runtime/domains/configuration/models.py)
-and the [configuration example](../../samples/examples/python-langchain-fastapi/configuration.md).
+and the [configuration and routing section](#configuration-and-routing).
 
 Use `RouteRegistry` and the `Dispatcher` protocol when your application
 registers multiple use cases by route key. An explicit `metadata.route_key` (or
@@ -153,7 +153,7 @@ Use `ManifestSchemas.agent()` and `ManifestSchemas.skill()` from
 `ygo74.agent_runtime.domains.configuration.manifest_schemas` to read those
 resources. `AGENT.md` and `SKILL.md` remain separate Markdown inputs. See the
 [manifest schema guide](../../spec/operations/packaging-configuration-observability.md)
-and the [agent configuration example](../../samples/examples/python-langchain-fastapi/configuration.md).
+and the [agent configuration details](#delivered-agent-configuration).
 
 ## Reasoning port
 
@@ -200,7 +200,7 @@ consumers of this API.
 
 For the approval policy, execution gates, and cross-request ticket flow, see the
 [human-in-the-loop approval guide](human-in-the-loop.md) and its
-[runnable LangGraph walkthrough](../../samples/examples/python-langchain-fastapi/04-human-in-the-loop/README.md).
+[runnable LangGraph walkthrough](../../samples/python/python-langchain-fastapi/02-human-in-the-loop/README.md).
 The runtime also provides `domains.humanapproval.approval_loop.ApprovalLoop`.
 Framework adapters expose pending calls, resume/decline operations and final
 text through `ApprovalTurnAdapter`; the shared loop applies the approval and

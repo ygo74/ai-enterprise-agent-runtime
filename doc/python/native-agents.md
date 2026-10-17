@@ -6,12 +6,12 @@ the definition reuses `AgentDescriptor` and the existing `ToolOperationDescripto
 security model. Factory inputs are `AgentFactoryContext` (verified principal,
 conversation, deployment and issuer/tenant namespace), never HTTP payloads.
 
-The [runnable native echo](../../samples/examples/python-agentframework-fastapi/README.md)
-delivers fewer than 30 nonblank lines in `native.py` plus `app.py`, including
-imports and docstrings. `echo_client.py` is the native agent's offline model
-implementation; `deployment.py` is operator configuration. There is no hidden
-agent-specific handler, SSE loop, registry, confirmation resolver or projector.
-The native agent also runs outside the runtime with `await agent.run(...)`.
+The [runnable native echo](../../samples/python/python-agentframework-fastapi/01-get-started/README.md)
+keeps the native MAF agent separate from both its developer-owned FastAPI route
+and the runtime worker. `echo_client.py` is the agent's offline model
+implementation. The worker and operator configuration live in the separate
+[native hosting example](../../samples/python/python-agentframework-fastapi/04-native-agent/README.md).
+The agent also runs outside the runtime with `await agent.run(...)`.
 
 ## BYOA development workflow
 
@@ -20,11 +20,13 @@ entrypoint, then add runtime hosting when you need shared HTTP surfaces:
 
 1. Build and test the MAF `Agent` with the MAF SDK.
 2. Keep the agent factory independent of runtime imports. The offline example's
-   [`developer_app.py`](../../samples/examples/python-agentframework-fastapi/developer_app.py)
+   [`developer_app.py`](../../samples/python/python-agentframework-fastapi/01-get-started/developer_app.py)
    shows this path and uses `await agent.run(...)`.
 3. Add an `AgentDefinition` that points to the trusted factory and a
    `WorkerSettings` object for operator-owned authentication and lifecycle.
-4. Pass both to `AgentFrameworkWorker`. The runtime hosts the existing agent;
+4. Pass both to `AgentFrameworkWorker` in the
+   [native hosting example](../../samples/python/python-agentframework-fastapi/04-native-agent/README.md).
+   The runtime hosts the existing agent;
    it does not rebuild the agent or its tools.
 
 This is a real split in the example: `requirements-developer.txt` installs no

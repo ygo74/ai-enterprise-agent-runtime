@@ -85,7 +85,7 @@ own ticket store, renderer or resource composition may pass a typed
 thread, confirmation ledger, ticket runner and MCP lifecycle. That advanced
 factory remains responsible for its own domain admission policy.
 
-See the offline [native LangGraph worker example](../../samples/examples/python-langchain-fastapi/06-native-langgraph/README.md).
+See the offline [native LangGraph worker example](../../samples/python/python-langchain-fastapi/04-native-langgraph/README.md).
 
 ## Final results: runnable offline example
 
