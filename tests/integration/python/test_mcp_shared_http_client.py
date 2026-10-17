@@ -18,6 +18,10 @@ from ygo74.agent_runtime.domains.auth.tokens import (
     AccessToken,
     DelegatedTokenRequest,
 )
+from ygo74.agent_runtime.domains.contracts.invocation_context import (
+    AgentInvocationContext,
+    AgentInvocationContextScope,
+)
 from ygo74.agent_runtime.domains.http.resilience import (
     CircuitBreakerSettings,
     CircuitOpenError,
@@ -30,10 +34,6 @@ from ygo74.agent_runtime.domains.mcp.binding import (
     McpServerBinding,
     McpTransport,
     _McpResilientTransport,
-)
-from ygo74.agent_runtime.domains.mcp.request_context import (
-    McpRequestContext,
-    McpRequestContextScope,
 )
 
 
@@ -305,12 +305,12 @@ async def test_obo_sessions_share_pool_without_sharing_caller_tokens(
     async with server_app.router.lifespan_context(server_app):
         async def call_as(subject: str) -> None:
             """Open the principal's isolated session and call through shared pool."""
-            context = McpRequestContext(
+            context = AgentInvocationContext(
                 principal=AgentPrincipal(subject=subject),
                 subject_token=AccessToken(f"subject-{subject}", audience="agent-api"),
                 request_id=f"request-{subject}",
             )
-            with McpRequestContextScope.bind(context):
+            with AgentInvocationContextScope.bind(context):
                 session = await connection.session()
                 client_ids.append(id(connection._get_http_client()))
                 await session.call_tool("echo", {"value": subject})

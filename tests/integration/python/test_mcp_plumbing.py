@@ -28,6 +28,10 @@ from ygo74.agent_runtime.domains.auth.tokens import (
     DelegatedTokenRequest,
     TokenExchangeError,
 )
+from ygo74.agent_runtime.domains.contracts.invocation_context import (
+    AgentInvocationContext,
+    AgentInvocationContextScope,
+)
 from ygo74.agent_runtime.domains.mcp.binding import (
     McpConnection,
     McpNetworkSettings,
@@ -44,10 +48,6 @@ from ygo74.agent_runtime.domains.mcp.oauth import (
     CALLBACK_PATH,
     PinnedScopeOAuthProvider,
     loopback_redirect_uri,
-)
-from ygo74.agent_runtime.domains.mcp.request_context import (
-    McpRequestContext,
-    McpRequestContextScope,
 )
 
 
@@ -371,7 +371,7 @@ def test_obo_connection_reuses_sessions_per_principal_and_separates_callers(
     )
     opened: list[object] = []
 
-    async def fake_connect(state: object, context: McpRequestContext) -> object:
+    async def fake_connect(state: object, context: AgentInvocationContext) -> object:
         """Return a unique session while recording which context opened it."""
         session = object()
         opened.append(session)
@@ -379,20 +379,20 @@ def test_obo_connection_reuses_sessions_per_principal_and_separates_callers(
 
     monkeypatch.setattr(connection, "_connect", fake_connect)
 
-    def context(subject: str) -> McpRequestContext:
+    def context(subject: str) -> AgentInvocationContext:
         """Build a verified OBO context for one test principal."""
-        return McpRequestContext(
+        return AgentInvocationContext(
             principal=AgentPrincipal(subject=subject),
             subject_token=AccessToken(f"token-{subject}", audience="agent-api"),
         )
 
     async def scenario() -> tuple[object, object, object]:
         """Resolve each principal's session through the public API."""
-        with McpRequestContextScope.bind(context("ada")):
+        with AgentInvocationContextScope.bind(context("ada")):
             ada_first = await connection.session()
-        with McpRequestContextScope.bind(context("ada")):
+        with AgentInvocationContextScope.bind(context("ada")):
             ada_second = await connection.session()
-        with McpRequestContextScope.bind(context("lin")):
+        with AgentInvocationContextScope.bind(context("lin")):
             lin = await connection.session()
         return ada_first, ada_second, lin
 

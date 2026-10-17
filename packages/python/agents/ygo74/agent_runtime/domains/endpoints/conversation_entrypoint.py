@@ -12,15 +12,15 @@ from ygo74.agent_runtime.domains.contracts.conversation import (
 from ygo74.agent_runtime.domains.contracts.exchange_models import (
     StandardExchangeResponse,
 )
+from ygo74.agent_runtime.domains.contracts.invocation_context import (
+    AgentInvocationContext,
+    AgentInvocationContextScope,
+)
 from ygo74.agent_runtime.domains.contracts.stream_events import AgentStreamEvent
 from ygo74.agent_runtime.domains.endpoints.conversation_payloads import (
     DEFAULT_CONVERSATION,
     AgentReplyRenderer,
     ConversationPayloadReader,
-)
-from ygo74.agent_runtime.domains.mcp.request_context import (
-    McpRequestContext,
-    McpRequestContextScope,
 )
 from ygo74.agent_runtime.domains.sessions.continuity_diagnostics import (
     ContinuityDiagnostics,
@@ -102,7 +102,7 @@ class ConversationEntrypoint:
         """
         turn = self.to_turn(payload)
         correlation = str(payload.get("request_id") or uuid4().hex)
-        base_context = McpRequestContextScope.current() or McpRequestContext()
+        base_context = AgentInvocationContextScope.current() or AgentInvocationContext()
         request_context = base_context.with_turn(turn, correlation)
         if payload.get("stream") is True:
             return self._correlated_stream(
@@ -112,7 +112,7 @@ class ConversationEntrypoint:
                 require_initial_usage=payload.get("require_initial_usage") is True,
             )
         with (
-            McpRequestContextScope.bind(request_context),
+            AgentInvocationContextScope.bind(request_context),
             ContinuityDiagnostics.request(correlation),
         ):
             return self.to_payload(payload, await self._engine.respond(turn))
@@ -122,7 +122,7 @@ class ConversationEntrypoint:
         turn: ConversationTurn,
         correlation: str,
         *,
-        request_context: McpRequestContext,
+        request_context: AgentInvocationContext,
         require_initial_usage: bool = False,
     ) -> AsyncGenerator[AgentStreamEvent]:
         """Scope each pull and cleanup, never leaking context across consumer yields.
@@ -142,7 +142,7 @@ class ConversationEntrypoint:
         try:
             while True:
                 with (
-                    McpRequestContextScope.bind(request_context),
+                    AgentInvocationContextScope.bind(request_context),
                     ContinuityDiagnostics.request(correlation),
                 ):
                     try:
@@ -152,7 +152,7 @@ class ConversationEntrypoint:
                 yield event
         finally:
             with (
-                McpRequestContextScope.bind(request_context),
+                AgentInvocationContextScope.bind(request_context),
                 ContinuityDiagnostics.request(correlation),
             ):
                 async with aclosing(producer):

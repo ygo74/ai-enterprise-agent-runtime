@@ -60,7 +60,9 @@ from ygo74.agent_runtime.domains.mcp.mcp_errors import (
 )
 
 if TYPE_CHECKING:
-    from ygo74.agent_runtime.domains.mcp.request_context import McpRequestContext
+    from ygo74.agent_runtime.domains.contracts.invocation_context import (
+        AgentInvocationContext,
+    )
 
 try:  # pragma: no cover - depends on the optional `mcp` extra
     import httpx
@@ -533,7 +535,7 @@ class _McpConnectionSession:
     stack: AsyncExitStack | None = None
     session: Any | None = None
     contexts: Any | None = None
-    context: McpRequestContext | None = None
+    context: AgentInvocationContext | None = None
     opening: asyncio.Lock = field(default_factory=asyncio.Lock)
 
 
@@ -626,21 +628,21 @@ class McpConnection:
         session identity context omits turn metadata that cannot be correlated to
         the long-lived SSE stream.
         """
-        from ygo74.agent_runtime.domains.mcp.request_context import (
-            McpRequestContext,
-            McpRequestContextScope,
+        from ygo74.agent_runtime.domains.contracts.invocation_context import (
+            AgentInvocationContext,
+            AgentInvocationContextScope,
         )
 
-        context = McpRequestContextScope.current()
+        context = AgentInvocationContextScope.current()
         principal_key: str | None = None
-        session_context: McpRequestContext | None = None
+        session_context: AgentInvocationContext | None = None
         if self._delegated_oauth is not None:
             if context is None or context.principal is None or context.subject_token is None:
                 raise TokenExchangeError(
                     "delegated session requires an authenticated caller token"
                 )
             principal_key = context.principal.subject
-            session_context = McpRequestContext(
+            session_context = AgentInvocationContext(
                 principal=context.principal,
                 subject_token=context.subject_token,
             )
@@ -692,7 +694,7 @@ class McpConnection:
     async def _connect(
         self,
         state: _McpConnectionSession,
-        context: McpRequestContext | None,
+        context: AgentInvocationContext | None,
     ) -> ClientSession:
         """Open the transport and initialise the protocol session."""
         stack = AsyncExitStack()
@@ -723,10 +725,12 @@ class McpConnection:
             stack (AsyncExitStack): Ordered middleware or execution stack.
         """
         if self._binding.transport is McpTransport.HTTP:
+            from ygo74.agent_runtime.domains.contracts.invocation_context import (
+                AgentInvocationContextScope,
+            )
             from ygo74.agent_runtime.domains.mcp.request_context import (
                 McpOutboundHeaderResolver,
                 McpRequestContextRegistry,
-                McpRequestContextScope,
                 json_rpc_request_id,
             )
 
@@ -756,7 +760,7 @@ class McpConnection:
             write = _ContextualMcpWriteStream(
                 write,
                 contexts,
-                McpRequestContextScope.current,
+                AgentInvocationContextScope.current,
                 request_id_for_message=json_rpc_request_id,
             )
         else:

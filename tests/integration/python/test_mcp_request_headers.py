@@ -17,6 +17,10 @@ from ygo74.agent_runtime.domains.auth.tokens import (
     DelegatedTokenRequest,
     TokenExchangeError,
 )
+from ygo74.agent_runtime.domains.contracts.invocation_context import (
+    AgentInvocationContext,
+    AgentInvocationContextScope,
+)
 from ygo74.agent_runtime.domains.mcp.binding import (
     McpNetworkSettings,
     _ContextualMcpWriteStream,
@@ -24,9 +28,7 @@ from ygo74.agent_runtime.domains.mcp.binding import (
 )
 from ygo74.agent_runtime.domains.mcp.request_context import (
     McpOutboundHeaderResolver,
-    McpRequestContext,
     McpRequestContextRegistry,
-    McpRequestContextScope,
     json_rpc_request_id,
 )
 
@@ -36,7 +38,7 @@ def _context(
     request_id: str,
     conversation_id: str,
     token: str = "",
-) -> McpRequestContext:
+) -> AgentInvocationContext:
     """Create one immutable MCP request context for the header contract tests."""
     principal = AgentPrincipal(
         subject=subject,
@@ -44,7 +46,7 @@ def _context(
         display_name=subject.title(),
         roles=frozenset({"reader", "writer"}),
     )
-    return McpRequestContext(
+    return AgentInvocationContext(
         principal=principal,
         request_id=request_id,
         conversation_id=conversation_id,
@@ -138,14 +140,14 @@ def test_persistent_writer_correlates_each_message_before_the_http_hook_runs() -
             sent.append(message)
 
     stream = _ContextualMcpWriteStream(
-        FakeWriteStream(), contexts, McpRequestContextScope.current, json_rpc_request_id
+        FakeWriteStream(), contexts, AgentInvocationContextScope.current, json_rpc_request_id
     )
 
-    async def enqueue(request_id: int, context: McpRequestContext) -> None:
+    async def enqueue(request_id: int, context: AgentInvocationContext) -> None:
         message = SimpleNamespace(
             message=SimpleNamespace(root=SimpleNamespace(id=request_id))
         )
-        with McpRequestContextScope.bind(context):
+        with AgentInvocationContextScope.bind(context):
             await stream.send(message)
 
     async def scenario() -> tuple[str, str]:

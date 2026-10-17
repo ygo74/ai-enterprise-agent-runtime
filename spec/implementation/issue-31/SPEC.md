@@ -22,13 +22,13 @@ separate `httpx.AsyncClient` for each transport connection. The built-in RFC
 8693 OBO token source also creates and closes an HTTP client for each exchange
 unless a caller injects one.
 
-The FastAPI endpoint authenticates a caller before binding
-`McpRequestContextScope` around the handler invocation. The generic conversation
-entrypoint adds turn and correlation data to that context, and MCP connections
-use it to select per-request headers and the OBO session. This is request
-context propagation; it does not eagerly create an MCP session. A configured
-connection opens lazily when application code actually uses MCP, with one
-session per verified principal in OBO mode.
+The FastAPI endpoint authenticates a caller before binding the transport-neutral
+`AgentInvocationContextScope` around the handler invocation. The generic
+conversation entrypoint adds turn and correlation data to that context, and the
+MCP adapter projects it into per-request headers and OBO session identity. This
+is request context propagation; it does not eagerly create an MCP session. A
+configured connection opens lazily when application code actually uses MCP,
+with one session per verified principal in OBO mode.
 
 `OidcDiscovery` uses `urllib.request`, and PyJWT's `PyJWKClient` fetches JWKS
 documents through its own synchronous HTTP implementation. MCP Streamable HTTP
@@ -154,10 +154,10 @@ asynchronous, which is a compatibility and client-sharing constraint.
 - Preserve request-specific auth and context behavior in the HTTPX transport
   integration: static MCP headers, dynamic turn headers, session-bound OBO
   identity, and MCP OAuth must not bleed between servers, users, or requests.
-- Keep `McpRequestContextScope` at the authenticated request boundary. It
+- Keep `AgentInvocationContextScope` at the authenticated request boundary. It
   supplies trusted identity and correlation before application handlers run;
-  the lazy `McpConnection.session()` call remains responsible for opening or
-  selecting the actual MCP session.
+  the MCP adapter consumes it, and the lazy `McpConnection.session()` call
+  remains responsible for opening or selecting the actual MCP session.
 - Represent retry and breaker configuration with explicit typed settings and
   enums for fixed states or categories. Do not expose untyped maps as policy
   contracts. Do not include credentials, request bodies, or raw provider

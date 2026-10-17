@@ -11,6 +11,9 @@ from pathlib import Path
 
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
 from ygo74.agent_runtime.domains.configuration.directory import ConfigurationDirectory
+from ygo74.agent_runtime.domains.contracts.invocation_context import (
+    AgentInvocationContext,
+)
 from ygo74.agent_runtime.domains.contracts.manifests import AgentManifest, SkillManifest
 from ygo74.agent_runtime.domains.http.resilience import (
     CircuitBreakerSettings,
@@ -23,7 +26,6 @@ from ygo74.agent_runtime.domains.mcp.registry import (
 )
 from ygo74.agent_runtime.domains.mcp.request_context import (
     McpOutboundHeaderResolver,
-    McpRequestContext,
     McpRequestContextRegistry,
 )
 from ygo74.agent_runtime.domains.security.operations import (
@@ -164,7 +166,7 @@ def test_mcp_context_header_rendering_stays_within_p95_budget() -> None:
     for request_id in range(1000):
         contexts.register(
             request_id,
-            McpRequestContext(
+            AgentInvocationContext(
                 principal=principal,
                 request_id=f"req-{request_id}",
                 conversation_id=f"conversation-{request_id}",
