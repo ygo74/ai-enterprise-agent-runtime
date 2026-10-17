@@ -67,7 +67,7 @@ requirement is `ygo74-agent-runtime-agents[http]>=0.8.0,<2`, raise its lower
 bound to the target version and keep `<2` unless a separate compatibility
 change justifies changing that upper bound.
 
-Also review user documentation and `samples/examples/**/requirements*.txt` for
+Also review user documentation and `samples/python/**/requirements*.txt` for
 internal package pins and minimums. Update exact pins that are meant to show the
 current release. If an example intentionally demonstrates an older release,
 leave it unchanged and make its purpose clear. Search by package name, not only

@@ -1,129 +1,49 @@
-# Complete agent: LangChain with an approved MCP search
+# Complete agent request walkthrough
 
-This walkthrough runs one coherent example: a LangChain solution architect
-agent behind FastAPI. It uses API-key authentication, authenticated model
-discovery, an MCP search tool, and a two-request approval flow. The search sends
-the user's question to Microsoft's public Microsoft Learn MCP service, so the
-example asks for permission before sending it.
+This conceptual walkthrough follows one request through the parts an application
+combines to expose an agent. It uses shared HTTP/JSON concepts; implementation
+and setup details depend on the language and framework.
 
-The runnable source is
-[`04-human-in-the-loop`](../../samples/examples/python-langchain-fastapi/04-human-in-the-loop/README.md).
-Use that folder as the source of truth if package versions or code change.
+## Before serving requests
 
-## What this example includes
+1. The application defines a system prompt and business rules for its domain.
+2. It registers the tools and skills the agent may use. Each tool enforces its
+   own access checks before reading or changing protected data.
+3. The host registers an agent descriptor and selects the endpoint surfaces it
+   will serve.
+4. The operator configures authentication, conversation storage, model access,
+   and any remote MCP service credentials outside source control.
 
-| Feature | How it appears | What you observe |
-|---|---|---|
-| LangChain agent | `solution_architect_agent.py` builds a LangChain agent and LangGraph checkpoint | The model can request Microsoft Learn search. |
-| MCP tool | `mcp_mslearn_tool.py` calls the configured public MCP service | The user's question is sent externally only after approval. |
-| Authentication | The HTTP adapter resolves `demo-key` to `demo-user` | Calls without the key are rejected. |
-| Discovery | A descriptor is registered and authenticated `/v1/models` is enabled | The client can list `ai-solution-architect-hitl`. |
-| Typed output | The entrypoint returns `AgentOutput((TextContent(...),))` | The runtime formats a normal provider response. |
-| Conversation state | The conversation ID selects a checkpoint thread scoped by authenticated subject | A later request resumes the same suspended turn. |
-| Human approval | A ticket stores the operation and exact tool arguments | The first request does not call the tool; `CONFIRM` or `CANCEL` answers later. |
-| Safe configuration | `.env.sample` contains placeholders | The operator supplies the model key locally. |
+## One request
 
-## Limits of this example
+A client calls an endpoint with an agent identifier and input:
 
-This example uses `add_ai_endpoints` rather than the newer managed LangGraph
-worker. The managed worker is demonstrated separately by the
-[offline native LangGraph example](../../samples/examples/python-langchain-fastapi/06-native-langgraph/README.md);
-that example has no tools or approval flow. Do not combine the two examples by
-assuming they share the same application setup.
+```http
+POST /v1/responses
+Authorization: Bearer <access-token>
+x-conversation-id: case-17
+Content-Type: application/json
 
-Streaming is disabled: the approval interaction spans separate HTTP requests
-and returns complete messages. Tickets, turn bookkeeping, and LangGraph state
-are held in process memory. Run one process only; production multi-worker use
-needs shared atomic ticket storage and shared or durable graph checkpoints and
-turn state. The MCP search service and model provider are external requirements.
-
-## Prerequisites
-
-- Python 3.12 or newer
-- An OpenAI API key and permission to call the selected model
-- Network access to the public Microsoft Learn MCP endpoint
-- The packages listed in `requirements.txt`
-
-## Install and configure
-
-Run from the repository root:
-
-```bash
-cd samples/examples/python-langchain-fastapi/04-human-in-the-loop
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-cp .env.sample .env
+{"model":"support-agent","input":"Find the current support policy."}
 ```
 
-Edit `.env` and replace `OPENAI_API_KEY` with your own key. Keep this file local
-and do not commit it. The sample also sets the model and public MCP URL/tool
-name; change those only to values supported by the example's MCP client.
+The host authenticates the caller, resolves the registered agent, applies its
+access policy, and associates the request with `case-17`. The agent follows its
+instructions and may request an approved tool. The application decides whether
+the caller may use that tool and whether the operation needs human approval.
+The runtime or framework adapter maps the completed result to the endpoint's
+response format.
 
-## Start the agent
+If the answer requires a side effect or external request, the application can
+return a pending approval ticket instead of executing it. A later request must
+present that ticket under the same authorized caller and conversation. See the
+[human approval guide](human-approval.md) for the safeguards around this flow.
 
-In the same directory, start the FastAPI app:
+## Implementation examples
 
-```bash
-uvicorn openai_responses_app:app --host 127.0.0.1 --port 8080
-```
-
-The example listens on port 8080 and uses `demo-key` as its local API key.
-`demo-key` is defined in the example source and is not suitable for a shared or
-public deployment.
-
-## Check discovery
-
-In another terminal, list the registered model:
-
-```bash
-curl -sS http://127.0.0.1:8080/v1/models -H 'x-api-key: demo-key'
-```
-
-The result contains the ID `ai-solution-architect-hitl`. A missing or invalid
-key should be rejected by authentication.
-
-## Ask a question and review the operation
-
-Use the same conversation ID for every request in this interaction:
-
-```bash
-curl -sS http://127.0.0.1:8080/v1/chat/completions \
-  -H 'x-api-key: demo-key' \
-  -H 'x-conversation-id: demo' \
-  -H 'Content-Type: application/json' \
-  -d '{"model":"ai-solution-architect-hitl","messages":[{"role":"user","content":"How do I expose a private AKS cluster to partners?"}]}'
-```
-
-When the agent needs documentation, the response says that it is waiting for
-approval, shows the search query, and prints a ticket such as
-`cfm-4f2a1c9b7e03`. Nothing has been sent to Microsoft Learn yet. If the agent
-answers without requesting a search, it returns an ordinary assistant answer.
-
-## Approve or cancel
-
-Copy the ticket from the response. Replace the placeholder below with that
-ticket ID, and keep the same API key and conversation ID:
-
-```bash
-curl -sS http://127.0.0.1:8080/v1/chat/completions \
-  -H 'x-api-key: demo-key' \
-  -H 'x-conversation-id: demo' \
-  -H 'Content-Type: application/json' \
-  -d '{"model":"ai-solution-architect-hitl","messages":[{"role":"user","content":"CONFIRM cfm-<ticket-id>"}]}'
-```
-
-The application parses this command before invoking the model, claims the
-single-use ticket for the authenticated subject and conversation, then resumes
-the suspended graph with the arguments already stored on the ticket. The search
-runs and the agent returns an answer. Send `CANCEL cfm-<ticket-id>` to consume
-the ticket without calling the search. A ticket expires after 15 minutes.
-
-## Stop the service
-
-Stop Uvicorn with `Ctrl+C`. The graph checkpoints and pending tickets are
-in-memory, so stopping the process ends the example's conversation state.
-
-For the individual runtime APIs, see [Human approval](human-approval.md),
-[MCP](mcp.md), [Authentication and discovery](security-and-discovery.md), and
-[Framework integrations](framework-integrations.md).
+The [Python LangChain approval sample](../../samples/python/python-langchain-fastapi/02-human-in-the-loop/README.md)
+combines an authenticated endpoint, discovery, an MCP search tool, conversation
+state, and a two-request approval flow. Its README describes which state is
+process-local and what the example does not combine. For a native MAF agent,
+see the [MAF catalog](../../samples/python/python-agentframework-fastapi/README.md)
+and its framework-specific limits.

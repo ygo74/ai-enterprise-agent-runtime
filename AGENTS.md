@@ -26,7 +26,9 @@ competing set of Codex-only conventions.
   language-specific runtime libraries.
 - `doc/` contains user/operator guides, contributor documentation, and detailed
   Python library guides.
-- `samples/examples/` contains runnable integrations and usage examples.
+- `samples/<language>/` contains runnable language catalogs;
+  `samples/README.md` indexes them. Existing .NET and Java samples remain
+  under `samples/examples/` until migrated.
 - `spec/` contains consolidated system behavior and issue implementation
   records under `spec/implementation/`.
 - `specs/<feature>/` contains active feature specifications, plans, tasks, and

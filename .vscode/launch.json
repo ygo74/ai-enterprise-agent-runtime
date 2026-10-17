@@ -13,7 +13,7 @@
         "--port",
         "8100"
       ],
-      "cwd": "${workspaceFolder:ai-enterprise-agent-runtime}/samples/examples/python-fastapi-quickstart",
+      "cwd": "${workspaceFolder:ai-enterprise-agent-runtime}/samples/python/python-fastapi-quickstart/02-structured-outputs",
       "console": "integratedTerminal",
       "justMyCode": true
     },
@@ -30,8 +30,8 @@
         "--port",
         "8001"
       ],
-      "cwd": "${workspaceFolder:ai-enterprise-agent-runtime}/samples/examples/python-langchain-fastapi/01-get-started",
-      "envFile": "${workspaceFolder:ai-enterprise-agent-runtime}/samples/examples/python-langchain-fastapi/01-get-started/.env",
+      "cwd": "${workspaceFolder:ai-enterprise-agent-runtime}/samples/python/python-langchain-fastapi/01-get-started",
+      "envFile": "${workspaceFolder:ai-enterprise-agent-runtime}/samples/python/python-langchain-fastapi/01-get-started/.env",
       "env": {
         "PYTHONPATH": "${workspaceFolder:ai-enterprise-agent-runtime}/packages/python/security;${workspaceFolder:ai-enterprise-agent-runtime}/packages/python/agents"
       },
@@ -48,7 +48,7 @@
         "openai_responses_jwt_app:app",
         "--reload",
         "--reload-dir",
-        "${workspaceFolder}/samples/examples/python-langchain-fastapi/02-jwt-authentication",
+        "${workspaceFolder}/samples/python/python-fastapi-quickstart/03-jwt-authentication",
         "--reload-dir",
         "${workspaceFolder}/packages/python",
         "--host",
@@ -56,8 +56,8 @@
         "--port",
         "8001"
       ],
-      "cwd": "${workspaceFolder}/samples/examples/python-langchain-fastapi/02-jwt-authentication",
-      "envFile": "${workspaceFolder}/samples/examples/python-langchain-fastapi/02-jwt-authentication/.env",
+      "cwd": "${workspaceFolder}/samples/python/python-fastapi-quickstart/03-jwt-authentication",
+      "envFile": "${workspaceFolder}/samples/python/python-fastapi-quickstart/03-jwt-authentication/.env",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/packages/python"
       },
@@ -75,7 +75,7 @@
         "openai_responses_jwt_app:app",
         "--reload",
         "--reload-dir",
-        "${workspaceFolder}/samples/examples/python-langchain-fastapi/03-jwt-oidc-keycloak",
+        "${workspaceFolder}/samples/python/python-fastapi-quickstart/04-jwt-oidc-keycloak",
         "--reload-dir",
         "${workspaceFolder}/packages/python",
         "--host",
@@ -83,8 +83,8 @@
         "--port",
         "8001"
       ],
-      "cwd": "${workspaceFolder}/samples/examples/python-langchain-fastapi/03-jwt-oidc-keycloak",
-      "envFile": "${workspaceFolder}/samples/examples/python-langchain-fastapi/03-jwt-oidc-keycloak/.env",
+      "cwd": "${workspaceFolder}/samples/python/python-fastapi-quickstart/04-jwt-oidc-keycloak",
+      "envFile": "${workspaceFolder}/samples/python/python-fastapi-quickstart/04-jwt-oidc-keycloak/.env",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/packages/python"
       },
@@ -93,7 +93,7 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "Python: 04-Human in the Loop API (Uvicorn)",
+      "name": "Python: 02-Human in the Loop API (Uvicorn)",
       "type": "debugpy",
       "request": "launch",
       "python": "${workspaceFolder}/venv/agent_client_demo/Scripts/python.exe",
@@ -102,7 +102,7 @@
         "openai_responses_app:app",
         "--reload",
         "--reload-dir",
-        "${workspaceFolder}/samples/examples/python-langchain-fastapi/04-human-in-the-loop",
+        "${workspaceFolder}/samples/python/python-langchain-fastapi/02-human-in-the-loop",
         "--reload-dir",
         "${workspaceFolder}/packages/python",
         "--host",
@@ -110,8 +110,8 @@
         "--port",
         "8001"
       ],
-      "cwd": "${workspaceFolder}/samples/examples/python-langchain-fastapi/04-human-in-the-loop",
-      "envFile": "${workspaceFolder}/samples/examples/python-langchain-fastapi/04-human-in-the-loop/.env",
+      "cwd": "${workspaceFolder}/samples/python/python-langchain-fastapi/02-human-in-the-loop",
+      "envFile": "${workspaceFolder}/samples/python/python-langchain-fastapi/02-human-in-the-loop/.env",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/packages/python"
       },
@@ -120,7 +120,7 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "Python: 05-RAG API (Uvicorn)",
+      "name": "Python: 03-RAG API (Uvicorn)",
       "type": "debugpy",
       "request": "launch",
       "python": "${workspaceFolder}/venv/agent_client_demo/Scripts/python.exe",
@@ -129,7 +129,7 @@
         "openai_rag_app:app",
         "--reload",
         "--reload-dir",
-        "${workspaceFolder}/samples/examples/python-langchain-fastapi/05-rag",
+        "${workspaceFolder}/samples/python/python-langchain-fastapi/03-rag",
         "--reload-dir",
         "${workspaceFolder}/packages/python",
         "--host",
@@ -137,8 +137,8 @@
         "--port",
         "8001"
       ],
-      "cwd": "${workspaceFolder}/samples/examples/python-langchain-fastapi/05-rag",
-      "envFile": "${workspaceFolder}/samples/examples/python-langchain-fastapi/05-rag/.env",
+      "cwd": "${workspaceFolder}/samples/python/python-langchain-fastapi/03-rag",
+      "envFile": "${workspaceFolder}/samples/python/python-langchain-fastapi/03-rag/.env",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/packages/python/security;${workspaceFolder}/packages/python/agents"
       },

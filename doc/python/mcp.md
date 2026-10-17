@@ -182,7 +182,7 @@ alias. The packaged agent and skill schemas reflect their respective parts of
 this contract, and server YAML must match the strict schema, including its
 known fields.
 
-See the [configuration example](../../samples/examples/python-langchain-fastapi/08-mcp-configuration/README.md)
+See the [configuration example](../../samples/python/python-langchain-fastapi/06-mcp-configuration/README.md)
 for shared and distinct server references and a local loader smoke path that
 does not connect to a server.
 
@@ -199,7 +199,7 @@ the remote server.
 
 See the [MCP client binding](../../packages/python/agents/ygo74/agent_runtime/domains/mcp/binding.py)
 and [dialect registry](../../packages/python/agents/ygo74/agent_runtime/domains/mcp/dialects.py).
-The [LangChain + FastAPI example](../../samples/examples/python-langchain-fastapi/01-get-started/README.md)
+The [LangChain + FastAPI example](../../samples/python/python-langchain-fastapi/01-get-started/README.md)
 connects to Microsoft's public Learn MCP service; that example requires its
 external LLM and MCP service prerequisites.
 
@@ -228,4 +228,4 @@ An omitted HTTP authentication choice is a startup error rather than an
 implicit anonymous service.
 
 For setup and environment variables, follow the detailed [MCP server hosting
-guide](../users/mcp-server-hosting.md) and [runnable MCP server example](../../samples/examples/python-mcp-server/README.md).
+guide](../users/mcp-server-hosting.md) and [runnable MCP server example](../../samples/python/python-mcp-server/README.md).

@@ -29,7 +29,7 @@ describes supported behavior and public contracts.
 Start with package boundaries, then read the domain page you plan to change.
 Follow the linked implementation and tests before changing a contract. Shared
 wire formats and schemas are under `specs/`; current system behavior is under
-`spec/`; runnable consumer examples are under `samples/examples/`.
+`spec/`; runnable consumer examples are indexed under `samples/` by language.
 
 Detailed Python package and integration guides are indexed in
 [`../python/README.md`](../python/README.md).

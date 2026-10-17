@@ -24,7 +24,7 @@ on how those pieces participate in approval flows.
 
 The runtime does not provide a universal approval screen, chat card, or
 framework adapter. The existing
-[LangChain/LangGraph example](../../samples/examples/python-langchain-fastapi/04-human-in-the-loop/README.md)
+[LangChain/LangGraph example](../../samples/python/python-langchain-fastapi/02-human-in-the-loop/README.md)
 shows the cross-request flow for a FastAPI agent.
 
 ## Declare the operation and confirmation policy
@@ -223,7 +223,7 @@ prompt.
 
 The existing example uses LangChain's `HumanInTheLoopMiddleware` to suspend
 calls, LangGraph's checkpointer to retain state, and a small
-[`LangGraphApprovalBridge`](../../samples/examples/python-langchain-fastapi/04-human-in-the-loop/langgraph_approval.py)
+[`LangGraphApprovalBridge`](../../samples/python/python-langchain-fastapi/02-human-in-the-loop/langgraph_approval.py)
 to translate interrupts and resume commands. Framework-specific inspection,
 resume and response parsing remain in that adapter. The runtime's
 [`ApprovalLoop`](../../packages/python/agents/ygo74/agent_runtime/domains/humanapproval/approval_loop.py)
@@ -250,7 +250,7 @@ and an atomic ticket store.
 
 ## What the current example demonstrates
 
-The [human-in-the-loop walkthrough](../../samples/examples/python-langchain-fastapi/04-human-in-the-loop/README.md)
+The [human-in-the-loop walkthrough](../../samples/python/python-langchain-fastapi/02-human-in-the-loop/README.md)
 is the existing end-to-end example. It requires Python 3.12 or newer, an OpenAI
 API key, and access to Microsoft's public Microsoft Learn MCP service. Its
 README contains the dependency installation, environment setup, server command,

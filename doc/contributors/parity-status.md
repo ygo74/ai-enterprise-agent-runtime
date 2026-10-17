@@ -262,7 +262,7 @@ incomplete, it is wrong.
   here. LangGraph's interrupts, Microsoft Agent Framework's approval mode and
   whatever comes next are each that framework's business; a library that knew
   would have to know all of them. See
-  `samples/examples/python-langchain-fastapi/04-human-in-the-loop` for what such a
+  `samples/python/python-langchain-fastapi/02-human-in-the-loop` for what such a
   bridge looks like.
 - `domains.sessions` and `domains.mcp` are **Python-first for a stronger reason**
   than the rest: the first is built on `asyncio` primitives and the second on the

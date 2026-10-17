@@ -10,7 +10,8 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def example(monkeypatch):
-    directory = Path(__file__).resolve().parents[3] / "samples" / "examples" / "python-agentframework-fastapi"
+    directory = (Path(__file__).resolve().parents[3] / "samples" / "python" / "python-agentframework-fastapi"
+                 / "04-native-agent")
     monkeypatch.syspath_prepend(str(directory))
     monkeypatch.setenv("NATIVE_WORKER_API_KEY", "controlled-test-key")
     definition, deployment = import_module("definition"), import_module("deployment")
@@ -129,7 +130,7 @@ def test_actual_local_dispatch_performance_budget(example):
     from time import perf_counter
 
     directory, worker = example
-    root = directory.parents[2]
+    root = directory.parents[3]
     budgets = json.loads((root / "tests" / "performance" / "baselines" / "performance_thresholds.json").read_text())
     latencies = []
     with TestClient(worker.build_app()) as client:
@@ -164,7 +165,7 @@ async def test_actual_normalization_and_native_first_event_budgets(example):
     )
 
     directory, _ = example
-    budgets = json.loads((directory.parents[2] / "tests" / "performance" / "baselines" / "performance_thresholds.json").read_text())
+    budgets = json.loads((directory.parents[3] / "tests" / "performance" / "baselines" / "performance_thresholds.json").read_text())
     reader = ConversationPayloadReader(require_email=False)
     normalization, first_events = [], []
     for _ in range(40):

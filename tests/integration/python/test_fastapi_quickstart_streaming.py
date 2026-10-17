@@ -12,8 +12,9 @@ import httpx
 EXAMPLE_PATH = (
     Path(__file__).resolve().parents[3]
     / "samples"
-    / "examples"
+    / "python"
     / "python-fastapi-quickstart"
+    / "01-basic-endpoint"
     / "app.py"
 )
 

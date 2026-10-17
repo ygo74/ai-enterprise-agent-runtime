@@ -1,51 +1,34 @@
-# Use LangChain or Microsoft Agent Framework
+# Framework integrations
 
-The runtime keeps framework-specific dependencies in optional distributions.
-Install the adapter for the framework your application uses, in addition to
-the agents distribution and any HTTP extra.
+Framework integrations connect an agent built with an existing framework to
+the runtime's endpoint and output contracts. An adapter translates framework
+results and streaming updates; the application remains responsible for agent
+instructions, business rules, tool permissions, and framework-specific state.
 
-## LangChain and LangGraph
+## Choose a supported integration
 
-From the repository root, install the integration into an isolated environment
-with the example's requirements:
+Support depends on the implementation language and the framework version. The
+current Python integrations include LangChain/LangGraph and Microsoft Agent
+Framework. Their runnable scenarios are listed in the [Python sample catalog](../../samples/python/README.md).
 
-```bash
-cd samples/examples/python-langchain-fastapi/01-get-started
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
+- [LangChain guide](../python/langchain.md): result and event adapters, worker
+  options, and supported input profiles.
+- [Microsoft Agent Framework guide](../python/agentframework.md): native MAF
+  agents, result and update conversion, and current support limits.
+
+## Shared request shape
+
+A client sends the request to the endpoint registered by the host. For example:
+
+```http
+POST /v1/responses
+Content-Type: application/json
+
+{"model":"support-agent","input":"Summarize the service limits."}
 ```
 
-Create `.env` from `.env.sample`, set `OPENAI_API_KEY`, and follow the example
-README to start the server. It listens on port 8001 by default. Send a question
-with:
-
-```powershell
-Invoke-RestMethod -Method Post `
-  -Uri "http://127.0.0.1:8001/v1/responses" `
-  -ContentType "application/json" `
-  -Body '{"model":"gpt-5-chat","input":"Design an enterprise RAG architecture."}'
-```
-
-The example returns a Responses API result containing the agent's architecture
-answer. It calls the Microsoft Learn MCP service when research is needed. See the
-[LangChain guide](../../doc/python/langchain.md) for supported adapters and
-event conversion.
-
-## Microsoft Agent Framework
-
-The Microsoft Agent Framework example is in
-[`samples/examples/python-agentframework-fastapi/`](../../samples/examples/python-agentframework-fastapi/).
-Its README explains setup and the API call. The example adapts SDK response and
-stream updates to neutral runtime outputs; install the framework adapter only
-when using this SDK. See the
-[Agent Framework guide](../../doc/python/agentframework.md) for the supported
-types and limitations.
-
-## Native LangGraph worker
-
-The runtime can also host a trusted native LangGraph factory through its managed
-worker. The [offline worker example](../../samples/examples/python-langchain-fastapi/06-native-langgraph/README.md)
-uses a deterministic fake model, so it needs no provider credentials. It has no
-tools; a graph with tools needs an explicit admission hook. The worker handles
-authentication, discovery, readiness, conversation cache, and shutdown.
+The host selects the agent, invokes the framework adapter, and maps its output
+to the selected provider response. The adapter does not make one framework's
+features identical to another's. Review the integration guide and sample README
+for limits such as input profiles, tool admission, streaming, and conversation
+state.

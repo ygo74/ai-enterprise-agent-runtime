@@ -175,7 +175,7 @@ The integration reuses the core `AgentOutput`, media sources, JSON union,
 pivot. A single content mapper serves final and streaming adapters; the latter
 alone owns invocation-local correlation.
 
-The [offline runnable example](../../samples/examples/python-agentframework-fastapi/README.md)
+The [offline runnable native-worker example](../../samples/python/python-agentframework-fastapi/04-native-agent/README.md)
 uses real SDK types and `HostingFactory`, with no inference credentials. Its tests
 cover all three HTTP surfaces in both modes. Integration fixtures cover selection,
 tools, media, usage and parallel argument fragments. This Python-first integration

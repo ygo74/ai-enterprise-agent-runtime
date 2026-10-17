@@ -26,7 +26,7 @@ from ygo74.agent_runtime.domains.contracts.stream_events import (
     TextDelta,
 )
 
-EXAMPLES = Path(__file__).resolve().parents[3] / "samples" / "examples"
+SAMPLES = Path(__file__).resolve().parents[3] / "samples" / "python"
 
 
 class ExampleLoader:
@@ -34,10 +34,10 @@ class ExampleLoader:
     def load(folder: str, filename: str, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
         category = (
             "python-fastapi-quickstart"
-            if folder in {"02-jwt-authentication", "03-jwt-oidc-keycloak"}
+            if folder in {"03-jwt-authentication", "04-jwt-oidc-keycloak"}
             else "python-langchain-fastapi"
         )
-        directory = EXAMPLES / category / folder
+        directory = SAMPLES / category / folder
         monkeypatch.syspath_prepend(str(directory))
         for name in (
             "env_loader",
@@ -162,9 +162,9 @@ def test_architect_fastapi_entrypoint_imports_and_converts_both_modes(
 
 
 def test_rag_host_wraps_text_and_preserves_sources_without_network(monkeypatch: pytest.MonkeyPatch) -> None:
-    example = ExampleLoader.load("05-rag", "openai_rag_app.py", monkeypatch)
+    example = ExampleLoader.load("03-rag", "openai_rag_app.py", monkeypatch)
     application = example.RagApplication(
-        EXAMPLES / "python-langchain-fastapi" / "05-rag" / "knowledge_base"
+        SAMPLES / "python-langchain-fastapi" / "03-rag" / "knowledge_base"
     )
     application._agent = LocalRagFixture()
     payload = {"input": [
@@ -187,7 +187,7 @@ def test_rag_host_wraps_text_and_preserves_sources_without_network(monkeypatch: 
     asyncio.run(run())
 
 
-@pytest.mark.parametrize("folder", ["02-jwt-authentication", "03-jwt-oidc-keycloak"])
+@pytest.mark.parametrize("folder", ["03-jwt-authentication", "04-jwt-oidc-keycloak"])
 def test_jwt_handlers_preserve_verified_identity_in_typed_content(
     folder: str, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -206,7 +206,7 @@ def test_jwt_handlers_preserve_verified_identity_in_typed_content(
     assert record["subject"] == "verified-subject"
     assert record["claims"] == {"sub": "verified-subject"}
     assert record["input"] == "hello"
-    if folder == "03-jwt-oidc-keycloak":
+    if folder == "04-jwt-oidc-keycloak":
         assert record["roles"] == ["admin"]
         assert record["groups"] == ["engineering"]
 
@@ -218,7 +218,7 @@ def test_jwt_example_still_rejects_missing_credentials_and_accepts_verified_toke
     monkeypatch.setenv("JWT_HS256_SECRET", secret)
     monkeypatch.setenv("JWT_ISSUER", "https://offline.example")
     monkeypatch.setenv("JWT_AUDIENCE", "offline")
-    example = ExampleLoader.load("02-jwt-authentication", "openai_responses_jwt_app.py", monkeypatch)
+    example = ExampleLoader.load("03-jwt-authentication", "openai_responses_jwt_app.py", monkeypatch)
     token = jwt.encode(
         {"sub": "alice", "exp": 4102444800, "nbf": 0, "iss": "https://offline.example", "aud": "offline"},
         secret, algorithm="HS256",
@@ -241,7 +241,7 @@ def test_jwt_example_still_rejects_missing_credentials_and_accepts_verified_toke
 def test_hitl_example_uses_managed_langgraph_worker_and_authenticated_surfaces(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    example = ExampleLoader.load("04-human-in-the-loop", "openai_responses_app.py", monkeypatch)
+    example = ExampleLoader.load("02-human-in-the-loop", "openai_responses_app.py", monkeypatch)
     assert example.definition.descriptor.agent_id == "ai-solution-architect-hitl"
     assert example.definition.tools == example.OPERATIONS
     assert example.definition.control_point == "approval-ticket-store"

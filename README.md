@@ -30,7 +30,7 @@ parity limits.
 - [`packages/dotnet/`](packages/dotnet/): .NET package (`Ygo74.AgentRuntime`)
 - [`packages/java/`](packages/java/): Java package (`ygo74-agent-runtime`)
 - [`tests/`](tests/): contract, integration, parity, and performance tests
-- [`samples/examples/`](samples/examples/): example integrations
+- [`samples/`](samples/): language-first sample catalogs; existing .NET and Java samples remain under `samples/examples/`
 - [`spec/`](spec/): consolidated system specification
 - [`specs/001-openai-endpoint-exposure/`](specs/001-openai-endpoint-exposure/): legacy feature contracts and validation assets
 
@@ -111,7 +111,7 @@ capabilities.
 
 1. Pick your target runtime in [`packages/python/`](packages/python/), [`packages/dotnet/`](packages/dotnet/), or [`packages/java/`](packages/java/).
 2. Review current behavior in [`spec/`](spec/) and shared machine-readable contracts in [`specs/001-openai-endpoint-exposure/contracts/`](specs/001-openai-endpoint-exposure/contracts/).
-3. Explore usage patterns in [`samples/examples/`](samples/examples/).
+3. Explore runnable integrations in the language-first [`samples/`](samples/) catalog.
 
 Important documents:
 
@@ -131,10 +131,10 @@ The repository is multi-language. The commands below are the currently documente
 
 ### Install the local Python quickstart
 
-From [`samples/examples/python-fastapi-quickstart/README.md`](samples/examples/python-fastapi-quickstart/README.md):
+From the [basic endpoint sample](samples/python/python-fastapi-quickstart/01-basic-endpoint/README.md):
 
 ```powershell
-cd samples/examples/python-fastapi-quickstart
+cd samples/python/python-fastapi-quickstart/01-basic-endpoint
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
@@ -150,10 +150,10 @@ DOTNET_CLI_HOME=/mnt/c/devel/ai-enterprise-agent-runtime dotnet test tests/dotne
 
 ### Start the local Python endpoint
 
-From [`samples/examples/python-fastapi-quickstart/README.md`](samples/examples/python-fastapi-quickstart/README.md):
+From the [basic endpoint sample](samples/python/python-fastapi-quickstart/01-basic-endpoint/README.md):
 
 ```powershell
-cd samples/examples/python-fastapi-quickstart
+cd samples/python/python-fastapi-quickstart/01-basic-endpoint
 uvicorn app:app --reload --port 8000
 ```
 
