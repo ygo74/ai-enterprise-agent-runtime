@@ -40,7 +40,9 @@ def _config(secret: str = "secret", *, leeway_seconds: int = 0) -> JwtValidation
     )
 
 
-def _authenticator(secret: str = "secret", *, leeway_seconds: int = 0) -> JwtAuthenticator:
+def _authenticator(
+    secret: str = "secret", *, leeway_seconds: int = 0
+) -> JwtAuthenticator:
     return JwtAuthenticator(_config(secret, leeway_seconds=leeway_seconds))
 
 
@@ -52,6 +54,22 @@ def test_jwt_valid(now: datetime) -> None:
     assert ctx.user_id == "user-123"
     assert ctx.auth_type == "jwt"
     assert ctx.claims["iss"] == "https://issuer.example.com"
+
+
+def test_jwt_retains_only_a_redacted_verified_token_for_downstream_exchange(
+    now: datetime,
+) -> None:
+    """The validated credential is available internally but excluded from auth payloads."""
+    token = jwt.encode(_base_claims(now), "secret", algorithm="HS256")
+
+    context = _authenticator().authenticate_token(token)
+
+    assert context.verified_access_token is not None
+    assert context.verified_access_token.expose() == token
+    assert context.verified_access_token.audience == "runtime"
+    assert token not in repr(context)
+    assert token not in repr(context.to_dict())
+    assert "verified_access_token" not in context.to_dict()
 
 
 def test_jwt_profile_and_roles_from_configurable_path(now: datetime) -> None:
@@ -86,7 +104,11 @@ def test_jwt_profile_and_roles_from_configurable_path(now: datetime) -> None:
     assert ctx.groups == ["/enterprise/agents"]
     assert ctx.scopes == ["openid", "profile", "email"]
     assert ctx.has_role("admin")
-    assert ctx.claims["realm_access"]["roles"] == ["offline_access", "admin", "uma_authorization"]
+    assert ctx.claims["realm_access"]["roles"] == [
+        "offline_access",
+        "admin",
+        "uma_authorization",
+    ]
 
 
 def test_jwt_roles_default_to_empty_without_configured_path(now: datetime) -> None:
@@ -211,7 +233,9 @@ def test_clock_skew_supported(now: datetime) -> None:
 
 
 def test_key_rotation_with_kid(now: datetime) -> None:
-    resolver = RotatingKeyResolver(keys_by_kid={"old": "secret-old", "new": "secret-new"})
+    resolver = RotatingKeyResolver(
+        keys_by_kid={"old": "secret-old", "new": "secret-new"}
+    )
     authenticator = JwtAuthenticator(
         JwtValidationConfig(
             allowed_algorithms=("HS256",),
@@ -222,8 +246,12 @@ def test_key_rotation_with_kid(now: datetime) -> None:
         )
     )
 
-    token_old = jwt.encode(_base_claims(now), "secret-old", algorithm="HS256", headers={"kid": "old"})
-    token_new = jwt.encode(_base_claims(now), "secret-new", algorithm="HS256", headers={"kid": "new"})
+    token_old = jwt.encode(
+        _base_claims(now), "secret-old", algorithm="HS256", headers={"kid": "old"}
+    )
+    token_new = jwt.encode(
+        _base_claims(now), "secret-new", algorithm="HS256", headers={"kid": "new"}
+    )
 
     assert authenticator.authenticate_token(token_old).user_id == "user-123"
     assert authenticator.authenticate_token(token_new).user_id == "user-123"

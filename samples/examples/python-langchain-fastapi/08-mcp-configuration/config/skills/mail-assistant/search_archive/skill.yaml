@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../../../../../../../../packages/python/agents/ygo74/agent_runtime/domains/configuration/schemas/skill.schema.json
+tool_name: search_archive
+implementation: mail.search_archive
+description: Search archived mail.
+operation:
+  type: READ
+  risk: LOW
+  permission: mail:read
+  confirmation_required: false
+mcp_server: archive
+mcp_tools:
+  - search_mail

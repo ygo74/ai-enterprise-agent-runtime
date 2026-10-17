@@ -53,6 +53,31 @@
     }
   },
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "mcp_server": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "mcp_server"
+        ]
+      },
+      "then": {
+        "properties": {
+          "mcp_tools": {
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "mcp_tools"
+        ]
+      }
+    }
+  ],
   "description": "The fixed YAML fields accepted for one skill package.",
   "properties": {
     "tool_name": {
@@ -75,6 +100,20 @@
     },
     "operation": {
       "$ref": "#/$defs/OperationManifestInput"
+    },
+    "mcp_server": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mcp Server"
     },
     "mcp_tools": {
       "default": [],

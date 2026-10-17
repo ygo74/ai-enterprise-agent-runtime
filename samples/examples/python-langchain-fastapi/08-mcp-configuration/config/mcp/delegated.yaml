@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../../../../../../packages/python/agents/ygo74/agent_runtime/domains/configuration/schemas/mcp-server.schema.json
+server: delegated-archive-http
+transport: http
+url: https://archive.example.test/delegated-mcp
+capabilities:
+  - search_mail
+tools:
+  search_mail: archive_search_as_user
+authentication_mode: oauth_on_behalf_of
+authentication_oauth_on_behalf_of:
+  token_url: https://identity.example.test/realms/agents/protocol/openid-connect/token
+  client_id: mail-assistant
+  client_secret: ${OBO_MCP_CLIENT_SECRET}
+  audience: https://archive.example.test
+  scopes:
+    - archive.read

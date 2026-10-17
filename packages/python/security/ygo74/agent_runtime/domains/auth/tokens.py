@@ -8,8 +8,11 @@ style:
    ``print`` or f-string cannot leak it.
 2. A token received from a caller is never forwarded to a downstream server. The
    MCP specification forbids that passthrough outright and requires a server to
-   check that a token was issued for *it*. :class:`DelegatedTokenSource` exists
-   so an agent exchanges the token instead of relaying it.
+   check that a token was issued for *it*. :class:`DelegatedTokenSource` can mint
+   a token from caller identity without seeing a credential. When a provider
+   requires OAuth on-behalf-of, the separate
+   :class:`OAuthOnBehalfOfTokenSource` receives a verified subject token solely
+   to exchange it; the resulting token is sent downstream.
 3. Verification produces an :class:`AgentPrincipal` and nothing else. An
    application therefore cannot accidentally depend on a claim it has not
    modelled.
@@ -56,6 +59,7 @@ class AccessToken:
         value (str): The value being converted, checked, or serialized.
         audience (str): Expected JWT audience identifying this API.
     """
+
     value: str
     audience: str = ""
 
@@ -77,9 +81,32 @@ class AccessToken:
         return self.__repr__()
 
 
+@dataclass(frozen=True, slots=True)
+class DelegatedTokenRequest:
+    """Typed input for exchanging a verified caller token for a downstream token.
+
+    Args:
+        principal (AgentPrincipal): Authenticated caller represented by the subject token.
+        subject_token (AccessToken): Verified inbound token used only for exchange.
+        audience (str): Resource identifier for the downstream service.
+        scopes (tuple[str, ...]): Scopes requested for the downstream token.
+    """
+
+    principal: AgentPrincipal
+    subject_token: AccessToken
+    audience: str
+    scopes: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        """Require a concrete audience before any provider exchange is attempted."""
+        if not self.audience.strip():
+            raise ValueError("a delegated token request requires an audience")
+
+
 @runtime_checkable
 class TokenVerifier(Protocol):
     """Establishes who a caller is from a presented bearer token."""
+
     def verify(self, token: AccessToken) -> AgentPrincipal:
         """Return the authenticated caller.
 
@@ -99,8 +126,10 @@ class DelegatedTokenSource(Protocol):
 
     This is what keeps a token scoped to one hop. A downstream server must be
     able to check that the token it receives was issued for it, which it cannot
-    do if the agent forwards the token its own caller presented.
+    do if the agent forwards the token its own caller presented. This port
+    receives identity and audience only; it never receives the caller's token.
     """
+
     async def token_for(self, principal: AgentPrincipal, audience: str) -> AccessToken:
         """Return a token the given audience will accept for this principal.
 
@@ -108,7 +137,29 @@ class DelegatedTokenSource(Protocol):
             TokenExchangeError: the authority refused the exchange.
 
         Args:
-            principal (AgentPrincipal): Authenticated principal whose identity and claims are being projected.
-            audience (str): Expected JWT audience identifying this API.
+            principal (AgentPrincipal): Authenticated caller whose identity is delegated.
+            audience (str): Expected JWT audience identifying the downstream API.
+        """
+        ...
+
+
+@runtime_checkable
+class OAuthOnBehalfOfTokenSource(Protocol):
+    """Exchanges a verified subject token for an OAuth token for another service.
+
+    This credential-bearing port is deliberately separate from
+    :class:`DelegatedTokenSource`. Implementations send the verified subject
+    token only to the configured identity provider's exchange endpoint and
+    return a token for the requested downstream audience.
+    """
+
+    async def token_for(self, request: DelegatedTokenRequest) -> AccessToken:
+        """Exchange the verified subject token for a downstream audience.
+
+        Raises:
+            TokenExchangeError: the authority refused the exchange.
+
+        Args:
+            request (DelegatedTokenRequest): Verified subject credential, caller, target audience, and requested scopes.
         """
         ...

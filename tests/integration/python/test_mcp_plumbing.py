@@ -11,14 +11,26 @@ quietly holding far broader access than it asked for.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 from contextlib import asynccontextmanager
 from enum import StrEnum
 from pathlib import Path
+from typing import Self
 
 import pytest
+from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
+from ygo74.agent_runtime.domains.auth.oauth_token_exchange import (
+    OAuthTokenExchangeSettings,
+)
+from ygo74.agent_runtime.domains.auth.tokens import (
+    AccessToken,
+    DelegatedTokenRequest,
+    TokenExchangeError,
+)
 from ygo74.agent_runtime.domains.mcp.binding import (
     McpConnection,
+    McpNetworkSettings,
     McpServerBinding,
     McpServerBindingLoader,
     McpTransport,
@@ -32,6 +44,10 @@ from ygo74.agent_runtime.domains.mcp.oauth import (
     CALLBACK_PATH,
     PinnedScopeOAuthProvider,
     loopback_redirect_uri,
+)
+from ygo74.agent_runtime.domains.mcp.request_context import (
+    McpRequestContext,
+    McpRequestContextScope,
 )
 
 
@@ -63,6 +79,18 @@ tools:
   search_items: remote_search
   send_item: remote_send
 """
+
+
+class _UnusedDelegatedTokenSource:
+    """Reject unexpected token exchanges in session partition tests."""
+
+    async def token_for(self, request: DelegatedTokenRequest) -> AccessToken:
+        """Fail if the session-only test unexpectedly performs an exchange.
+
+        Args:
+            request (DelegatedTokenRequest): Caller, subject token, audience, and scopes to exchange.
+        """
+        raise AssertionError("session partition test must not exchange a token")
 
 
 def test_a_binding_declares_how_to_reach_a_server(tmp_path: Path) -> None:
@@ -280,6 +308,121 @@ def test_http_headers_reach_only_the_http_transport(monkeypatch: pytest.MonkeyPa
     assert received["headers"] == headers
     assert "secret-value" not in repr(connection)
     assert "secret-value" not in caplog.text
+
+
+def test_http_connection_builds_an_httpx_client_with_configured_proxy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The configured proxy reaches the pinned SDK's HTTP client factory."""
+    from ygo74.agent_runtime.domains.mcp import binding as binding_module
+
+    received: dict[str, object] = {}
+
+    class FakeHttpClient:
+        async def aclose(self) -> None:
+            return None
+
+    def fake_httpx_client(**kwargs: object) -> FakeHttpClient:
+        received.update(kwargs)
+        return FakeHttpClient()
+
+    @asynccontextmanager
+    async def fake_transport(url: str, **kwargs: object):
+        received["url"] = url
+        factory = kwargs["httpx_client_factory"]
+        client = factory(headers=None, timeout=None, auth=None)
+        await client.aclose()
+        yield object(), object(), None
+
+    monkeypatch.setattr(binding_module.httpx, "AsyncClient", fake_httpx_client)
+    monkeypatch.setattr(binding_module, "streamablehttp_client", fake_transport)
+    monkeypatch.setattr(binding_module, "ClientSession", lambda *args, **kwargs: _FakeSession())
+    connection = McpConnection(
+        _binding(),
+        network=McpNetworkSettings(proxy_url="http://proxy.example.test:8080"),
+    )
+
+    async def scenario() -> None:
+        await connection.session()
+        await connection.aclose()
+
+    import asyncio
+
+    asyncio.run(scenario())
+
+    assert received["url"] == "https://example.test/mcp"
+    assert received["proxy"] == "http://proxy.example.test:8080"
+
+
+def test_obo_connection_reuses_sessions_per_principal_and_separates_callers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OBO sessions are reused within a principal, never across principals."""
+    connection = McpConnection(
+        _binding(),
+        delegated_oauth=OAuthTokenExchangeSettings("https://mcp.example.test"),
+        delegated_token_source=_UnusedDelegatedTokenSource(),
+    )
+    opened: list[object] = []
+
+    async def fake_connect(state: object, context: McpRequestContext) -> object:
+        """Return a unique session while recording which context opened it."""
+        session = object()
+        opened.append(session)
+        return session
+
+    monkeypatch.setattr(connection, "_connect", fake_connect)
+
+    def context(subject: str) -> McpRequestContext:
+        """Build a verified OBO context for one test principal."""
+        return McpRequestContext(
+            principal=AgentPrincipal(subject=subject),
+            subject_token=AccessToken(f"token-{subject}", audience="agent-api"),
+        )
+
+    async def scenario() -> tuple[object, object, object]:
+        """Resolve each principal's session through the public API."""
+        with McpRequestContextScope.bind(context("ada")):
+            ada_first = await connection.session()
+        with McpRequestContextScope.bind(context("ada")):
+            ada_second = await connection.session()
+        with McpRequestContextScope.bind(context("lin")):
+            lin = await connection.session()
+        return ada_first, ada_second, lin
+
+    ada_first, ada_second, lin = asyncio.run(scenario())
+
+    assert ada_first is ada_second
+    assert ada_first is not lin
+    assert len(opened) == 2
+
+
+def test_obo_connection_requires_a_verified_principal() -> None:
+    """An OBO connection cannot fall back to a shared anonymous session."""
+    connection = McpConnection(
+        _binding(),
+        delegated_oauth=OAuthTokenExchangeSettings("https://mcp.example.test"),
+        delegated_token_source=_UnusedDelegatedTokenSource(),
+    )
+
+    with pytest.raises(TokenExchangeError):
+        asyncio.run(connection.session())
+
+    asyncio.run(connection.aclose())
+
+
+class _FakeSession:
+    """No-op MCP session for transport setup tests."""
+
+    async def __aenter__(self) -> Self:
+        """Enter the fake MCP session context."""
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        """Exit the fake MCP session context."""
+
+    async def initialize(self) -> None:
+        """Accept initialization without network traffic."""
 
 
 def test_the_redirect_stays_on_the_loopback_interface() -> None:

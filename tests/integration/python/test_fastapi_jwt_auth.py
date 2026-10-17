@@ -13,6 +13,7 @@ from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
 )
 from ygo74.agent_runtime.domains.contracts import AgentOutput, TextContent
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
+from ygo74.agent_runtime.domains.mcp.request_context import McpRequestContextScope
 
 
 async def _entrypoint(payload: dict) -> AgentOutput:
@@ -115,6 +116,59 @@ def test_fastapi_authenticates_bearer_and_normalizes_auth_context() -> None:
     auth_context = json.loads(body["output_text"])["auth_context"]
     assert auth_context["authType"] == "jwt"
     assert auth_context["identity"]["userId"] == "user-abc"
+
+
+def test_fastapi_keeps_verified_token_internal_and_scopes_it_to_agent_execution() -> (
+    None
+):
+    """The normalized callback payload stays credential-free while MCP code can exchange the token."""
+    app = FastAPI()
+    observed: dict[str, object] = {}
+
+    async def entrypoint(payload: dict) -> AgentOutput:
+        """Observe internal MCP context without changing the standard exchange payload."""
+        context = McpRequestContextScope.current()
+        observed["request_id"] = payload["request_id"]
+        observed["principal"] = None if context is None else context.principal
+        observed["conversation_id"] = (
+            None if context is None else context.conversation_id
+        )
+        observed["subject_token"] = None if context is None else context.subject_token
+        observed["payload"] = payload
+        return AgentOutput((TextContent("ok"),))
+
+    add_ai_endpoints(
+        app,
+        entrypoint,
+        default_route_key="demo-route",
+        jwt_validation=_config(),
+    )
+    token = _valid_token()
+
+    response = asyncio.run(
+        _post_json(
+            app,
+            "/v1/responses",
+            {
+                "model": "gpt-5-chat",
+                "input": "hello",
+                "metadata": {"request_id": "req-1"},
+            },
+            headers={
+                "Authorization": f"Bearer {token}",
+                "X-Conversation-Id": "session-42",
+            },
+        )
+    )
+
+    assert response.status_code == 200
+    assert observed["principal"].subject == "user-abc"
+    assert observed["conversation_id"] == "session-42"
+    assert observed["subject_token"].expose() == token
+    assert "subject_token" not in observed["payload"]
+    assert token not in repr(observed["payload"])
+    assert token not in response.text
+    assert McpRequestContextScope.current() is None
 
 
 async def _post_json(

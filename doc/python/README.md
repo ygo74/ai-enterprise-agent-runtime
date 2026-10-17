@@ -24,7 +24,7 @@ to serve a local endpoint.
 - [Security](security.md): FastAPI and MCP authentication, caller context,
   agent and handler authorization, safe header forwarding, and application
   permission, audit, operation-classification, and untrusted-content primitives
-- [MCP](mcp.md): MCP client bindings and MCP server hosting
+- [MCP](mcp.md): MCP client bindings, declarative client configuration, and MCP server hosting
 
 ## Runnable examples
 
@@ -32,7 +32,8 @@ to serve a local endpoint.
   local runtime handler without an agent SDK or external credentials; also
   contains JWT and Keycloak authentication examples
 - [LangChain + FastAPI examples](../../samples/examples/python-langchain-fastapi/README.md):
-  richer agent integration, authentication, descriptors, and human approval
+  richer agent integration, authentication, descriptors, human approval, and
+  declarative MCP client configuration
 - [Python MCP server](../../samples/examples/python-mcp-server/README.md): protected
   streamable HTTP server
 - [Microsoft Agent Framework + FastAPI](../../samples/examples/python-agentframework-fastapi/README.md):

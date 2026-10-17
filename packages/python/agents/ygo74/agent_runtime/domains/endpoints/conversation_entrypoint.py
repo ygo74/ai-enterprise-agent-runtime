@@ -18,6 +18,10 @@ from ygo74.agent_runtime.domains.endpoints.conversation_payloads import (
     AgentReplyRenderer,
     ConversationPayloadReader,
 )
+from ygo74.agent_runtime.domains.mcp.request_context import (
+    McpRequestContext,
+    McpRequestContextScope,
+)
 from ygo74.agent_runtime.domains.sessions.continuity_diagnostics import (
     ContinuityDiagnostics,
 )
@@ -68,8 +72,13 @@ class ConversationEntrypoint:
         default_conversation: Fallback handle within the verified caller.
     """
 
-    def __init__(self, engine: StreamingConversationEngine, *, require_email: bool = False,
-                 default_conversation: str = DEFAULT_CONVERSATION) -> None:
+    def __init__(
+        self,
+        engine: StreamingConversationEngine,
+        *,
+        require_email: bool = False,
+        default_conversation: str = DEFAULT_CONVERSATION,
+    ) -> None:
         """Retain the engine and shared payload adapters.
 
         Args:
@@ -78,10 +87,14 @@ class ConversationEntrypoint:
             default_conversation: Default caller-scoped handle.
         """
         self._engine = engine
-        self._reader = ConversationPayloadReader(require_email=require_email, default_conversation=default_conversation)
+        self._reader = ConversationPayloadReader(
+            require_email=require_email, default_conversation=default_conversation
+        )
         self._renderer = AgentReplyRenderer()
 
-    async def __call__(self, payload: Mapping[str, Any]) -> StandardExchangeResponse | AsyncIterator[AgentStreamEvent]:
+    async def __call__(
+        self, payload: Mapping[str, Any]
+    ) -> StandardExchangeResponse | AsyncIterator[AgentStreamEvent]:
         """Invoke the actual native mode requested by the transport.
 
         Args:
@@ -89,39 +102,59 @@ class ConversationEntrypoint:
         """
         turn = self.to_turn(payload)
         correlation = str(payload.get("request_id") or uuid4().hex)
+        base_context = McpRequestContextScope.current() or McpRequestContext()
+        request_context = base_context.with_turn(turn, correlation)
         if payload.get("stream") is True:
             return self._correlated_stream(
                 turn,
                 correlation,
+                request_context=request_context,
                 require_initial_usage=payload.get("require_initial_usage") is True,
             )
-        with ContinuityDiagnostics.request(correlation):
+        with (
+            McpRequestContextScope.bind(request_context),
+            ContinuityDiagnostics.request(correlation),
+        ):
             return self.to_payload(payload, await self._engine.respond(turn))
 
     async def _correlated_stream(
-        self, turn: ConversationTurn, correlation: str, *, require_initial_usage: bool = False,
+        self,
+        turn: ConversationTurn,
+        correlation: str,
+        *,
+        request_context: McpRequestContext,
+        require_initial_usage: bool = False,
     ) -> AsyncGenerator[AgentStreamEvent]:
         """Scope each pull and cleanup, never leaking context across consumer yields.
 
         Args:
             turn: Verified latest-user turn.
             correlation: Transport request correlation, fingerprinted before use.
+            request_context: Trusted identity, request, and conversation values for this invocation.
             require_initial_usage: Hold visible events until real usage is known where supported.
         """
-        if require_initial_usage and isinstance(self._engine, InitialUsageStreamingConversationEngine):
+        if require_initial_usage and isinstance(
+            self._engine, InitialUsageStreamingConversationEngine
+        ):
             producer = self._engine.stream(turn, require_initial_usage=True)
         else:
             producer = self._engine.stream(turn)
         try:
             while True:
-                with ContinuityDiagnostics.request(correlation):
+                with (
+                    McpRequestContextScope.bind(request_context),
+                    ContinuityDiagnostics.request(correlation),
+                ):
                     try:
                         event = await anext(producer)
                     except StopAsyncIteration:
                         return
                 yield event
         finally:
-            with ContinuityDiagnostics.request(correlation):
+            with (
+                McpRequestContextScope.bind(request_context),
+                ContinuityDiagnostics.request(correlation),
+            ):
                 async with aclosing(producer):
                     pass
 
@@ -133,7 +166,9 @@ class ConversationEntrypoint:
         """
         return self._reader.to_turn(payload)
 
-    def to_payload(self, payload: Mapping[str, Any], reply: AgentReply) -> StandardExchangeResponse:
+    def to_payload(
+        self, payload: Mapping[str, Any], reply: AgentReply
+    ) -> StandardExchangeResponse:
         """Render a typed reply without losing native usage or errors.
 
         Args:

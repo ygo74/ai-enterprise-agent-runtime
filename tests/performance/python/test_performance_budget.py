@@ -8,3 +8,5 @@ def test_performance_budget_threshold_file() -> None:
     assert data["normalization_dispatch_p95_ms"] > 0
     assert data["auth_dispatch_pipeline_p95_ms"] > 0
     assert data["first_stream_event_p95_ms"] > 0
+    assert data["mcp_registry_construction_p95_ms"] > 0
+    assert data["mcp_skill_tool_lookup_p95_ms"] > 0

@@ -38,6 +38,8 @@ mcp = [
   "mcp>=1.24,<2",
   "httpx>=0.27",
   "PyYAML>=6,<7",
+  "jsonschema>=4.22,<5",
+  "python-dotenv>=1,<2",
 ]
 
 # Loading the files an agent developer delivers alongside their code. Keeping
@@ -46,6 +48,7 @@ mcp = [
 configuration = [
   "python-dotenv>=1,<2",
   "PyYAML>=6,<7",
+  "jsonschema>=4.22,<5",
 ]
 
 [tool.setuptools.packages.find]

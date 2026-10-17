@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../../../../../../packages/python/agents/ygo74/agent_runtime/domains/configuration/schemas/mcp-server.schema.json
+server: mail-http
+transport: http
+url: https://mail.example.test/mcp
+capabilities:
+  - search_mail
+  - send_mail
+tools:
+  search_mail: messages_search
+  send_mail: messages_send
+request_timeout_seconds: 20
+authentication_mode: api_key
+authentication_api_key:
+  header_name: X-API-Key
+  value: ${MAIL_MCP_API_KEY}
+headers:
+  X-User-ID: '{{USER_ID}}'
+  X-Conversation-ID: '{{CONVERSATION_ID}}'
+  X-Request-ID: '{{REQUEST_ID}}'
+  X-Gateway-Key: ${MAIL_MCP_GATEWAY_KEY}
+network:
+  proxy_url: http://proxy.example.test:8080

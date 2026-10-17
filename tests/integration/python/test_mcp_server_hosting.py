@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 import pytest
 from starlette.applications import Starlette
@@ -506,6 +507,28 @@ def _accepts(host: McpServerHost, security: _TransportSecurity) -> bool:
     except McpServerUnreachableError:
         return False
     return True
+
+
+def test_serve_passes_the_selected_log_level_to_uvicorn(monkeypatch) -> None:
+    """The hosting layer applies the CLI-selected level to HTTP server logs."""
+    received: dict[str, object] = {}
+
+    def fake_run(application, **kwargs):
+        received.update(kwargs)
+
+    monkeypatch.setattr("uvicorn.run", fake_run)
+    server = SimpleNamespace(
+        settings=SimpleNamespace(transport_security=None),
+        streamable_http_app=_tools_app,
+    )
+    host = McpServerHost(
+        policy=_policy(),
+        binding=McpHttpBinding(host="127.0.0.1", port=9100),
+    )
+
+    host.serve(server, log_level="debug")
+
+    assert received["log_level"] == "debug"
 
 
 def _catch_all_app() -> Starlette:
