@@ -87,3 +87,14 @@ protected handler logic.
 See the [authentication and authorization specification](../security/authentication-and-authorization.md)
 for policy details and the [exchange contract](../contracts/exchange-contract.md)
 for the normalized handler boundary.
+
+## Request-scoped agent context
+
+The Python FastAPI adapter creates and scopes an AgentInvocationContext after
+authentication and request normalization. The same context remains available
+through handler execution and asynchronous stream pulls; the conversation
+entrypoint enriches it with each typed turn. This keeps invocation metadata
+independent of MCP-specific endpoint code and avoids adding context parameters
+to every handler signature. The full lifecycle, security boundary, and MCP
+correlation behavior are defined in the
+[agent invocation context contract](../contracts/agent-invocation-context.md).
