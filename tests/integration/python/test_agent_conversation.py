@@ -22,6 +22,10 @@ from ygo74.agent_runtime.domains.contracts.conversation import (
 from ygo74.agent_runtime.domains.contracts.exchange_models import (
     StandardExchangeResponse,
 )
+from ygo74.agent_runtime.domains.contracts.invocation_context import (
+    AgentInvocationContext,
+    AgentInvocationContextScope,
+)
 from ygo74.agent_runtime.domains.contracts.stream_events import (
     AgentStreamEvent,
     ContentEvent,
@@ -39,10 +43,6 @@ from ygo74.agent_runtime.domains.humanapproval.tickets import (
     ConfirmationTicket,
     InMemoryPendingConfirmationStore,
     UnknownTicketError,
-)
-from ygo74.agent_runtime.domains.mcp.request_context import (
-    McpRequestContext,
-    McpRequestContextScope,
 )
 from ygo74.agent_runtime.domains.security.operations import (
     OperationType,
@@ -76,7 +76,7 @@ async def test_entrypoint_enriches_internal_request_context_without_changing_the
             Args:
                 turn (ConversationTurn): Verified typed turn supplied by the entrypoint.
             """
-            context = McpRequestContextScope.current()
+            context = AgentInvocationContextScope.current()
             observed["principal"] = None if context is None else context.principal
             observed["conversation_id"] = (
                 None if context is None else context.conversation_id
@@ -111,8 +111,8 @@ async def test_entrypoint_enriches_internal_request_context_without_changing_the
     }
     entrypoint = ConversationEntrypoint(ContextObservingEngine(), require_email=False)
 
-    with McpRequestContextScope.bind(
-        McpRequestContext(request_id="req-7", subject_token=token)
+    with AgentInvocationContextScope.bind(
+        AgentInvocationContext(request_id="req-7", subject_token=token)
     ):
         result = await entrypoint(payload)
 

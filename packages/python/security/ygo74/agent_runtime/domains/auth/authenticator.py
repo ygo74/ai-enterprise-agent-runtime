@@ -78,6 +78,15 @@ class RequestAuthenticator:
 
         return None
 
+    def close(self) -> None:
+        """Close unique authenticators that own synchronous resources."""
+        closed: set[int] = set()
+        for authenticator in self.authenticators:
+            close = getattr(authenticator, "close", None)
+            if callable(close) and id(authenticator) not in closed:
+                close()
+                closed.add(id(authenticator))
+
     def _missing_credential_error(self) -> AuthenticationError:
         """Create the configured missing-credential response without exposing supplied credentials.
         """

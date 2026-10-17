@@ -34,6 +34,7 @@ from ygo74.agent_runtime.domains.auth.authentication_policy import (
     AuthenticationPolicy,
 )
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtAuthenticator
+from ygo74.agent_runtime.domains.http.asgi_lifecycle import AsgiShutdownRegistrar
 from ygo74.agent_runtime.domains.mcpserver.http_binding import (
     HEALTH_PATH,
     McpHttpBinding,
@@ -174,6 +175,7 @@ class McpServerHost:
         if self._resource is not None:
             tools.router.routes.append(Route(PROTECTED_RESOURCE_PATH, metadata, methods=["GET"]))
         tools.add_middleware(BaseHTTPMiddleware, dispatch=guard)
+        AsgiShutdownRegistrar.register(tools, self._authenticator.close)
         return tools
 
     def verify_reachable(self, transport_security: object | None) -> None:

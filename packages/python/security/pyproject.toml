@@ -22,6 +22,14 @@ dependencies = [
   "PyJWT>=2.8",
 ]
 
+[project.optional-dependencies]
+# Remote OIDC discovery and JWKS retrieval are synchronous HTTPX lookups. Keeping
+# this extra optional lets HS256/static-key consumers use the base package alone.
+oidc-http = [
+  "httpx>=0.27",
+  "tenacity>=8,<10",
+]
+
 [tool.setuptools.packages.find]
 include = ["ygo74*"]
 namespaces = true
@@ -37,3 +45,4 @@ namespaces = true
 "ygo74.agent_runtime.domains.errors" = ["py.typed"]
 "ygo74.agent_runtime.domains.security" = ["py.typed"]
 "ygo74.agent_runtime.domains.auth" = ["py.typed"]
+"ygo74.agent_runtime.domains.http" = ["py.typed"]

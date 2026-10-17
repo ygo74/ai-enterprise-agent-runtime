@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -14,7 +16,8 @@ from jwt import (
     InvalidIssuerError,
     InvalidSignatureError,
     MissingRequiredClaimError,
-    PyJWKClient,
+    PyJWK,
+    PyJWKSet,
 )
 from jwt.exceptions import PyJWKClientError
 from ygo74.agent_runtime.domains.auth.auth_context import AuthenticatedUserContext
@@ -23,6 +26,7 @@ from ygo74.agent_runtime.domains.auth.authenticator import Authenticator
 from ygo74.agent_runtime.domains.auth.claims_projection import ClaimsProjector
 from ygo74.agent_runtime.domains.auth.oidc_discovery import OidcDiscovery
 from ygo74.agent_runtime.domains.auth.tokens import AccessToken
+from ygo74.agent_runtime.domains.http.client_lifecycle import SyncHttpClientOwner
 
 
 class JwtKeyResolver(Protocol):
@@ -119,12 +123,28 @@ class JwksKeyResolver(JwtKeyResolver):
     Args:
         jwks_url (str): Configured JSON Web Key Set endpoint for public signing keys.
         cache_ttl_seconds (int): How long resolved signing keys remain in the local cache.
-        _client (PyJWKClient | None): HTTP or SDK client used to retrieve signing keys or discovery data.
+        http_client_owner (SyncHttpClientOwner | None): Optional application-owned
+            HTTPX lifecycle shared by OIDC discovery and other JWKS resolvers.
+        service_identity (str | None): Stable upstream identity for retry and
+            circuit-breaker state; defaults to the JWKS URL.
     """
 
     jwks_url: str
     cache_ttl_seconds: int = 300
-    _client: PyJWKClient | None = field(default=None, init=False, repr=False)
+    http_client_owner: SyncHttpClientOwner | None = field(default=None, repr=False)
+    service_identity: str | None = None
+    _key_set: tuple[PyJWK, ...] = field(default=(), init=False, repr=False)
+    _fetched_at: float = field(default=0.0, init=False, repr=False)
+    _lock: Any = field(default_factory=threading.RLock, init=False, repr=False)
+    _owns_http_client_owner: bool = field(default=False, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        """Validate cache settings and create a lazy HTTP owner when absent."""
+        if self.cache_ttl_seconds <= 0:
+            raise ValueError("JWKS cache TTL must be positive")
+        if self.http_client_owner is None:
+            self.http_client_owner = SyncHttpClientOwner()
+            self._owns_http_client_owner = True
 
     def resolve_key(self, token: str, unverified_header: Mapping[str, Any]) -> Any:
         """Resolve key using configuration and registered candidates.
@@ -133,20 +153,60 @@ class JwksKeyResolver(JwtKeyResolver):
             token (str): The credential token to parse and authenticate.
             unverified_header (Mapping[str, Any]): Decoded JWT header used only to select a candidate signing key before verification.
         """
-        _ = unverified_header
-        if self._client is None:
-            self._client = PyJWKClient(
-                self.jwks_url, cache_jwk_set=True, lifespan=self.cache_ttl_seconds
-            )
-
+        _ = token
+        kid = unverified_header.get("kid")
         try:
-            signing_key = self._client.get_signing_key_from_jwt(token)
-            return signing_key.key
-        except PyJWKClientError as ex:
+            with self._lock:
+                now = time.monotonic()
+                key = self._find_key(kid)
+                if not self._key_set or now - self._fetched_at >= self.cache_ttl_seconds:
+                    self._fetch_key_set()
+                    key = self._find_key(kid)
+                elif key is None:
+                    # Refresh once to recognize a newly rotated key identifier.
+                    self._fetch_key_set()
+                    key = self._find_key(kid)
+                if key is None:
+                    raise PyJWKClientError("signing key identifier is not published")
+                return key.key
+        except Exception:  # noqa: BLE001 - Hide untrusted provider and key errors.
             raise AuthenticationError(
                 code="signing_key_unavailable",
                 message="Unable to resolve signing key from JWKS",
-            ) from ex
+            ) from None
+
+    def close(self) -> None:
+        """Close the private HTTPX owner; an injected owner remains caller-owned."""
+        if self._owns_http_client_owner and self.http_client_owner is not None:
+            self.http_client_owner.close()
+
+    def _find_key(self, key_id: object) -> PyJWK | None:
+        """Select a cached key by the unverified header's identifier."""
+        if not isinstance(key_id, str):
+            return None
+        return next((key for key in self._key_set if key.key_id == key_id), None)
+
+    def _fetch_key_set(self) -> None:
+        """Fetch and validate a fresh JWKS document under the cache lock."""
+        if self.http_client_owner is None:
+            raise RuntimeError("JWKS HTTP client owner is unavailable")
+        payload = self.http_client_owner.get_json(
+            self.jwks_url,
+            service_identity=self.service_identity or self.jwks_url,
+            timeout_seconds=5.0,
+        )
+        if not isinstance(payload, dict):
+            raise PyJWKClientError("JWKS response is not an object")
+        key_set = PyJWKSet.from_dict(payload)
+        signing_keys = tuple(
+            key
+            for key in key_set.keys
+            if key.key_id and key.public_key_use in (None, "sig")
+        )
+        if not signing_keys:
+            raise PyJWKClientError("JWKS response contains no usable keys")
+        self._key_set = signing_keys
+        self._fetched_at = time.monotonic()
 
 
 @dataclass(slots=True)
@@ -187,8 +247,14 @@ class DiscoveredJwksKeyResolver(JwtKeyResolver):
             self._delegate = JwksKeyResolver(
                 jwks_url=self.discovery.jwks_url(self.issuer),
                 cache_ttl_seconds=self.cache_ttl_seconds,
+                http_client_owner=self.discovery.http_client_owner,
+                service_identity=self.issuer,
             )
         return self._delegate.resolve_key(token, unverified_header)
+
+    def close(self) -> None:
+        """Close the discovery-owned HTTP client after authentication stops."""
+        self.discovery.close()
 
 
 @dataclass(slots=True)
@@ -330,6 +396,13 @@ class JwtAuthenticator(Authenticator):
             claims=self._projector.context_claims(claims),
             verified_access_token=AccessToken(token, audience=self._config.audience),
         )
+
+    def close(self) -> None:
+        """Release an internally owned remote-key HTTP client after host shutdown."""
+        resolver = self._config.key_resolver
+        close = getattr(resolver, "close", None)
+        if callable(close):
+            close()
 
     def _read_header(self, token: str) -> Mapping[str, Any]:
         """Read the Bearer credential from the Authorization header and reject malformed schemes.

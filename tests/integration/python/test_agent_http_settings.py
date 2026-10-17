@@ -133,6 +133,32 @@ def test_discovery_is_asked_once_per_issuer() -> None:
     assert len(discovery.asked) == 1
 
 
+def test_temporary_discovery_client_is_closed_after_resolving_the_key_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A one-shot settings lookup releases the internally created HTTP client."""
+    closed: list[bool] = []
+
+    class RecordingDiscovery(OidcDiscovery):
+        """Return deterministic metadata while recording owner cleanup."""
+
+        def _fetch(self, url: str) -> dict[str, Any]:
+            """Return the configured JWKS URL without contacting a provider."""
+            return {"jwks_uri": KEYS}
+
+        def close(self) -> None:
+            """Record cleanup invoked by the temporary lookup owner."""
+            closed.append(True)
+
+    monkeypatch.setattr(
+        "ygo74.agent_runtime.domains.configuration.agent_http_settings.OidcDiscovery",
+        RecordingDiscovery,
+    )
+
+    assert AgentHttpSettings(oidc_issuer=ISSUER).jwks_url() == KEYS
+    assert closed == [True]
+
+
 def test_a_missing_issuer_is_refused_rather_than_guessed() -> None:
     with pytest.raises(AuthenticationError) as refusal:
         AgentHttpSettings().jwks_url(FakeDiscovery())

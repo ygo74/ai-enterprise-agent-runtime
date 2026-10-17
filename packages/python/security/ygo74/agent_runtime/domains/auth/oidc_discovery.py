@@ -10,19 +10,18 @@ OpenID Connect already answers the question. ``/.well-known/openid-configuration
 is part of the specification, every compliant provider serves it, and its
 ``jwks_uri`` is authoritative. Asking is both shorter and correct.
 
-Only the standard library is used, so this adds no dependency: ``PyJWT`` already
-fetches the key set itself once given the URL.
+Remote metadata is retrieved by the security package's optional HTTPX client
+owner. The same owner can be shared with JWKS resolution so the application
+reuses one synchronous pool for an issuer.
 """
 
 from __future__ import annotations
 
-import json
-import urllib.error
-import urllib.request
 from dataclasses import dataclass, field
 from typing import Any
 
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
+from ygo74.agent_runtime.domains.http.client_lifecycle import SyncHttpClientOwner
 
 DISCOVERY_PATH = "/.well-known/openid-configuration"
 DEFAULT_TIMEOUT_SECONDS = 5
@@ -38,9 +37,26 @@ class OidcDiscovery:
             cannot answer quickly is a configuration problem to report rather
             than a delay to absorb.
         _cache (dict[str, str]): Cached discovery or token values keyed by their lookup identity.
+        http_client_owner (SyncHttpClientOwner | None): Optional application-owned
+            synchronous HTTPX client lifecycle shared with JWKS resolution.
     """
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS
     _cache: dict[str, str] = field(default_factory=dict, init=False, repr=False)
+    http_client_owner: SyncHttpClientOwner | None = field(default=None, repr=False)
+    _owns_http_client_owner: bool = field(default=False, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        """Create a private lazy owner unless the application supplied one."""
+        if self.timeout_seconds <= 0:
+            raise ValueError("OIDC discovery timeout must be positive")
+        if self.http_client_owner is None:
+            self.http_client_owner = SyncHttpClientOwner()
+            self._owns_http_client_owner = True
+
+    def close(self) -> None:
+        """Close the internally owned HTTP client after its authenticators stop."""
+        if self._owns_http_client_owner and self.http_client_owner is not None:
+            self.http_client_owner.close()
 
     def jwks_url(self, issuer: str) -> str:
         """Return the ``jwks_uri`` the issuer advertises.
@@ -85,13 +101,18 @@ class OidcDiscovery:
             url (str): Absolute URL associated with a citation or remote resource.
         """
         try:
-            with urllib.request.urlopen(url, timeout=self.timeout_seconds) as response:
-                payload = json.loads(response.read())
-        except (urllib.error.URLError, TimeoutError, ValueError) as error:
+            if self.http_client_owner is None:
+                raise RuntimeError("OIDC HTTP client owner is unavailable")
+            payload = self.http_client_owner.get_json(
+                url,
+                service_identity=url.removesuffix(DISCOVERY_PATH),
+                timeout_seconds=self.timeout_seconds,
+            )
+        except Exception:  # noqa: BLE001 - Hide untrusted provider error details.
             raise AuthenticationError(
                 code="discovery_unavailable",
                 message=f"could not read the OpenID configuration at {url!r}",
-            ) from error
+            ) from None
 
         if not isinstance(payload, dict):
             raise AuthenticationError(

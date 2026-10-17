@@ -28,6 +28,10 @@ from ygo74.agent_runtime.domains.auth.tokens import (
     DelegatedTokenRequest,
     TokenExchangeError,
 )
+from ygo74.agent_runtime.domains.contracts.invocation_context import (
+    AgentInvocationContext,
+    AgentInvocationContextScope,
+)
 from ygo74.agent_runtime.domains.mcp.binding import (
     McpConnection,
     McpNetworkSettings,
@@ -44,10 +48,6 @@ from ygo74.agent_runtime.domains.mcp.oauth import (
     CALLBACK_PATH,
     PinnedScopeOAuthProvider,
     loopback_redirect_uri,
-)
-from ygo74.agent_runtime.domains.mcp.request_context import (
-    McpRequestContext,
-    McpRequestContextScope,
 )
 
 
@@ -277,9 +277,9 @@ def test_http_headers_reach_only_the_http_transport(monkeypatch: pytest.MonkeyPa
     received: dict[str, object] = {}
 
     @asynccontextmanager
-    async def fake_transport(url: str, **kwargs: object):
+    async def fake_transport(url: str, *, http_client: object):
         received["url"] = url
-        received.update(kwargs)
+        received["http_client"] = http_client
         yield object(), object(), None
 
     class FakeSession:
@@ -292,7 +292,7 @@ def test_http_headers_reach_only_the_http_transport(monkeypatch: pytest.MonkeyPa
         async def initialize(self) -> None:
             return None
 
-    monkeypatch.setattr(binding_module, "streamablehttp_client", fake_transport)
+    monkeypatch.setattr(binding_module, "streamable_http_client", fake_transport)
     monkeypatch.setattr(binding_module, "ClientSession", lambda *args, **kwargs: FakeSession())
     headers = {"Authorization": "Bearer secret-value"}
     connection = McpConnection(_binding(), headers=headers)
@@ -305,37 +305,43 @@ def test_http_headers_reach_only_the_http_transport(monkeypatch: pytest.MonkeyPa
 
     asyncio.run(scenario())
 
-    assert received["headers"] == headers
+    client = received["http_client"]
+    assert client.headers.get("Authorization") is None
+    assert client.event_hooks["request"]
     assert "secret-value" not in repr(connection)
     assert "secret-value" not in caplog.text
 
 
-def test_http_connection_builds_an_httpx_client_with_configured_proxy(
+def test_http_connection_builds_an_owned_pool_with_configured_proxy(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The configured proxy reaches the pinned SDK's HTTP client factory."""
+    """The configured proxy reaches the owned HTTPX transport."""
     from ygo74.agent_runtime.domains.mcp import binding as binding_module
 
     received: dict[str, object] = {}
 
     class FakeHttpClient:
+        def __init__(self, **kwargs: object) -> None:
+            received["client_options"] = kwargs
+            self.headers = kwargs.get("headers")
+            self.event_hooks = kwargs.get("event_hooks")
+
         async def aclose(self) -> None:
             return None
 
-    def fake_httpx_client(**kwargs: object) -> FakeHttpClient:
+    def fake_httpx_transport(**kwargs: object) -> object:
         received.update(kwargs)
-        return FakeHttpClient()
+        return object()
 
     @asynccontextmanager
-    async def fake_transport(url: str, **kwargs: object):
+    async def fake_transport(url: str, *, http_client: object):
         received["url"] = url
-        factory = kwargs["httpx_client_factory"]
-        client = factory(headers=None, timeout=None, auth=None)
-        await client.aclose()
+        received["http_client"] = http_client
         yield object(), object(), None
 
-    monkeypatch.setattr(binding_module.httpx, "AsyncClient", fake_httpx_client)
-    monkeypatch.setattr(binding_module, "streamablehttp_client", fake_transport)
+    monkeypatch.setattr(binding_module.httpx, "AsyncClient", FakeHttpClient)
+    monkeypatch.setattr(binding_module.httpx, "AsyncHTTPTransport", fake_httpx_transport)
+    monkeypatch.setattr(binding_module, "streamable_http_client", fake_transport)
     monkeypatch.setattr(binding_module, "ClientSession", lambda *args, **kwargs: _FakeSession())
     connection = McpConnection(
         _binding(),
@@ -365,7 +371,7 @@ def test_obo_connection_reuses_sessions_per_principal_and_separates_callers(
     )
     opened: list[object] = []
 
-    async def fake_connect(state: object, context: McpRequestContext) -> object:
+    async def fake_connect(state: object, context: AgentInvocationContext) -> object:
         """Return a unique session while recording which context opened it."""
         session = object()
         opened.append(session)
@@ -373,20 +379,20 @@ def test_obo_connection_reuses_sessions_per_principal_and_separates_callers(
 
     monkeypatch.setattr(connection, "_connect", fake_connect)
 
-    def context(subject: str) -> McpRequestContext:
+    def context(subject: str) -> AgentInvocationContext:
         """Build a verified OBO context for one test principal."""
-        return McpRequestContext(
+        return AgentInvocationContext(
             principal=AgentPrincipal(subject=subject),
             subject_token=AccessToken(f"token-{subject}", audience="agent-api"),
         )
 
     async def scenario() -> tuple[object, object, object]:
         """Resolve each principal's session through the public API."""
-        with McpRequestContextScope.bind(context("ada")):
+        with AgentInvocationContextScope.bind(context("ada")):
             ada_first = await connection.session()
-        with McpRequestContextScope.bind(context("ada")):
+        with AgentInvocationContextScope.bind(context("ada")):
             ada_second = await connection.session()
-        with McpRequestContextScope.bind(context("lin")):
+        with AgentInvocationContextScope.bind(context("lin")):
             lin = await connection.session()
         return ada_first, ada_second, lin
 

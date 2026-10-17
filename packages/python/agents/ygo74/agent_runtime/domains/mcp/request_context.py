@@ -3,13 +3,9 @@
 from __future__ import annotations
 
 import re
-from collections.abc import AsyncIterator, Iterator, Mapping
-from contextlib import aclosing, contextmanager
-from contextvars import ContextVar, Token
-from dataclasses import dataclass, field, replace
-from typing import Any, TypeVar
+from collections.abc import Mapping
+from typing import Any
 
-from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
 from ygo74.agent_runtime.domains.auth.oauth_token_exchange import (
     OAuthTokenExchangeSettings,
 )
@@ -19,147 +15,15 @@ from ygo74.agent_runtime.domains.auth.tokens import (
     OAuthOnBehalfOfTokenSource,
     TokenExchangeError,
 )
-from ygo74.agent_runtime.domains.contracts.conversation import ConversationTurn
+from ygo74.agent_runtime.domains.contracts.invocation_context import (
+    AgentInvocationContext,
+)
 from ygo74.agent_runtime.domains.mcp.configuration import (
     McpHeaderContextToken,
 )
 from ygo74.agent_runtime.domains.mcp.mcp_errors import McpBindingError
 
 _CONTEXT_TOKEN = re.compile(r"\{\{(?P<name>[^{}]+)\}\}")
-_ItemT = TypeVar("_ItemT")
-_current_mcp_request: ContextVar[McpRequestContext | None] = ContextVar(
-    "agent_runtime_mcp_request_context", default=None
-)
-
-
-@dataclass(frozen=True, slots=True, repr=False)
-class McpRequestContext:
-    """Trusted identity and correlation values for one agent invocation.
-
-    Args:
-        principal (AgentPrincipal | None): Authenticated, credential-free caller identity.
-        request_id (str): Runtime correlation identifier for the current turn.
-        conversation_id (str): Caller-scoped conversation or session identifier.
-        subject_token (AccessToken | None): Verified inbound token retained only for OBO exchange.
-    """
-
-    principal: AgentPrincipal | None = None
-    request_id: str = ""
-    conversation_id: str = ""
-    subject_token: AccessToken | None = field(default=None, repr=False, compare=False)
-
-    @classmethod
-    def for_turn(
-        cls,
-        turn: ConversationTurn,
-        request_id: str,
-        subject_token: AccessToken | None = None,
-    ) -> McpRequestContext:
-        """Create the outbound context from a verified conversation turn.
-
-        Args:
-            turn (ConversationTurn): Typed turn produced by the authenticated payload reader.
-            request_id (str): Correlation identifier assigned by the endpoint.
-            subject_token (AccessToken | None): Verified inbound token, when JWT auth was used.
-        """
-        return cls(
-            principal=turn.principal,
-            request_id=request_id,
-            conversation_id=turn.conversation_id,
-            subject_token=subject_token,
-        )
-
-    def with_turn(self, turn: ConversationTurn, request_id: str) -> McpRequestContext:
-        """Add typed identity and conversation routing to the current request context.
-
-        Args:
-            turn (ConversationTurn): Typed turn produced by the authenticated payload reader.
-            request_id (str): Correlation identifier assigned by the endpoint.
-        """
-        return replace(
-            self,
-            principal=turn.principal,
-            request_id=request_id,
-            conversation_id=turn.conversation_id,
-        )
-
-    def values(self) -> Mapping[McpHeaderContextToken, str | None]:
-        """Return only the documented identity and request values for interpolation."""
-        principal = self.principal
-        return {
-            McpHeaderContextToken.USER_ID: None
-            if principal is None
-            else principal.subject,
-            McpHeaderContextToken.USER_EMAIL: None
-            if principal is None or not principal.email
-            else principal.email,
-            McpHeaderContextToken.USER_NAME: (
-                None
-                if principal is None or not principal.display_name
-                else principal.display_name
-            ),
-            McpHeaderContextToken.USER_ROLES: (
-                None if principal is None else ",".join(sorted(principal.roles))
-            ),
-            McpHeaderContextToken.REQUEST_ID: self.request_id or None,
-            McpHeaderContextToken.CONVERSATION_ID: self.conversation_id or None,
-            McpHeaderContextToken.SESSION_ID: self.conversation_id or None,
-        }
-
-    def __repr__(self) -> str:
-        """Describe the available context without exposing user or token values."""
-        return (
-            f"{type(self).__name__}(principal_present={self.principal is not None}, "
-            f"request_id_present={bool(self.request_id)}, conversation_id_present={bool(self.conversation_id)}, "
-            f"subject_token_present={self.subject_token is not None})"
-        )
-
-
-class McpRequestContextScope:
-    """Bind an invocation's trusted context to async tasks that issue MCP calls."""
-
-    @staticmethod
-    def current() -> McpRequestContext | None:
-        """Return the context inherited by the current async task, if any."""
-        return _current_mcp_request.get()
-
-    @staticmethod
-    @contextmanager
-    def bind(context: McpRequestContext) -> Iterator[None]:
-        """Set and restore the current request context around one operation.
-
-        Args:
-            context (McpRequestContext): Trusted identity, request, and conversation values for this invocation.
-        """
-        token: Token[McpRequestContext | None] = _current_mcp_request.set(context)
-        try:
-            yield
-        finally:
-            _current_mcp_request.reset(token)
-
-    @staticmethod
-    async def iterate(
-        source: AsyncIterator[_ItemT],
-        context: McpRequestContext,
-    ) -> AsyncIterator[_ItemT]:
-        """Pull and close a stream under its request context without crossing yields.
-
-        Args:
-            source (AsyncIterator[_ItemT]): Streaming result whose work must inherit caller context.
-            context (McpRequestContext): Trusted identity, request, and conversation values for this invocation.
-        """
-        try:
-            while True:
-                with McpRequestContextScope.bind(context):
-                    try:
-                        item = await anext(source)
-                    except StopAsyncIteration:
-                        return
-                yield item
-        finally:
-            with McpRequestContextScope.bind(context):
-                async with aclosing(source):
-                    pass
 
 
 class McpRequestContextRegistry:
@@ -167,31 +31,31 @@ class McpRequestContextRegistry:
 
     def __init__(self) -> None:
         """Create an empty, connection-local map of outbound request contexts."""
-        self._contexts: dict[str | int, McpRequestContext] = {}
-        self._session_context: McpRequestContext | None = None
+        self._contexts: dict[str | int, AgentInvocationContext] = {}
+        self._session_context: AgentInvocationContext | None = None
 
-    def set_session_context(self, context: McpRequestContext) -> None:
+    def set_session_context(self, context: AgentInvocationContext) -> None:
         """Bind the authenticated identity used by session-level HTTP requests.
 
         Args:
-            context (McpRequestContext): Principal-bound identity and subject token for this session.
+            context (AgentInvocationContext): Principal-bound identity and subject token for this session.
         """
         self._session_context = context
 
-    def session_context(self) -> McpRequestContext | None:
+    def session_context(self) -> AgentInvocationContext | None:
         """Return the identity context for GET streams and notifications."""
         return self._session_context
 
-    def register(self, request_id: str | int, context: McpRequestContext) -> None:
+    def register(self, request_id: str | int, context: AgentInvocationContext) -> None:
         """Store a context until the matching HTTP request begins.
 
         Args:
             request_id (str | int): JSON-RPC identifier generated by the MCP client session.
-            context (McpRequestContext): Turn context to use for the corresponding HTTP request.
+            context (AgentInvocationContext): Turn context to use for the corresponding HTTP request.
         """
         self._contexts[request_id] = context
 
-    def take(self, request_id: str | int) -> McpRequestContext | None:
+    def take(self, request_id: str | int) -> AgentInvocationContext | None:
         """Remove and return a request context so it cannot leak into another send.
 
         Args:
@@ -272,35 +136,61 @@ class McpOutboundHeaderResolver:
         return await self._headers_for_context(context)
 
     async def _headers_for_context(
-        self, context: McpRequestContext | None
+        self, context: AgentInvocationContext | None
     ) -> dict[str, str]:
         """Render configured values and authenticate one correlated context.
 
         Args:
-            context (McpRequestContext | None): Request- or session-bound caller context.
+            context (AgentInvocationContext | None): Request- or session-bound caller context.
         """
         headers = self._render_headers(context)
         if self._delegated_oauth is not None:
             headers["Authorization"] = await self._delegated_authorization(context)
         return headers
 
-    def _render_headers(self, context: McpRequestContext | None) -> dict[str, str]:
+    def _render_headers(self, context: AgentInvocationContext | None) -> dict[str, str]:
         """Substitute validated header tokens or fail when the current value is absent.
 
         Args:
-            context (McpRequestContext | None): Context correlated with the current JSON-RPC request.
+            context (AgentInvocationContext | None): Context correlated with the current JSON-RPC request.
         """
         if not any(
             _CONTEXT_TOKEN.search(value) for value in self._configured_headers.values()
         ):
             return dict(self._configured_headers)
-        values: Mapping[McpHeaderContextToken, str | None] = (
-            {} if context is None else context.values()
-        )
+        values = self._context_values(context)
         rendered: dict[str, str] = {}
         for name, template in self._configured_headers.items():
             rendered[name] = self._render_header(name, template, values)
         return rendered
+
+    @staticmethod
+    def _context_values(
+        context: AgentInvocationContext | None,
+    ) -> Mapping[McpHeaderContextToken, str | None]:
+        """Project generic invocation fields into MCP header-token values."""
+        if context is None:
+            return {}
+        principal = context.principal
+        return {
+            McpHeaderContextToken.USER_ID: None
+            if principal is None
+            else principal.subject,
+            McpHeaderContextToken.USER_EMAIL: None
+            if principal is None or not principal.email
+            else principal.email,
+            McpHeaderContextToken.USER_NAME: (
+                None
+                if principal is None or not principal.display_name
+                else principal.display_name
+            ),
+            McpHeaderContextToken.USER_ROLES: (
+                None if principal is None else ",".join(sorted(principal.roles))
+            ),
+            McpHeaderContextToken.REQUEST_ID: context.request_id or None,
+            McpHeaderContextToken.CONVERSATION_ID: context.conversation_id or None,
+            McpHeaderContextToken.SESSION_ID: context.conversation_id or None,
+        }
 
     def _render_header(
         self,
@@ -332,11 +222,11 @@ class McpOutboundHeaderResolver:
 
         return _CONTEXT_TOKEN.sub(substitute, template)
 
-    async def _delegated_authorization(self, context: McpRequestContext | None) -> str:
+    async def _delegated_authorization(self, context: AgentInvocationContext | None) -> str:
         """Exchange the verified subject token and validate the returned audience.
 
         Args:
-            context (McpRequestContext | None): Context correlated with the current JSON-RPC request.
+            context (AgentInvocationContext | None): Context correlated with the current JSON-RPC request.
 
         Raises:
             TokenExchangeError: OBO prerequisites, exchange, or result validation failed.
