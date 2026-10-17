@@ -6,8 +6,10 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import jwt
+import pytest
 from fastapi import FastAPI
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
+    JwtAuthenticator,
     JwtValidationConfig,
     StaticSymmetricKeyResolver,
 )
@@ -181,3 +183,28 @@ async def _post_json(
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         return await client.post(url, json=payload, headers=headers)
+
+
+def test_fastapi_closes_the_default_jwt_authenticator_on_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The endpoint-owned default JWT chain releases resolver resources at shutdown."""
+    closed: list[JwtAuthenticator] = []
+
+    def close(authenticator: JwtAuthenticator) -> None:
+        """Record the JWT authenticator selected by endpoint composition."""
+        closed.append(authenticator)
+
+    monkeypatch.setattr(JwtAuthenticator, "close", close)
+    app = FastAPI()
+    add_ai_endpoints(
+        app,
+        _entrypoint,
+        default_route_key="demo-route",
+        jwt_validation=_config(),
+    )
+
+    assert len(app.router.on_shutdown) == 1
+    app.router.on_shutdown[0]()
+
+    assert len(closed) == 1

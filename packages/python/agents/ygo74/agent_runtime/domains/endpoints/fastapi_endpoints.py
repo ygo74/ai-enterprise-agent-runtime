@@ -73,6 +73,7 @@ from ygo74.agent_runtime.domains.endpoints.header_forwarding import (
 from ygo74.agent_runtime.domains.endpoints.openai_responses import (
     OpenAIResponsesCreateRequest,
 )
+from ygo74.agent_runtime.domains.http.asgi_lifecycle import AsgiShutdownRegistrar
 from ygo74.agent_runtime.domains.mapping.output_normalizer import OutputNormalizer
 from ygo74.agent_runtime.domains.mapping.output_projector import (
     OutputProjectionError,
@@ -216,6 +217,8 @@ def add_ai_endpoints(
         require_authentication=require_bearer_token,
         authenticators=authenticators,
     )
+    if jwt_validation is not None and authenticators is None:
+        AsgiShutdownRegistrar.register(app, request_authenticator.close)
 
     header_forwarder = RequestHeaderForwarder.create(
         forwarded=forwarded_headers,

@@ -132,7 +132,14 @@ class AgentHttpSettings(BaseModel):
         """
         if self.jwks_url_override:
             return self.jwks_url_override
-        return (discovery or OidcDiscovery()).jwks_url(self.oidc_issuer)
+        selected_discovery = (
+            discovery if discovery is not None else OidcDiscovery()
+        )
+        try:
+            return selected_discovery.jwks_url(self.oidc_issuer)
+        finally:
+            if discovery is None:
+                selected_discovery.close()
 
     def idle_lifetime(self) -> timedelta:
         """How long an untouched conversation is kept."""

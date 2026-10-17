@@ -43,6 +43,38 @@ connection. The OBO fake token is never requested during configuration loading.
 To use a proxy, edit `config/mcp/mail.yaml` and set
 `network.proxy_url`; the registry validates it before any connection is opened.
 
+## HTTP clients and resilience settings
+
+Each configured HTTP server receives one lazy HTTPX client and pool per agent
+registry. Skills that share a server also share that pool; separate server
+definitions, including their timeout, proxy, retry, breaker, and pool settings,
+remain isolated. The sample's `mail.yaml` demonstrates those values. Safe
+connection setup and OBO token exchange use bounded retries; MCP tool calls
+never retry automatically. Each server's circuit breaker prevents repeated
+attempts during an outage. TLS verification remains enabled.
+
+In a hosted application, load the registry during startup and close it from the
+application lifespan after request handling stops:
+
+```python
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.mcp_registry = load_agent_registry()
+    try:
+        yield
+    finally:
+        await app.state.mcp_registry.aclose()
+
+app = FastAPI(lifespan=lifespan)
+```
+
+The example contains three MCP server definitions to make server-specific
+configuration visible. For production agent design, keep MCP responsibility
+focused and aim for one or two MCP servers per agent.
+
 The `# yaml-language-server: $schema=...` annotations point to the packaged
 MCP server schema in this repository. The runtime reads the same Draft 2020-12
 schema while loading each referenced file.

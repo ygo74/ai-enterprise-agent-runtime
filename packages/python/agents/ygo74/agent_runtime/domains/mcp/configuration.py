@@ -29,6 +29,10 @@ from ygo74.agent_runtime.domains.configuration.manifests import (
     ConfigurationError,
     YamlDocument,
 )
+from ygo74.agent_runtime.domains.http.resilience import (
+    CircuitBreakerSettings,
+    RetrySettings,
+)
 from ygo74.agent_runtime.domains.mcp.binding import (
     ErrorFactory,
     McpNetworkSettings,
@@ -184,11 +188,78 @@ class McpNetworkInput(BaseModel):
 
     Args:
         proxy_url (_ConfigurationText | None): Optional credential-free HTTP or HTTPS proxy URL.
+        max_connections (StrictInt): Maximum simultaneous connections in this server pool.
+        max_keepalive_connections (StrictInt): Maximum reusable idle connections.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     proxy_url: _ConfigurationText | None = None
+    max_connections: StrictInt = Field(default=20, ge=1, le=1000)
+    max_keepalive_connections: StrictInt = Field(default=10, ge=0, le=1000)
+
+    @model_validator(mode="after")
+    def _validate_limits(self) -> McpNetworkInput:
+        """Require keep-alive capacity not to exceed the pool's total limit."""
+        if self.max_keepalive_connections > self.max_connections:
+            raise ValueError(
+                "network.max_keepalive_connections must not exceed network.max_connections"
+            )
+        return self
+
+
+class McpRetryInput(BaseModel):
+    """Typed YAML settings for bounded retries of safe MCP operations.
+
+    Args:
+        max_attempts (StrictInt): Total attempts, including the first attempt.
+        initial_delay_seconds (float): Initial exponential-backoff delay.
+        maximum_delay_seconds (float): Largest randomized backoff delay.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    max_attempts: StrictInt = Field(default=3, ge=1, le=10)
+    initial_delay_seconds: float = Field(default=0.1, gt=0, allow_inf_nan=False)
+    maximum_delay_seconds: float = Field(default=0.5, gt=0, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def _validate_delay_bounds(self) -> McpRetryInput:
+        """Require backoff maximum to be at least its initial value."""
+        if self.maximum_delay_seconds < self.initial_delay_seconds:
+            raise ValueError(
+                "retry.maximum_delay_seconds must be greater than or equal to retry.initial_delay_seconds"
+            )
+        return self
+
+    def settings(self) -> RetrySettings:
+        """Convert validated YAML fields to the shared retry policy contract."""
+        return RetrySettings(
+            max_attempts=self.max_attempts,
+            initial_delay_seconds=self.initial_delay_seconds,
+            maximum_delay_seconds=self.maximum_delay_seconds,
+        )
+
+
+class McpCircuitBreakerInput(BaseModel):
+    """Typed YAML settings for an MCP service circuit breaker.
+
+    Args:
+        failure_threshold (StrictInt): Consecutive failed operations before opening.
+        open_seconds (float): Cooldown before one recovery probe.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    failure_threshold: StrictInt = Field(default=5, ge=1, le=100)
+    open_seconds: float = Field(default=30.0, gt=0, allow_inf_nan=False)
+
+    def settings(self) -> CircuitBreakerSettings:
+        """Convert validated YAML fields to the shared breaker policy contract."""
+        return CircuitBreakerSettings(
+            failure_threshold=self.failure_threshold,
+            open_seconds=self.open_seconds,
+        )
 
 
 def _mcp_server_json_schema(schema: dict[str, Any]) -> None:
@@ -286,15 +357,9 @@ def _mcp_server_json_schema(schema: dict[str, Any]) -> None:
                             },
                             "required": ["authentication_mode"],
                         },
-                        {
-                            "properties": {
-                                "network": {
-                                    "properties": {"proxy_url": {"type": "string"}},
-                                    "required": ["proxy_url"],
-                                }
-                            },
-                            "required": ["network"],
-                        },
+                        {"required": ["network"]},
+                        {"required": ["retry"]},
+                        {"required": ["circuit_breaker"]},
                         {
                             "properties": {"headers": {"minProperties": 1}},
                             "required": ["headers"],
@@ -332,6 +397,8 @@ class McpServerConfigurationInput(BaseModel):
         authentication_oauth (McpOAuthInput | None): OAuth client settings when selected.
         authentication_oauth_on_behalf_of (McpDelegatedOAuthInput | None): Audience and scopes for delegated OAuth.
         network (McpNetworkInput): HTTP proxy options.
+        retry (McpRetryInput): Bounded retry settings for safe HTTP operations.
+        circuit_breaker (McpCircuitBreakerInput): Per-service breaker settings.
     """
 
     model_config = ConfigDict(
@@ -355,6 +422,10 @@ class McpServerConfigurationInput(BaseModel):
     authentication_oauth: McpOAuthInput | None = None
     authentication_oauth_on_behalf_of: McpDelegatedOAuthInput | None = None
     network: McpNetworkInput = Field(default_factory=McpNetworkInput)
+    retry: McpRetryInput = Field(default_factory=McpRetryInput)
+    circuit_breaker: McpCircuitBreakerInput = Field(
+        default_factory=McpCircuitBreakerInput
+    )
 
     @model_validator(mode="after")
     def _validate_transport_settings(self) -> McpServerConfigurationInput:
@@ -368,13 +439,19 @@ class McpServerConfigurationInput(BaseModel):
             or self.authentication_api_key is not None
             or self.authentication_oauth is not None
             or self.authentication_oauth_on_behalf_of is not None
-            or self.network.proxy_url is not None
             or self.headers
+            or "network" in self.model_fields_set
+            or "retry" in self.model_fields_set
+            or "circuit_breaker" in self.model_fields_set
         ):
             raise ValueError(
-                "authentication, headers, and network proxy settings require HTTP transport"
+                "authentication, headers, network, retry, and circuit-breaker settings require HTTP transport"
             )
-        McpNetworkSettings(proxy_url=self.network.proxy_url)
+        McpNetworkSettings(
+            proxy_url=self.network.proxy_url,
+            max_connections=self.network.max_connections,
+            max_keepalive_connections=self.network.max_keepalive_connections,
+        )
         self._validate_headers()
         expected = {
             McpAuthenticationMode.NONE: (None, None, None),
@@ -491,6 +568,8 @@ class McpServerConfiguration(Generic[CapabilityT]):
         network (McpNetworkSettings): HTTP proxy settings.
         delegated_oauth (OAuthTokenExchangeSettings | None): Optional downstream audience, scopes, and exchange-client settings.
         headers (Mapping[str, str]): Resolved headers and deferred context templates, redacted in representations.
+        retry_settings (RetrySettings): Bounded retry policy for safe operations.
+        circuit_breaker_settings (CircuitBreakerSettings): Service circuit policy.
     """
 
     binding: McpServerBinding[CapabilityT]
@@ -502,6 +581,10 @@ class McpServerConfiguration(Generic[CapabilityT]):
     delegated_oauth: OAuthTokenExchangeSettings | None = None
     headers: Mapping[str, str] = field(
         default_factory=lambda: _RedactedMapping({}), repr=False
+    )
+    retry_settings: RetrySettings = field(default_factory=RetrySettings)
+    circuit_breaker_settings: CircuitBreakerSettings = field(
+        default_factory=CircuitBreakerSettings
     )
 
     def __repr__(self) -> str:
@@ -572,9 +655,15 @@ class McpServerConfigurationLoader(Generic[CapabilityT]):
                 authentication_mode=source.authentication_mode,
                 api_key=api_key,
                 oauth=oauth,
-                network=McpNetworkSettings(proxy_url=source.network.proxy_url),
+                network=McpNetworkSettings(
+                    proxy_url=source.network.proxy_url,
+                    max_connections=source.network.max_connections,
+                    max_keepalive_connections=source.network.max_keepalive_connections,
+                ),
                 delegated_oauth=delegated_oauth,
                 headers=_RedactedMapping(headers),
+                retry_settings=source.retry.settings(),
+                circuit_breaker_settings=source.circuit_breaker.settings(),
             )
         except ConfigurationError as error:
             raise self._error_factory(str(error)) from error

@@ -26,6 +26,7 @@ issuer by itself instead of being told out of band.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -40,6 +41,7 @@ from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
 )
 from ygo74.agent_runtime.domains.auth.auth_context import ResolvedUser
 from ygo74.agent_runtime.domains.auth.authentication_policy import AuthenticationPolicy
+from ygo74.agent_runtime.domains.auth.authenticator import RequestAuthenticator
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwtValidationConfig
 from ygo74.agent_runtime.domains.mcpserver.host import McpServerHost
 from ygo74.agent_runtime.domains.mcpserver.http_binding import (
@@ -107,6 +109,32 @@ def _client(
         resource_url=resource_url,
     )
     return TestClient(host.application(_tools_app()))
+
+
+def test_host_closes_its_authenticator_at_application_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The host ties built-in authentication resource cleanup to app shutdown."""
+    closed: list[RequestAuthenticator] = []
+
+    def close(authenticator: RequestAuthenticator) -> None:
+        """Record the authenticator selected by the MCP host."""
+        closed.append(authenticator)
+
+    monkeypatch.setattr(RequestAuthenticator, "close", close)
+    host = McpServerHost(
+        policy=_policy(), binding=McpHttpBinding(host="0.0.0.0", port=9100)
+    )
+    app = host.application(_tools_app())
+
+    async def close_lifespan() -> None:
+        """Enter the host's extended lifespan and trigger its shutdown callback."""
+        async with app.router.lifespan_context(app):
+            pass
+
+    asyncio.run(close_lifespan())
+
+    assert len(closed) == 1
 
 
 class TestTheSecurityPosture:

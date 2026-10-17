@@ -4,5 +4,7 @@
   "first_stream_event_p95_ms": 300,
   "mcp_registry_construction_p95_ms": 100,
   "mcp_skill_tool_lookup_p95_ms": 1,
-  "mcp_header_rendering_p95_ms": 1
+  "mcp_header_rendering_p95_ms": 1,
+  "http_circuit_closed_overhead_p95_ms": 1,
+  "http_circuit_open_rejection_p95_ms": 10
 }

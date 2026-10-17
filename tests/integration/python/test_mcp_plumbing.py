@@ -277,9 +277,9 @@ def test_http_headers_reach_only_the_http_transport(monkeypatch: pytest.MonkeyPa
     received: dict[str, object] = {}
 
     @asynccontextmanager
-    async def fake_transport(url: str, **kwargs: object):
+    async def fake_transport(url: str, *, http_client: object):
         received["url"] = url
-        received.update(kwargs)
+        received["http_client"] = http_client
         yield object(), object(), None
 
     class FakeSession:
@@ -292,7 +292,7 @@ def test_http_headers_reach_only_the_http_transport(monkeypatch: pytest.MonkeyPa
         async def initialize(self) -> None:
             return None
 
-    monkeypatch.setattr(binding_module, "streamablehttp_client", fake_transport)
+    monkeypatch.setattr(binding_module, "streamable_http_client", fake_transport)
     monkeypatch.setattr(binding_module, "ClientSession", lambda *args, **kwargs: FakeSession())
     headers = {"Authorization": "Bearer secret-value"}
     connection = McpConnection(_binding(), headers=headers)
@@ -305,37 +305,43 @@ def test_http_headers_reach_only_the_http_transport(monkeypatch: pytest.MonkeyPa
 
     asyncio.run(scenario())
 
-    assert received["headers"] == headers
+    client = received["http_client"]
+    assert client.headers.get("Authorization") is None
+    assert client.event_hooks["request"]
     assert "secret-value" not in repr(connection)
     assert "secret-value" not in caplog.text
 
 
-def test_http_connection_builds_an_httpx_client_with_configured_proxy(
+def test_http_connection_builds_an_owned_pool_with_configured_proxy(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The configured proxy reaches the pinned SDK's HTTP client factory."""
+    """The configured proxy reaches the owned HTTPX transport."""
     from ygo74.agent_runtime.domains.mcp import binding as binding_module
 
     received: dict[str, object] = {}
 
     class FakeHttpClient:
+        def __init__(self, **kwargs: object) -> None:
+            received["client_options"] = kwargs
+            self.headers = kwargs.get("headers")
+            self.event_hooks = kwargs.get("event_hooks")
+
         async def aclose(self) -> None:
             return None
 
-    def fake_httpx_client(**kwargs: object) -> FakeHttpClient:
+    def fake_httpx_transport(**kwargs: object) -> object:
         received.update(kwargs)
-        return FakeHttpClient()
+        return object()
 
     @asynccontextmanager
-    async def fake_transport(url: str, **kwargs: object):
+    async def fake_transport(url: str, *, http_client: object):
         received["url"] = url
-        factory = kwargs["httpx_client_factory"]
-        client = factory(headers=None, timeout=None, auth=None)
-        await client.aclose()
+        received["http_client"] = http_client
         yield object(), object(), None
 
-    monkeypatch.setattr(binding_module.httpx, "AsyncClient", fake_httpx_client)
-    monkeypatch.setattr(binding_module, "streamablehttp_client", fake_transport)
+    monkeypatch.setattr(binding_module.httpx, "AsyncClient", FakeHttpClient)
+    monkeypatch.setattr(binding_module.httpx, "AsyncHTTPTransport", fake_httpx_transport)
+    monkeypatch.setattr(binding_module, "streamable_http_client", fake_transport)
     monkeypatch.setattr(binding_module, "ClientSession", lambda *args, **kwargs: _FakeSession())
     connection = McpConnection(
         _binding(),

@@ -13,12 +13,15 @@ from typing import Generic, TypeVar
 
 from ygo74.agent_runtime.domains.auth.oauth_token_exchange import (
     OAuthTokenExchangeSettings,
-    Rfc8693OAuthOnBehalfOfTokenSource,
 )
 from ygo74.agent_runtime.domains.auth.tokens import OAuthOnBehalfOfTokenSource
 from ygo74.agent_runtime.domains.configuration.directory import ConfigurationDirectory
 from ygo74.agent_runtime.domains.configuration.environment import EnvironmentFile
 from ygo74.agent_runtime.domains.contracts.manifests import AgentManifest, SkillManifest
+from ygo74.agent_runtime.domains.http.resilience import (
+    DEFAULT_CIRCUIT_BREAKERS,
+    ServiceCircuitBreakerRegistry,
+)
 from ygo74.agent_runtime.domains.mcp.binding import ErrorFactory, McpConnection
 from ygo74.agent_runtime.domains.mcp.configuration import (
     McpAuthenticationMode,
@@ -203,6 +206,7 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
         environment (Mapping[str, str] | None): Optional deterministic secret source; absent uses process values and ``.env``.
         delegated_token_source (OAuthOnBehalfOfTokenSource | None): Application-owned OAuth on-behalf-of exchange port.
         delegated_token_source_factory (DelegatedTokenSourceFactory | None): Overrides the runtime's standard source construction for each server.
+        breaker_registry (ServiceCircuitBreakerRegistry): Shared per-service circuit state.
         error_factory (ErrorFactory): Callback that builds the domain error for this failure path.
     """
 
@@ -214,6 +218,7 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
         environment: Mapping[str, str] | None = None,
         delegated_token_source: OAuthOnBehalfOfTokenSource | None = None,
         delegated_token_source_factory: DelegatedTokenSourceFactory | None = None,
+        breaker_registry: ServiceCircuitBreakerRegistry = DEFAULT_CIRCUIT_BREAKERS,
         error_factory: ErrorFactory = McpBindingError,
     ) -> None:
         """Keep the configuration root and typed server loader inputs.
@@ -224,6 +229,7 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
             environment (Mapping[str, str] | None): Optional deterministic source for secret references.
             delegated_token_source (OAuthOnBehalfOfTokenSource | None): Application-owned OAuth on-behalf-of exchange port.
             delegated_token_source_factory (DelegatedTokenSourceFactory | None): Application factory overriding standard source construction.
+            breaker_registry (ServiceCircuitBreakerRegistry): Shared per-service circuit state.
             error_factory (ErrorFactory): Callback that builds the domain error for this failure path.
         """
         if (
@@ -238,6 +244,7 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
         self._environment = environment
         self._delegated_token_source = delegated_token_source
         self._delegated_token_source_factory = delegated_token_source_factory
+        self._breaker_registry = breaker_registry
         self._error_factory = error_factory
 
     def load(self, agent: AgentManifest) -> McpAgentRegistry[CapabilityT]:
@@ -424,16 +431,6 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
                     raise self._error_factory(
                         f"server {configuration.binding.server!r} requires either an injected delegated token source or complete OAuth token-exchange settings"
                     )
-                try:
-                    delegated_token_source = Rfc8693OAuthOnBehalfOfTokenSource(settings)
-                except Exception:  # noqa: BLE001 - Settings must not leak in errors.
-                    raise self._error_factory(
-                        f"server {configuration.binding.server!r} OAuth token-exchange source could not be created"
-                    ) from None
-            if delegated_token_source is None:
-                raise self._error_factory(
-                    f"server {configuration.binding.server!r} requires an injected delegated token source"
-                )
         return McpConnection(
             configuration.binding,
             timeout_seconds=configuration.request_timeout_seconds,
@@ -442,4 +439,7 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
             network=configuration.network,
             delegated_oauth=configuration.delegated_oauth,
             delegated_token_source=delegated_token_source,
+            retry_settings=configuration.retry_settings,
+            circuit_breaker_settings=configuration.circuit_breaker_settings,
+            breaker_registry=self._breaker_registry,
         )

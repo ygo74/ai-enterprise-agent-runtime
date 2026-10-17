@@ -22,6 +22,7 @@ import logging
 import sys
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import AsyncExitStack
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import timedelta
 from enum import StrEnum
@@ -32,6 +33,7 @@ from urllib.parse import urlsplit
 
 from ygo74.agent_runtime.domains.auth.oauth_token_exchange import (
     OAuthTokenExchangeSettings,
+    Rfc8693OAuthOnBehalfOfTokenSource,
 )
 from ygo74.agent_runtime.domains.auth.tokens import (
     OAuthOnBehalfOfTokenSource,
@@ -40,6 +42,17 @@ from ygo74.agent_runtime.domains.auth.tokens import (
 from ygo74.agent_runtime.domains.configuration.manifest_schemas import (
     JsonSchemaValidator,
     ManifestSchemas,
+)
+from ygo74.agent_runtime.domains.http.client_lifecycle import (
+    HttpxTransportFailureClassifier,
+    RetryableHttpStatusError,
+)
+from ygo74.agent_runtime.domains.http.resilience import (
+    DEFAULT_CIRCUIT_BREAKERS,
+    CircuitBreakerSettings,
+    RetryExecutor,
+    RetrySettings,
+    ServiceCircuitBreakerRegistry,
 )
 from ygo74.agent_runtime.domains.mcp.mcp_errors import (
     McpBindingError,
@@ -54,7 +67,7 @@ try:  # pragma: no cover - depends on the optional `mcp` extra
     import yaml
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
-    from mcp.client.streamable_http import streamablehttp_client
+    from mcp.client.streamable_http import streamable_http_client
 
     _MCP_AVAILABLE = True
     _MCP_IMPORT_ERROR: Exception | None = None
@@ -64,7 +77,7 @@ except Exception as exc:  # noqa: BLE001  # pragma: no cover - the extra is opti
     ClientSession = Any  # type: ignore[assignment,misc]
     StdioServerParameters = Any  # type: ignore[assignment,misc]
     stdio_client = None  # type: ignore[assignment]
-    streamablehttp_client = None  # type: ignore[assignment]
+    streamable_http_client = None  # type: ignore[assignment]
     _MCP_AVAILABLE = False
     _MCP_IMPORT_ERROR = exc
 
@@ -75,6 +88,12 @@ DEFAULT_DIALECT = "native"
 _PYTHON = "python"
 
 _logger = logging.getLogger(__name__)
+_current_http_context: ContextVar[tuple[Any, Any] | None] = ContextVar(
+    "agent_runtime_mcp_http_context", default=None
+)
+_MCP_TRANSPORT_HEADERS = frozenset(
+    {"accept", "content-type", "mcp-session-id", "mcp-protocol-version", "last-event-id"}
+)
 
 
 class _RedactedMapping(Mapping[str, str]):
@@ -134,12 +153,22 @@ class McpNetworkSettings:
 
     Args:
         proxy_url (str | None): Optional credential-free HTTP or HTTPS proxy URL.
+        max_connections (int): Maximum simultaneous connections in this server pool.
+        max_keepalive_connections (int): Maximum reusable idle connections in the pool.
     """
 
     proxy_url: str | None = field(default=None, repr=False)
+    max_connections: int = 20
+    max_keepalive_connections: int = 10
 
     def __post_init__(self) -> None:
         """Reject proxy URLs that cannot safely be represented or used."""
+        if self.max_connections < 1:
+            raise ValueError("network.max_connections must be at least 1")
+        if not 0 <= self.max_keepalive_connections <= self.max_connections:
+            raise ValueError(
+                "network.max_keepalive_connections must be between 0 and network.max_connections"
+            )
         if self.proxy_url is None:
             return
         parsed = urlsplit(self.proxy_url)
@@ -162,7 +191,11 @@ class McpNetworkSettings:
 
     def __repr__(self) -> str:
         """Describe proxy presence without printing its address or credentials."""
-        return f"{type(self).__name__}(proxy_configured={self.proxy_url is not None})"
+        return (
+            f"{type(self).__name__}(proxy_configured={self.proxy_url is not None}, "
+            f"max_connections={self.max_connections!r}, "
+            f"max_keepalive_connections={self.max_keepalive_connections!r})"
+        )
 
 
 class McpServerBinding(Generic[CapabilityT]):
@@ -519,6 +552,9 @@ class McpConnection:
         unavailable (ErrorFactory): Response or fallback used when the underlying service is unavailable.
         delegated_oauth (OAuthTokenExchangeSettings | None): Downstream audience and scopes for OBO mode.
         delegated_token_source (OAuthOnBehalfOfTokenSource | None): Application-owned provider exchange implementation.
+        retry_settings (RetrySettings): Bounded policy for safe HTTP operations.
+        circuit_breaker_settings (CircuitBreakerSettings): Policy for the remote service circuit.
+        breaker_registry (ServiceCircuitBreakerRegistry): Shared service-scoped breaker state.
     """
 
     def __init__(
@@ -531,6 +567,9 @@ class McpConnection:
         network: McpNetworkSettings | None = None,
         delegated_oauth: OAuthTokenExchangeSettings | None = None,
         delegated_token_source: OAuthOnBehalfOfTokenSource | None = None,
+        retry_settings: RetrySettings | None = None,
+        circuit_breaker_settings: CircuitBreakerSettings | None = None,
+        breaker_registry: ServiceCircuitBreakerRegistry = DEFAULT_CIRCUIT_BREAKERS,
         unavailable: ErrorFactory = McpToolUnavailableError,
     ) -> None:
         """Initialize the instance runtime data with supplied collaborators and configuration.
@@ -543,6 +582,9 @@ class McpConnection:
             network (McpNetworkSettings | None): HTTP proxy configuration for this connection.
             delegated_oauth (OAuthTokenExchangeSettings | None): Downstream audience and scopes for OBO mode.
             delegated_token_source (OAuthOnBehalfOfTokenSource | None): Application-owned provider exchange implementation.
+            retry_settings (RetrySettings | None): Bounded retry policy for safe HTTP operations.
+            circuit_breaker_settings (CircuitBreakerSettings | None): Remote service circuit policy.
+            breaker_registry (ServiceCircuitBreakerRegistry): Shared upstream breaker state.
             unavailable (ErrorFactory): Response or fallback used when the underlying service is unavailable.
         """
         _require_mcp()
@@ -553,8 +595,28 @@ class McpConnection:
         self._network = network or McpNetworkSettings()
         self._delegated_oauth = delegated_oauth
         self._delegated_token_source = delegated_token_source
+        self._retry_settings = retry_settings or RetrySettings()
+        self._circuit_breaker_settings = (
+            circuit_breaker_settings or CircuitBreakerSettings()
+        )
+        self._breaker_registry = breaker_registry
         self._unavailable = unavailable
         self._sessions: dict[str | None, _McpConnectionSession] = {}
+        self._http_client: Any | None = None
+        if (
+            delegated_oauth is not None
+            and delegated_token_source is None
+            and delegated_oauth.token_url is not None
+            and delegated_oauth.client_id is not None
+            and delegated_oauth.client_secret is not None
+        ):
+            self._delegated_token_source = Rfc8693OAuthOnBehalfOfTokenSource(
+                delegated_oauth,
+                client_provider=self._get_http_client,
+                retry_settings=self._retry_settings,
+                breaker_settings=self._circuit_breaker_settings,
+                breaker_registry=self._breaker_registry,
+            )
 
     async def session(self) -> ClientSession:
         """Return the current caller's session, opening it on first use.
@@ -617,6 +679,13 @@ class McpConnection:
                     )
                 elif close_error is None:
                     close_error = error
+        client, self._http_client = self._http_client, None
+        if client is not None:
+            try:
+                await client.aclose()
+            except Exception as error:  # noqa: BLE001 - release the pool after all session cleanup attempts.
+                if close_error is None:
+                    close_error = error
         if close_error is not None:
             raise close_error
 
@@ -672,26 +741,18 @@ class McpConnection:
                 delegated_token_source=self._delegated_token_source,
                 error_factory=self._unavailable,
             )
-            static_headers = {
-                name: value
-                for name, value in self._headers.items()
-                if "{{" not in value
-            }
-            transport_options: dict[str, Any] = {
-                "httpx_client_factory": _McpHttpClientFactory(
-                    self._network,
-                    resolver,
+            context_token = _current_http_context.set((resolver, contexts))
+            try:
+                read, write, _ = await stack.enter_async_context(
+                    streamable_http_client(
+                        self._binding.url,
+                        http_client=self._get_http_client(),
+                    )
                 )
-            }
-            read, write, _ = await stack.enter_async_context(
-                streamablehttp_client(
-                    self._binding.url,
-                    headers=static_headers or None,
-                    timeout=self._timeout,
-                    auth=self._auth,
-                    **transport_options,
-                )
-            )
+            finally:
+                # The SDK's transport tasks inherit this session-specific context
+                # when they are created, while other OBO sessions remain isolated.
+                _current_http_context.reset(context_token)
             write = _ContextualMcpWriteStream(
                 write,
                 contexts,
@@ -706,6 +767,82 @@ class McpConnection:
             ClientSession(
                 read, write, read_timeout_seconds=timedelta(seconds=self._timeout)
             )
+        )
+
+    def _get_http_client(self) -> Any:
+        """Create and return this connection's one lazy asynchronous HTTP pool."""
+        if self._binding.transport is not McpTransport.HTTP:
+            raise RuntimeError("stdio MCP connections do not have an HTTP client")
+        if self._http_client is not None:
+            return self._http_client
+        if httpx is None:
+            raise RuntimeError("HTTP MCP connections require the 'mcp' extra")
+
+        limits = httpx.Limits(
+            max_connections=self._network.max_connections,
+            max_keepalive_connections=self._network.max_keepalive_connections,
+        )
+        underlying = httpx.AsyncHTTPTransport(
+            proxy=self._network.proxy_url,
+            limits=limits,
+            verify=True,
+        )
+        transport = _McpResilientTransport(
+            underlying,
+            service_identity=self._binding.url.rstrip("/"),
+            retry_settings=self._retry_settings,
+            breaker_settings=self._circuit_breaker_settings,
+            breaker_registry=self._breaker_registry,
+            timeout_seconds=float(self._timeout),
+        )
+        self._http_client = httpx.AsyncClient(
+            transport=transport,
+            auth=self._auth,
+            timeout=httpx.Timeout(self._timeout, read=max(self._timeout, 300.0)),
+            event_hooks={"request": [self._apply_request_headers]},
+            verify=True,
+        )
+        return self._http_client
+
+    async def _apply_request_headers(self, request: Any) -> None:
+        """Add configured headers only to this server's correlated MCP requests."""
+        if request.extensions.get("ygo74_skip_mcp_context"):
+            return
+        if not self._is_mcp_endpoint(request.url):
+            return
+        active = _current_http_context.get()
+        if active is None:
+            return
+        resolver, _contexts = active
+        if request.method == "POST":
+            try:
+                payload = json.loads(request.content)
+            except (UnicodeDecodeError, ValueError):
+                return
+            if isinstance(payload, dict) and isinstance(
+                payload.get("id"), (str, int)
+            ):
+                headers = await resolver.for_request(payload["id"])
+            else:
+                headers = await resolver.for_session()
+        else:
+            headers = await resolver.for_session()
+        for name, value in headers.items():
+            if name.casefold() not in _MCP_TRANSPORT_HEADERS:
+                request.headers[name] = value
+
+    def _is_mcp_endpoint(self, request_url: Any) -> bool:
+        """Compare scheme, host, and port so auth-server calls get no MCP headers."""
+        configured = urlsplit(self._binding.url)
+        actual = urlsplit(str(request_url))
+        return (
+            actual.scheme.casefold(),
+            (actual.hostname or "").casefold(),
+            actual.port,
+        ) == (
+            configured.scheme.casefold(),
+            (configured.hostname or "").casefold(),
+            configured.port,
         )
 
     def _stdio_parameters(self) -> StdioServerParameters:
@@ -740,6 +877,171 @@ def _require_mcp() -> None:
         raise RuntimeError(
             "the 'mcp' extra of ygo74-agent-runtime is required to reach a Model Context Protocol server"
         ) from _MCP_IMPORT_ERROR
+
+
+_AsyncTransportBase = httpx.AsyncBaseTransport if httpx is not None else object
+
+
+class _McpResilientTransport(_AsyncTransportBase):
+    """Apply per-service breaker and safe-request retries below the HTTPX client.
+
+    Args:
+        transport (Any): HTTPX transport owning the one server connection pool.
+        service_identity (str): Stable MCP endpoint identity for breaker sharing.
+        retry_settings (RetrySettings): Bounded retry policy for setup requests.
+        breaker_settings (CircuitBreakerSettings): Threshold and cooldown.
+        breaker_registry (ServiceCircuitBreakerRegistry): Shared service states.
+        timeout_seconds (float): Total deadline for a retry sequence.
+    """
+
+    _RETRYABLE_STATUSES = frozenset({500, 502, 503, 504})
+    _SAFE_POST_METHODS = frozenset({"initialize", "ping"})
+
+    def __init__(
+        self,
+        transport: Any,
+        *,
+        service_identity: str,
+        retry_settings: RetrySettings,
+        breaker_settings: CircuitBreakerSettings,
+        breaker_registry: ServiceCircuitBreakerRegistry,
+        timeout_seconds: float,
+    ) -> None:
+        """Retain the underlying pool and resilience policy for this MCP server."""
+        self._transport = transport
+        self._service_identity = service_identity
+        self._retry_settings = retry_settings
+        self._breaker_settings = breaker_settings
+        self._breaker_registry = breaker_registry
+        self._timeout_seconds = timeout_seconds
+
+    async def handle_async_request(self, request: Any) -> Any:
+        """Send one request, retrying only safe setup/read requests."""
+        if httpx is None:
+            raise RuntimeError("HTTPX is required for the MCP transport")
+        if request.extensions.get("ygo74_skip_runtime_resilience") or not self._is_mcp_origin(request):
+            return await self._transport.handle_async_request(request)
+
+        identity = self._service_identity
+        breaker = self._breaker_registry.for_service(
+            identity, self._breaker_settings
+        )
+        breaker.before_call()
+
+        safe_to_retry = self._is_safe_request(request)
+        body = await request.aread() if safe_to_retry else b""
+        try:
+            if safe_to_retry:
+                response = await RetryExecutor.run_async(
+                    lambda remaining: self._send(
+                        request,
+                        body,
+                        timeout_seconds=remaining,
+                        retry_transient_status=True,
+                    ),
+                    settings=self._retry_settings,
+                    timeout_seconds=self._timeout_seconds,
+                    retryable_exceptions=(
+                        *HttpxTransportFailureClassifier.retryable_exception_types(
+                            httpx
+                        ),
+                        RetryableHttpStatusError,
+                    ),
+                )
+            else:
+                response = await self._transport.handle_async_request(request)
+        except Exception as error:
+            if self._is_service_failure(error):
+                breaker.record_failure()
+            else:
+                breaker.record_success()
+            raise
+        if response.status_code >= 500:
+            breaker.record_failure()
+        else:
+            breaker.record_success()
+        return response
+
+    async def aclose(self) -> None:
+        """Close the owned HTTP transport and its connection pool."""
+        await self._transport.aclose()
+
+    async def _send(
+        self,
+        request: Any,
+        body: bytes,
+        *,
+        timeout_seconds: float,
+        retry_transient_status: bool,
+    ) -> Any:
+        """Send a replayable request with an attempt timeout capped to its deadline."""
+        extensions = dict(request.extensions)
+        timeouts = extensions.get("timeout")
+        if isinstance(timeouts, dict):
+            extensions["timeout"] = {
+                phase: min(value, timeout_seconds)
+                if isinstance(value, (float, int))
+                else value
+                for phase, value in timeouts.items()
+            }
+        retry_request = httpx.Request(
+            request.method,
+            request.url,
+            headers=request.headers,
+            content=body,
+            extensions=extensions,
+        )
+        response = await self._transport.handle_async_request(retry_request)
+        if retry_transient_status and response.status_code in self._RETRYABLE_STATUSES:
+            status = response.status_code
+            await response.aclose()
+            raise RetryableHttpStatusError(status)
+        return response
+
+    def _is_safe_request(self, request: Any) -> bool:
+        """Allow GET reads and only idempotent MCP initialization POST methods."""
+        if request.method == "GET":
+            return True
+        if request.method != "POST":
+            return False
+        try:
+            payload = json.loads(request.content)
+        except (UnicodeDecodeError, ValueError):
+            return False
+        return (
+            isinstance(payload, dict)
+            and payload.get("method") in self._SAFE_POST_METHODS
+        )
+
+    def _is_mcp_origin(self, request: Any) -> bool:
+        """Keep auth-server traffic outside this MCP endpoint's breaker state."""
+        actual = urlsplit(str(request.url))
+        configured = urlsplit(self._service_identity)
+        return (
+            actual.scheme.casefold(),
+            (actual.hostname or "").casefold(),
+            actual.port,
+        ) == (
+            configured.scheme.casefold(),
+            (configured.hostname or "").casefold(),
+            configured.port,
+        )
+
+    @staticmethod
+    def _is_service_failure(error: Exception) -> bool:
+        """Count transport loss and transient upstream responses as breaker failures."""
+        return (
+            isinstance(error, TimeoutError)
+            or
+            (
+                httpx is not None
+                and isinstance(
+                    error,
+                    HttpxTransportFailureClassifier.retryable_exception_types(httpx),
+                )
+            )
+            or isinstance(error, RetryableHttpStatusError)
+        )
 
 
 class _ProxyHttpClientFactory:

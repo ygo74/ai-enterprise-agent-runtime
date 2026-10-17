@@ -42,3 +42,11 @@ server-side checks. Python hosting APIs and transport-specific options are
 covered in [Python MCP documentation](../python/mcp.md); the runnable
 [Python MCP server sample](../../samples/python/python-mcp-server/README.md)
 shows a protected streamable HTTP host.
+
+When the Python host validates JWTs against a remote issuer, the security
+package retrieves OIDC metadata and JWKS through a reusable synchronous HTTPX
+client. The host closes its internally owned client at shutdown. Install the
+security package's `oidc-http` extra for this network-backed validation; local
+or static-key authentication does not need it. See the
+[Python security guide](../python/security.md) for sharing an injected client
+owner across resolvers.
