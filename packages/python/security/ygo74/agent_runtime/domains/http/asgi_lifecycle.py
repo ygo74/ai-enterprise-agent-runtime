@@ -1,4 +1,4 @@
-"""Attach synchronous resource cleanup to an ASGI application's shutdown."""
+"""Attach synchronous resource initialization and cleanup to an ASGI lifespan."""
 
 from __future__ import annotations
 
@@ -8,19 +8,28 @@ from typing import Any
 
 
 class AsgiShutdownRegistrar:
-    """Register a synchronous cleanup callback across ASGI lifecycle APIs."""
+    """Register synchronous resource callbacks across ASGI lifecycle APIs."""
 
     @staticmethod
-    def register(application: Any, callback: Callable[[], None]) -> None:
-        """Run ``callback`` when the application's router begins shutdown.
+    def register(
+        application: Any,
+        callback: Callable[[], None],
+        *,
+        startup: Callable[[], None] | None = None,
+    ) -> None:
+        """Register cleanup and optional initialization for application resources.
 
         Older Starlette routers expose shutdown-event registration. Newer
         routers expose only a lifespan context, so this method wraps that
-        context while preserving its yielded application state.
+        context while preserving its yielded application state. When startup is
+        supplied, wrapping the lifespan keeps resources alive until application
+        scopes have closed, even when the router also exposes shutdown events.
 
         Args:
             application (Any): FastAPI or Starlette application to extend.
             callback (Callable[[], None]): Synchronous cleanup owned by the runtime.
+            startup (Callable[[], None] | None): Optional resource initialization
+                before entering the application's lifespan. Cleanup runs after it exits.
 
         Raises:
             TypeError: The application has no supported router lifecycle interface.
@@ -30,7 +39,7 @@ class AsgiShutdownRegistrar:
             raise TypeError("ASGI application does not expose a router")
 
         add_event_handler = getattr(router, "add_event_handler", None)
-        if callable(add_event_handler):
+        if startup is None and callable(add_event_handler):
             add_event_handler("shutdown", callback)
             return
 
@@ -41,10 +50,12 @@ class AsgiShutdownRegistrar:
         @asynccontextmanager
         async def lifespan_context(app: Any) -> Any:
             """Preserve the existing lifespan and run cleanup on context exit."""
-            async with original_lifespan(app) as state:
-                try:
+            try:
+                if startup is not None:
+                    startup()
+                async with original_lifespan(app) as state:
                     yield state
-                finally:
-                    callback()
+            finally:
+                callback()
 
         router.lifespan_context = lifespan_context

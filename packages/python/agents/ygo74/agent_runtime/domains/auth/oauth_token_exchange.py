@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import import_module
@@ -37,6 +38,20 @@ else:
 
 _GRANT_TYPE = "urn:ietf:params:oauth:grant-type:token-exchange"
 _ACCESS_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token"
+_logger = logging.getLogger(__name__)
+_SAFE_OAUTH_ERRORS = frozenset({
+    "invalid_request",
+    "invalid_client",
+    "invalid_grant",
+    "invalid_scope",
+    "invalid_target",
+    "invalid_token",
+    "unauthorized_client",
+    "unsupported_grant_type",
+    "access_denied",
+    "server_error",
+    "temporarily_unavailable",
+})
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,6 +202,7 @@ class Rfc8693OAuthOnBehalfOfTokenSource:
                 breaker.record_failure()
             else:
                 breaker.record_success()
+            self._log_exchange_failure(error)
             raise TokenExchangeError(
                 "OAuth on-behalf-of token exchange failed"
             ) from None
@@ -209,6 +225,26 @@ class Rfc8693OAuthOnBehalfOfTokenSource:
                 "OAuth provider returned a token for another audience"
             )
         return AccessToken(access_token, audience=request.audience)
+
+    def _log_exchange_failure(self, error: Exception) -> None:
+        """Report bounded diagnostics without provider descriptions or credentials."""
+        status: int | None = None
+        oauth_error = "unavailable"
+        if isinstance(error, self._httpx.HTTPStatusError):
+            status = error.response.status_code
+            try:
+                document = error.response.json()
+            except ValueError:
+                document = None
+            candidate = document.get("error") if isinstance(document, dict) else None
+            if isinstance(candidate, str) and candidate in _SAFE_OAUTH_ERRORS:
+                oauth_error = candidate
+        _logger.warning(
+            "OAuth token exchange failed status=%s oauth_error=%s exception_type=%s",
+            status,
+            oauth_error,
+            type(error).__name__,
+        )
 
     async def _exchange(self, form: dict[str, str], auth: Any) -> Any:
         """POST the RFC 8693 form under a bounded retry policy.
@@ -235,12 +271,13 @@ class Rfc8693OAuthOnBehalfOfTokenSource:
                         "ygo74_skip_runtime_resilience": True,
                     },
                 )
-                if response.status_code in {500, 502, 503, 504}:
-                    status = response.status_code
+                try:
+                    if response.status_code in {500, 502, 503, 504}:
+                        raise RetryableHttpStatusError(response.status_code)
+                    response.raise_for_status()
+                    return response.json()
+                finally:
                     await response.aclose()
-                    raise RetryableHttpStatusError(status)
-                response.raise_for_status()
-                return response.json()
 
             return await RetryExecutor.run_async(
                 attempt,

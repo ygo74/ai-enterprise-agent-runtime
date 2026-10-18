@@ -81,6 +81,10 @@ class SyncHttpClientOwner:
         self.retry_settings = retry_settings or RetrySettings()
         self.breaker_registry = breaker_registry
 
+    def start(self) -> None:
+        """Create the reusable client without contacting an upstream service."""
+        self._get_client(self._load_httpx())
+
     def get_json(
         self,
         url: str,

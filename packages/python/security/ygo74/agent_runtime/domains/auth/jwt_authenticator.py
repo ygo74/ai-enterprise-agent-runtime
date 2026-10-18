@@ -166,14 +166,18 @@ class JwksKeyResolver(JwtKeyResolver):
                     # Refresh once to recognize a newly rotated key identifier.
                     self._fetch_key_set()
                     key = self._find_key(kid)
-                if key is None:
-                    raise PyJWKClientError("signing key identifier is not published")
-                return key.key
         except Exception:  # noqa: BLE001 - Hide untrusted provider and key errors.
             raise AuthenticationError(
-                code="signing_key_unavailable",
-                message="Unable to resolve signing key from JWKS",
+                code="jwks_unavailable",
+                message="Unable to retrieve a usable JWKS key set",
             ) from None
+
+        if key is None:
+            raise AuthenticationError(
+                code="signing_key_unavailable",
+                message="No JWKS signing key matches the JWT key identifier",
+            )
+        return key.key
 
     def close(self) -> None:
         """Close the private HTTPX owner; an injected owner remains caller-owned."""
@@ -197,7 +201,18 @@ class JwksKeyResolver(JwtKeyResolver):
         )
         if not isinstance(payload, dict):
             raise PyJWKClientError("JWKS response is not an object")
-        key_set = PyJWKSet.from_dict(payload)
+        raw_keys = payload.get("keys")
+        if not isinstance(raw_keys, list):
+            raise PyJWKClientError("JWKS keys is not an array")
+        if any(not isinstance(key, dict) for key in raw_keys):
+            raise PyJWKClientError("JWKS key is not an object")
+        # Encryption algorithms such as RSA-OAEP are not JWT signing algorithms.
+        candidates = [
+            key for key in raw_keys if key.get("kid") and key.get("use") in (None, "sig")
+        ]
+        if not candidates:
+            raise PyJWKClientError("JWKS response contains no usable keys")
+        key_set = PyJWKSet.from_dict({"keys": candidates})
         signing_keys = tuple(
             key
             for key in key_set.keys

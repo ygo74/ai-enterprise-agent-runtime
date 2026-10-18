@@ -4,11 +4,17 @@ from __future__ import annotations
 
 import base64
 import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 import httpx
 import pytest
+from fastapi import FastAPI
+from jwt import PyJWKSet
+from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import JwksKeyResolver
 from ygo74.agent_runtime.domains.auth.oidc_discovery import OidcDiscovery
+from ygo74.agent_runtime.domains.http.asgi_lifecycle import AsgiShutdownRegistrar
 from ygo74.agent_runtime.domains.http.client_lifecycle import SyncHttpClientOwner
 from ygo74.agent_runtime.domains.http.resilience import (
     CircuitBreakerSettings,
@@ -281,10 +287,159 @@ def test_oidc_discovery_and_jwks_share_the_injected_sync_client() -> None:
 
     assert discovery.jwks_url(issuer) == jwks_url
     assert resolver.resolve_key("unused-token", {"kid": "key-1"}) == base64.urlsafe_b64decode(secret + "==")
-    assert len(requests) == 2
+    with pytest.raises(AuthenticationError) as error:
+        resolver.resolve_key("unused-token", {"kid": "unknown-key"})
+    assert error.value.code == "signing_key_unavailable"
+    assert len(requests) == 3
 
     owner.close()
     client.close()
+
+
+def test_sync_http_owner_starts_without_network_and_cannot_restart_after_close(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Startup creates one owned pool; shutdown is terminal, not a lazy reset."""
+    clients: list[httpx.Client] = []
+    client_type = httpx.Client
+
+    def create_client(**kwargs: object) -> httpx.Client:
+        client = client_type(**kwargs)
+        clients.append(client)
+        return client
+
+    monkeypatch.setattr(httpx, "Client", create_client)
+    owner = SyncHttpClientOwner(breaker_registry=ServiceCircuitBreakerRegistry())
+    owner.start()
+    owner.start()
+    assert len(clients) == 1
+    assert not clients[0].is_closed
+    owner.close()
+    assert clients[0].is_closed
+    with pytest.raises(RuntimeError, match="closed"):
+        owner.start()
+
+
+def test_jwks_filters_encryption_keys_before_decoding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Keycloak encryption keys never enter the JWT signing-key decoder."""
+    secret = base64.urlsafe_b64encode(b"a sufficiently long jwt test secret").rstrip(b"=").decode()
+    signing_key = {"kty": "oct", "k": secret, "kid": "signing-key", "alg": "HS256", "use": "sig"}
+    payload = {
+        "keys": [
+            {"kty": "RSA", "kid": "encryption-key", "alg": "RSA-OAEP", "use": "enc"},
+            signing_key,
+        ]
+    }
+    decoded: list[dict] = []
+    from_dict = PyJWKSet.from_dict
+
+    def decode(document: dict) -> PyJWKSet:
+        decoded.append(document)
+        return from_dict(document)
+
+    monkeypatch.setattr(PyJWKSet, "from_dict", staticmethod(decode))
+    with httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200, json=payload))) as client:
+        owner = SyncHttpClientOwner(client, breaker_registry=ServiceCircuitBreakerRegistry())
+        resolver = JwksKeyResolver("https://issuer.example.test/keys", http_client_owner=owner)
+        assert resolver.resolve_key("unused-token", {"kid": "signing-key"}) == base64.urlsafe_b64decode(secret + "==")
+        assert decoded == [{"keys": [signing_key]}]
+        owner.close()
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"keys": None},
+        {"keys": {}},
+        {"keys": []},
+        {"keys": ["invalid-key"]},
+        {"keys": [{"kty": "RSA", "kid": "encryption-key", "alg": "RSA-OAEP", "use": "enc"}]},
+        {"keys": [{"kty": "RSA", "kid": "invalid-signing-key", "alg": "RS256", "use": "sig"}]},
+    ],
+)
+def test_jwks_rejects_malformed_or_unusable_key_sets(payload: dict) -> None:
+    """Filtering never turns an unusable or malformed JWKS into authentication success."""
+    with httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200, json=payload))) as client:
+        owner = SyncHttpClientOwner(client, breaker_registry=ServiceCircuitBreakerRegistry())
+        resolver = JwksKeyResolver("https://issuer.example.test/keys", http_client_owner=owner)
+        with pytest.raises(AuthenticationError) as error:
+            resolver.resolve_key("unused-token", {"kid": "signing-key"})
+        assert error.value.code == "jwks_unavailable"
+        assert not resolver._key_set
+        owner.close()
+
+
+def test_jwks_fetch_failure_has_a_distinct_safe_authentication_code() -> None:
+    """A retrieval failure is not confused with a JWT key-id mismatch."""
+    def respond(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, request=request)
+
+    client = httpx.Client(transport=httpx.MockTransport(respond))
+    owner = SyncHttpClientOwner(client, breaker_registry=ServiceCircuitBreakerRegistry())
+    resolver = JwksKeyResolver(
+        "https://issuer.example.test/keys",
+        http_client_owner=owner,
+    )
+
+    with pytest.raises(AuthenticationError) as error:
+        resolver.resolve_key("unused-token", {"kid": "key-1"})
+
+    assert error.value.code == "jwks_unavailable"
+    assert "404" not in error.value.message
+    owner.close()
+    client.close()
+
+
+@pytest.mark.asyncio
+async def test_http_owner_lifespan_preserves_state_and_cleanup_order() -> None:
+    """The pool outlives application scopes, including an existing custom lifespan."""
+    events: list[str] = []
+
+    @asynccontextmanager
+    async def original_lifespan(_app: FastAPI) -> AsyncIterator[dict[str, str]]:
+        events.append("app-start")
+        try:
+            yield {"resource": "ready"}
+        finally:
+            events.append("app-stop")
+
+    app = FastAPI(lifespan=original_lifespan)
+    AsgiShutdownRegistrar.register(
+        app,
+        lambda: events.append("pool-stop"),
+        startup=lambda: events.append("pool-start"),
+    )
+    async with app.router.lifespan_context(app) as state:
+        assert state == {"resource": "ready"}
+        assert events == ["pool-start", "app-start"]
+    assert events == ["pool-start", "app-start", "app-stop", "pool-stop"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure_phase", ["pool", "app"])
+async def test_http_owner_cleanup_runs_after_startup_failure(failure_phase: str) -> None:
+    """Initialization errors propagate and still release application-owned resources."""
+    closed: list[bool] = []
+
+    def start_pool() -> None:
+        if failure_phase == "pool":
+            raise RuntimeError("startup failed")
+
+    @asynccontextmanager
+    async def original_lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        if failure_phase == "app":
+            raise RuntimeError("startup failed")
+        yield
+
+    app = FastAPI(lifespan=original_lifespan)
+    AsgiShutdownRegistrar.register(app, lambda: closed.append(True), startup=start_pool)
+    with pytest.raises(RuntimeError, match="startup failed"):
+        async with app.router.lifespan_context(app):
+            pytest.fail("startup should not succeed")
+    assert closed == [True]
 
 
 def test_mcp_yaml_has_typed_retry_and_circuit_breaker_defaults() -> None:

@@ -26,6 +26,8 @@ from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
     DiscoveryConfiguration,
 )
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
+from ygo74.agent_runtime.domains.http.asgi_lifecycle import AsgiShutdownRegistrar
+from ygo74.agent_runtime.domains.http.client_lifecycle import SyncHttpClientOwner
 
 load_dotenv()
 
@@ -60,6 +62,7 @@ keycloak_base_url = os.getenv("KEYCLOAK_BASE_URL", "http://localhost:8080")
 keycloak_realm = os.getenv("KEYCLOAK_REALM", "agent-runtime-demo")
 issuer = f"{keycloak_base_url}/realms/{keycloak_realm}"
 jwks_url = f"{issuer}/protocol/openid-connect/certs"
+http_owner = SyncHttpClientOwner()
 
 jwt_config = JwtValidationConfig(
     allowed_algorithms=("RS256",),
@@ -72,6 +75,8 @@ jwt_config = JwtValidationConfig(
     key_resolver=JwksKeyResolver(
         jwks_url=os.getenv("JWKS_URL", jwks_url),
         cache_ttl_seconds=int(os.getenv("JWKS_CACHE_TTL_SECONDS", "300")),
+        http_client_owner=http_owner,
+        service_identity=os.getenv("JWT_ISSUER", issuer),
     ),
     # Dot-separated path into the decoded claims used to project roles, mirroring
     # LibreChat's OPENID_REQUIRED_ROLE_PARAMETER_PATH. Examples for Keycloak:
@@ -126,3 +131,4 @@ add_ai_endpoints(
     discovery=DiscoveryConfiguration(enable_openai_models=True, enable_anthropic_models=True),
     authorization_policy=authorization_policy,
 )
+AsgiShutdownRegistrar.register(app, http_owner.close, startup=http_owner.start)

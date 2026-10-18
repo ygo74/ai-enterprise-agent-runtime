@@ -323,6 +323,10 @@ def add_ai_endpoints(
 
                 with AgentInvocationContextScope.bind(request_context):
                     result = agent_entrypoint(uniform_payload)
+                    # Resolve asynchronous setup before committing SSE headers so
+                    # initialization failures retain the normal HTTP error path.
+                    if inspect.isawaitable(result):
+                        result = await result
                 stream = StreamProcessor().stream(result, context)
                 return StreamingResponse(
                     AgentInvocationContextScope.iterate(stream, request_context),
