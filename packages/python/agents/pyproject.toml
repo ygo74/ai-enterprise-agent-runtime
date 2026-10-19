@@ -24,6 +24,8 @@ dependencies = [
 # the discovery descriptors installs none of this.
 http = [
   "fastapi>=0.115",
+  "slowapi>=0.1.10,<0.2",
+  "redis>=5,<7",
   "uvicorn[standard]>=0.30",
 ]
 

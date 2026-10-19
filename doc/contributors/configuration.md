@@ -6,6 +6,13 @@ Schemas. The `ConfigurationDirectory` is passed to the loaders so applications
 can select an explicit root. Agent and skill Markdown instructions are loaded
 as separate inputs; they are not validated by the YAML schemas.
 
+`agent.yaml` may also declare optional FastAPI `http` settings: selected
+invocation endpoints, exactly one JWT or API-key policy, and optional rate
+limits. The manifest model stores secret references as protected values and
+does not resolve them during CLI/MCP loading. The composition root resolves
+them with `AgentHttpSettingsBuilder` before handing the result to
+`HostingFactory.add_http_settings()`.
+
 ```mermaid
 classDiagram
     class ConfigurationDirectory

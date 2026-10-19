@@ -8,6 +8,7 @@ import pytest
 from fastapi import FastAPI
 from ygo74.agent_runtime.domains.contracts import AgentOutput, TextContent
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
+from ygo74.agent_runtime.domains.endpoints.rate_limiting import RateLimitSettings
 
 
 async def _entrypoint(payload: dict) -> AgentOutput:
@@ -95,7 +96,51 @@ def test_add_ai_endpoints_warns_that_hosting_factory_is_preferred() -> None:
         add_ai_endpoints(app, _entrypoint, default_route_key="demo-route")
 
 
+def test_rate_limit_returns_429_without_invoking_the_agent_again() -> None:
+    """Only the first request under the configured per-IP limit reaches the handler."""
+    calls = 0
+
+    async def entrypoint(payload: dict) -> AgentOutput:
+        """Count an invocation and return a valid agent response."""
+        nonlocal calls
+        calls += 1
+        return await _entrypoint(payload)
+
+    app = FastAPI()
+    add_ai_endpoints(
+        app,
+        entrypoint,
+        default_route_key="demo-route",
+        enable_openai_responses=False,
+        enable_openai_chat_completions=True,
+        enable_anthropic_messages=False,
+        rate_limit_settings=RateLimitSettings(("1/minute",)),
+    )
+    payload = {"messages": [{"role": "user", "content": "hello"}]}
+
+    first, second = asyncio.run(
+        _post_twice(app, "/v1/chat/completions", payload)
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert calls == 1
+
+
 async def _post_json(app: FastAPI, url: str, payload: dict) -> httpx.Response:
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         return await client.post(url, json=payload)
+
+
+async def _post_twice(
+    app: FastAPI, url: str, payload: dict
+) -> tuple[httpx.Response, httpx.Response]:
+    """Send two calls from the same ASGI client to exercise one caller's quota."""
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://test", timeout=3
+    ) as client:
+        first = await client.post(url, json=payload)
+        second = await client.post(url, json=payload)
+    return first, second

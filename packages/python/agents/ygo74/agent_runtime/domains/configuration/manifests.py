@@ -313,6 +313,7 @@ class AgentManifestLoader:
                 instructions=self._instructions(folder),
                 mcp_server=source.mcp_server,
                 skills=self._declared_skills(agent, source.skills),
+                http=source.http,
             )
         except ValidationError as error:
             raise ConfigurationError(
