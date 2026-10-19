@@ -47,6 +47,10 @@ from ygo74.agent_runtime.domains.contracts.agent_output import (
     TerminationStatus,
 )
 from ygo74.agent_runtime.domains.contracts.error_envelope import ErrorEnvelope
+from ygo74.agent_runtime.domains.contracts.invocation_context import (
+    AgentInvocationContext,
+    AgentInvocationContextScope,
+)
 from ygo74.agent_runtime.domains.discovery.agent_access_policy import AgentAccessPolicy
 from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
 from ygo74.agent_runtime.domains.discovery.dialect_selector import ProviderDialect
@@ -73,6 +77,7 @@ from ygo74.agent_runtime.domains.endpoints.header_forwarding import (
 from ygo74.agent_runtime.domains.endpoints.openai_responses import (
     OpenAIResponsesCreateRequest,
 )
+from ygo74.agent_runtime.domains.http.asgi_lifecycle import AsgiShutdownRegistrar
 from ygo74.agent_runtime.domains.mapping.output_normalizer import OutputNormalizer
 from ygo74.agent_runtime.domains.mapping.output_projector import (
     OutputProjectionError,
@@ -83,10 +88,6 @@ from ygo74.agent_runtime.domains.mapping.request_mapper import map_to_exchange
 from ygo74.agent_runtime.domains.mapping.response_mapper import (
     ResponseMapper,
     map_response,
-)
-from ygo74.agent_runtime.domains.mcp.request_context import (
-    McpRequestContext,
-    McpRequestContextScope,
 )
 from ygo74.agent_runtime.domains.streaming.stream_processor import (
     AgentInvocation,
@@ -216,6 +217,8 @@ def add_ai_endpoints(
         require_authentication=require_bearer_token,
         authenticators=authenticators,
     )
+    if jwt_validation is not None and authenticators is None:
+        AsgiShutdownRegistrar.register(app, request_authenticator.close)
 
     header_forwarder = RequestHeaderForwarder.create(
         forwarded=forwarded_headers,
@@ -303,7 +306,7 @@ def add_ai_endpoints(
             conversation_id = ConversationPayloadReader(
                 require_email=False
             ).conversation_of(uniform_payload)
-            request_context = McpRequestContext(
+            request_context = AgentInvocationContext(
                 principal=principal,
                 request_id=exchange_request.request_id,
                 conversation_id=conversation_id,
@@ -318,15 +321,19 @@ def add_ai_endpoints(
                 ):  # pragma: no cover - guarded by _FASTAPI_AVAILABLE check above
                     raise RuntimeError("fastapi is required to use streaming responses")
 
-                with McpRequestContextScope.bind(request_context):
+                with AgentInvocationContextScope.bind(request_context):
                     result = agent_entrypoint(uniform_payload)
+                    # Resolve asynchronous setup before committing SSE headers so
+                    # initialization failures retain the normal HTTP error path.
+                    if inspect.isawaitable(result):
+                        result = await result
                 stream = StreamProcessor().stream(result, context)
                 return StreamingResponse(
-                    McpRequestContextScope.iterate(stream, request_context),
+                    AgentInvocationContextScope.iterate(stream, request_context),
                     media_type="text/event-stream",
                 )
 
-            with McpRequestContextScope.bind(request_context):
+            with AgentInvocationContextScope.bind(request_context):
                 result = agent_entrypoint(uniform_payload)
                 if inspect.isawaitable(result):
                     result = await result

@@ -18,6 +18,7 @@ from .agent_output import (
 )
 from .error_envelope import ErrorEnvelope
 from .exchange_models import StandardExchangeRequest, StandardExchangeResponse
+from .invocation_context import AgentInvocationContext, AgentInvocationContextScope
 from .media_content import AudioFormat, EncodedMedia, MediaSource, MediaUri
 from .output_serialization import (
     AgentOutputSerializer,
@@ -39,6 +40,8 @@ from .stream_events import (
 
 __all__ = [
     "AgentContent",
+    "AgentInvocationContext",
+    "AgentInvocationContextScope",
     "AgentOutput",
     "AgentOutputSerializer",
     "AgentStreamEvent",

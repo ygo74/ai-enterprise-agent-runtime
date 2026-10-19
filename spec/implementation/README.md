@@ -12,6 +12,7 @@ piece of work.
 | [#25](issue-25/) | [SPEC](issue-25/SPEC.md), [PLAN](issue-25/PLAN.md) |
 | [#27](issue-27/) | [SPEC](issue-27/SPEC.md), [PLAN](issue-27/PLAN.md) |
 | [#29](issue-29/) | [SPEC](issue-29/SPEC.md), [PLAN](issue-29/PLAN.md) |
+| [#31](issue-31/) | [SPEC](issue-31/SPEC.md), [PLAN](issue-31/PLAN.md) |
 
 Keep issue-specific records here. When implementation is complete, update the
 relevant domain pages under [`../`](../README.md) with the durable behavior and

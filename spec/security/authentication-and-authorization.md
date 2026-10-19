@@ -38,10 +38,54 @@ supports an explicit JWKS URL or lazy OpenID discovery of the JWKS URL.
 
 Successful authentication produces an `AuthenticatedUserContext` containing
 the authentication type, normalized identity, roles, groups, scopes, selected
-claims, and optional tenant ID. The raw credential is not part of this context.
-The agent runtime may project it into an immutable `AgentPrincipal` for
-conversation and audit identity. A missing authenticated subject is an error;
-client-supplied request fields do not establish the principal.
+claims, and optional tenant ID. Its dictionary projection omits bearer
+credentials. JWT authentication may retain the verified access token in a
+redacted internal field for delegated exchange; the FastAPI runtime carries it
+in the request-scoped context rather than handler metadata. The agent runtime
+may project the credential-free identity into an immutable `AgentPrincipal`
+for conversation and audit identity. A missing authenticated subject is an
+error; client-supplied request fields do not establish the principal.
+
+## Remote OIDC discovery and JWKS retrieval
+
+JWT validation with remote keys uses the security package's managed synchronous
+HTTPX lifecycle. When an issuer is configured without an explicit JWKS URL,
+OpenID discovery is fetched lazily and its advertised JWKS URL is cached. The
+JWKS resolver caches usable signing keys for 300 seconds by default and refreshes
+on expiry or once when a requested key identifier is not cached. An explicit
+JWKS URL bypasses discovery.
+
+Discovery and JWKS reads use a lazily created HTTPX client with TLS verification
+enabled. An application can inject and share one SyncHttpClientOwner across
+discovery and key resolution to reuse a synchronous pool. When the
+authenticator creates its owner, closing the authenticator closes that owner
+and its client. An application-supplied owner or client remains application-
+owned and must be closed by the application. The base security package does not
+require HTTPX or Tenacity: remote lookup support is provided by the optional
+security oidc-http extra. Static or symmetric-key JWT validation does not need
+that extra.
+
+Each safe lookup has a finite retry count and elapsed-time retry budget.
+Discovery uses its configured timeout, five seconds by default; JWKS retrieval
+uses a five-second retry budget. Each synchronous HTTPX request receives the
+remaining budget as its phase timeout, and the retry loop stops starting new
+attempts after the budget elapses. This is not a strict total wall-clock cap:
+HTTPX phase timeouts do not cancel a blocking synchronous request that spans
+multiple phases, and a successful in-flight request can return after the
+budget. Defaults allow three attempts with randomized exponential backoff
+from 0.1 to 0.5 seconds. Only classified transient transport failures
+and HTTP 500, 502, 503, or 504 responses are retried; client errors, malformed
+documents, and token validation failures are not. By default, the in-process
+breaker registry is shared by callers for the same issuer or explicit JWKS
+service identity. Five consecutive availability failures open it for 30 seconds
+by default; it then
+permits one probe, closes after success, and reopens after failure. An open
+circuit fails authentication closed. Diagnostics do not include credentials
+or provider response bodies.
+
+These policies cover the runtime's remote JWT key lookups. They do not take
+ownership of application-created HTTP clients or clients used internally by
+agent frameworks and model-provider SDKs.
 
 ## Agent access and discovery
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 from typing import Self
 from urllib.parse import parse_qs
 
@@ -135,6 +136,65 @@ async def test_source_redacts_provider_errors_and_rejects_wrong_audience() -> No
         source = Rfc8693OAuthOnBehalfOfTokenSource(_settings(), client=client)
         with pytest.raises(TokenExchangeError, match="another audience"):
             await source.token_for(_request())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("payload", "expected_code"),
+    [
+        ({"error": "invalid_token"}, "invalid_token"),
+        ({"error": "invalid_client"}, "invalid_client"),
+        ({"error": "invalid_request"}, "invalid_request"),
+        ({"error": SUBJECT_TOKEN}, "unavailable"),
+        ({"error": {"token": SUBJECT_TOKEN}}, "unavailable"),
+        (["invalid_token", SUBJECT_TOKEN], "unavailable"),
+    ],
+)
+async def test_source_logs_only_allowlisted_oauth_error_codes(
+    caplog: pytest.LogCaptureFixture,
+    payload: object,
+    expected_code: str,
+) -> None:
+    """An operator can distinguish a rejected subject token without leaking a provider body."""
+    attempts = 0
+
+    def respond(_request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        document = (
+            {**payload, "error_description": f"{SUBJECT_TOKEN} {CLIENT_SECRET}"}
+            if isinstance(payload, dict)
+            else payload
+        )
+        return httpx.Response(400, json=document)
+
+    with caplog.at_level(logging.WARNING):
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+            source = Rfc8693OAuthOnBehalfOfTokenSource(_settings(), client=client)
+            with pytest.raises(TokenExchangeError):
+                await source.token_for(_request())
+    assert attempts == 1
+    assert f"status=400 oauth_error={expected_code}" in caplog.text
+    assert SUBJECT_TOKEN not in caplog.text
+    assert CLIENT_SECRET not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_source_redacts_non_json_provider_failure(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Proxy and HTML failures do not expose raw response text in diagnostics."""
+    def respond(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, text=f"{SUBJECT_TOKEN} {CLIENT_SECRET}")
+
+    with caplog.at_level(logging.WARNING):
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+            source = Rfc8693OAuthOnBehalfOfTokenSource(_settings(), client=client)
+            with pytest.raises(TokenExchangeError):
+                await source.token_for(_request())
+    assert "status=400 oauth_error=unavailable" in caplog.text
+    assert SUBJECT_TOKEN not in caplog.text
+    assert CLIENT_SECRET not in caplog.text
 
 
 @pytest.mark.asyncio

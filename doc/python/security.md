@@ -93,6 +93,93 @@ uses a local HS256 key; the
 [OIDC/Keycloak example](../../samples/python/python-fastapi-quickstart/04-jwt-oidc-keycloak/README.md)
 shows asymmetric JWKS validation and role projection.
 
+Remote OIDC discovery and JWKS retrieval use a synchronous HTTPX client owned
+for the authentication lifecycle. Install the optional `oidc-http` extra when
+using a remote key resolver:
+
+```bash
+python -m pip install 'ygo74-agent-runtime-security[oidc-http]'
+```
+
+The client is created on first lookup, uses TLS verification, and reuses its
+connection pool for discovery and key refreshes. Reads have a five-second
+deadline by default. The default FastAPI JWT chain closes its owned client at
+application shutdown; the MCP server host does the same for its built-in JWT
+validation. If an application composes multiple key resolvers, it can inject
+one shared `SyncHttpClientOwner` into their discovery/JWKS resolvers and close
+that owner from its own lifespan. Call `start()` during startup to construct the
+pool before serving requests, without contacting the issuer. Register the
+lifespan after assembling the application's endpoints:
+
+```python
+import os
+
+from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
+    DiscoveredJwksKeyResolver,
+    JwksKeyResolver,
+)
+from ygo74.agent_runtime.domains.auth.oidc_discovery import OidcDiscovery
+from ygo74.agent_runtime.domains.http.asgi_lifecycle import AsgiShutdownRegistrar
+from ygo74.agent_runtime.domains.http.client_lifecycle import SyncHttpClientOwner
+
+http_owner = SyncHttpClientOwner()
+discovery = OidcDiscovery(http_client_owner=http_owner)
+issuer_resolver = DiscoveredJwksKeyResolver(
+    issuer=os.environ["OIDC_ISSUER"], discovery=discovery
+)
+fixed_jwks_resolver = JwksKeyResolver(
+    jwks_url=os.environ["OIDC_JWKS_URL"],
+    http_client_owner=http_owner,
+    service_identity=os.environ["OIDC_ISSUER"],
+)
+AsgiShutdownRegistrar.register(
+    app, http_owner.close, startup=http_owner.start
+)
+```
+
+The startup registration preserves an existing ASGI lifespan and its state.
+It closes the owner after application scopes finish, including when startup
+fails. A closed owner cannot be restarted; create a new owner for a new
+application lifecycle. Each worker process owns its own pool. Do not put caller
+tokens in shared client defaults.
+
+Injected clients and owners remain caller-owned. The resolver caches the JWKS
+document for 300 seconds by default and refreshes it as needed for key rotation.
+Safe metadata and key-set reads use up to three bounded attempts within the
+operation deadline. Transient transport and server failures count toward a
+circuit shared by lookups for the same issuer; by default it opens after five
+failed operations for 30 seconds. Authentication errors do not include
+provider response bodies or credentials. Applications that use only static
+keys do not need the optional HTTPX/Tenacity extra.
+
+JWKS retrieval or parsing failures use `jwks_unavailable`; a successfully loaded
+key set without the token's signing-key identifier uses `signing_key_unavailable`.
+Neither error exposes upstream response content.
+
+Providers such as Keycloak may publish encryption keys (`use: enc`, for example
+`RSA-OAEP`) beside signing keys. The resolver filters out encryption keys before
+asking PyJWT to decode signing keys. It accepts signing keys with `use: sig` or
+no `use`, provided they have a key identifier. An encryption-only or malformed
+key set still fails authentication.
+
+OAuth token-exchange failures log the HTTP status, exception class, and an
+allowlisted OAuth error code. Provider descriptions, request bodies, and
+credentials are not logged. A token that passes local JWT validation may still
+be rejected by the identity provider during exchange, for example because its
+login session no longer exists. Obtain a fresh user access token after restarting
+or resetting the identity provider; do not replace session validation with a
+signature-only bypass.
+
+For streaming HTTP endpoints, asynchronous handler initialization is awaited
+before SSE headers are sent. An initialization failure returns the normal
+sanitized HTTP error response. A failure after streaming begins is reported
+through the protocol's error stream instead. Neither path exposes token-exchange
+credentials or raw provider errors.
+
+When supplying an explicit `authenticators` chain to `add_ai_endpoints`, the
+application owns that chain and its cleanup; the adapter does not assume
+ownership of caller-provided authenticators.
+
 ### API keys
 
 An API key resolver maps a presented key to an application-owned `ResolvedUser`.

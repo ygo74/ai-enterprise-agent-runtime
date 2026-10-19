@@ -6,14 +6,18 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import jwt
+import pytest
 from fastapi import FastAPI
 from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
+    JwtAuthenticator,
     JwtValidationConfig,
     StaticSymmetricKeyResolver,
 )
 from ygo74.agent_runtime.domains.contracts import AgentOutput, TextContent
+from ygo74.agent_runtime.domains.contracts.invocation_context import (
+    AgentInvocationContextScope,
+)
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import add_ai_endpoints
-from ygo74.agent_runtime.domains.mcp.request_context import McpRequestContextScope
 
 
 async def _entrypoint(payload: dict) -> AgentOutput:
@@ -127,7 +131,7 @@ def test_fastapi_keeps_verified_token_internal_and_scopes_it_to_agent_execution(
 
     async def entrypoint(payload: dict) -> AgentOutput:
         """Observe internal MCP context without changing the standard exchange payload."""
-        context = McpRequestContextScope.current()
+        context = AgentInvocationContextScope.current()
         observed["request_id"] = payload["request_id"]
         observed["principal"] = None if context is None else context.principal
         observed["conversation_id"] = (
@@ -168,7 +172,7 @@ def test_fastapi_keeps_verified_token_internal_and_scopes_it_to_agent_execution(
     assert "subject_token" not in observed["payload"]
     assert token not in repr(observed["payload"])
     assert token not in response.text
-    assert McpRequestContextScope.current() is None
+    assert AgentInvocationContextScope.current() is None
 
 
 async def _post_json(
@@ -181,3 +185,28 @@ async def _post_json(
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         return await client.post(url, json=payload, headers=headers)
+
+
+def test_fastapi_closes_the_default_jwt_authenticator_on_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The endpoint-owned default JWT chain releases resolver resources at shutdown."""
+    closed: list[JwtAuthenticator] = []
+
+    def close(authenticator: JwtAuthenticator) -> None:
+        """Record the JWT authenticator selected by endpoint composition."""
+        closed.append(authenticator)
+
+    monkeypatch.setattr(JwtAuthenticator, "close", close)
+    app = FastAPI()
+    add_ai_endpoints(
+        app,
+        _entrypoint,
+        default_route_key="demo-route",
+        jwt_validation=_config(),
+    )
+
+    assert len(app.router.on_shutdown) == 1
+    app.router.on_shutdown[0]()
+
+    assert len(closed) == 1

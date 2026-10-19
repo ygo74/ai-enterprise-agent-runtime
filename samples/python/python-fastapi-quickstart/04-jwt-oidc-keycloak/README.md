@@ -112,7 +112,13 @@ authentication error.
 - `JwksKeyResolver` fetches and caches the JWKS document (`cache_ttl_seconds`, default
   300s) and picks the right key using the `kid` from the token header, so key rotation
   on the Keycloak side does not require restarting the app.
-- There is no `.well-known/openid-configuration` discovery in the runtime code: the
-  JWKS URL and issuer are built directly from `KEYCLOAK_BASE_URL` and `KEYCLOAK_REALM`.
+- JWKS retrieval uses the optional synchronous HTTPX lifecycle in the security
+  package. The FastAPI endpoint registration closes its owned client at shutdown;
+  the client is created lazily, verifies TLS, and reuses its connection pool for
+  key refreshes. This sample pins the JWKS URL directly, while
+  `DiscoveredJwksKeyResolver` can instead fetch the issuer's
+  `/.well-known/openid-configuration` document and use its advertised `jwks_uri`.
+- Safe OIDC metadata and JWKS reads use bounded retries and a per-issuer circuit
+  breaker. MCP server YAML does not control JWT/OIDC settings.
 - For a production IdP, replace the password grant with an interactive flow
   (Authorization Code + PKCE) — it is only used here to obtain a token without a browser.

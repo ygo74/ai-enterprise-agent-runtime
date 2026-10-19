@@ -8,8 +8,8 @@ dependency-only meta-package:
 
 | Distribution | Responsibility | Optional features |
 |---|---|---|
-| `ygo74-agent-runtime-security` | Authentication, application-security primitives, common Python domain errors, and user-context construction | None in this repository |
-| `ygo74-agent-runtime-agents` | Agent contracts, configuration loading and schemas, reasoning port, endpoints, discovery, routing, sessions, approval | `configuration` for YAML and `.env`; `http` for FastAPI; `mcp` for the MCP client |
+| `ygo74-agent-runtime-security` | Authentication, application-security primitives, common Python domain errors, user-context construction, and shared outbound HTTP resilience | `oidc-http` for HTTPX and Tenacity-backed remote OIDC/JWKS lookups |
+| `ygo74-agent-runtime-agents` | Agent contracts, configuration loading and schemas, reasoning port, endpoints, discovery, routing, sessions, approval, and the MCP client | `configuration` for YAML and `.env`; `http` for FastAPI; `mcp` for the MCP SDK, HTTPX, and Tenacity-based retries |
 | `ygo74-agent-runtime-mcp` | MCP server hosting | `http` for streamable HTTP server transport |
 | `ygo74-agent-runtime-agentframework` | Native Microsoft Agent Framework execution and typed output integration | `http` for the managed worker |
 | `ygo74-agent-runtime-langchain` | LangChain result/stream conversion and native LangGraph session binding | `http` for the managed LangGraph worker |
@@ -37,6 +37,15 @@ startup. The runtime does not load arbitrary deployment configuration globally.
 Python applications select the delivered agent-configuration directory with
 `YGO74_AGENT_RUNTIME_CONFIG_DIR`; process environment values take precedence
 over values loaded from `.env`.
+
+Each HTTP MCP server configuration owns its proxy, pool limits, request
+timeout, retry policy, and circuit-breaker policy. These settings live with
+that server's YAML binding. Remote JWT/OIDC discovery and JWKS retrieval use
+the security package's separate synchronous lifecycle and authentication
+settings; they are not configured through MCP YAML. See the [MCP client
+specification](../mcp/client-and-server.md) and
+[authentication specification](../security/authentication-and-authorization.md)
+for the runtime behavior and defaults.
 
 In particular, an authentication mode must be selected explicitly where the
 host API requires it. Choosing anonymous service is a named configuration

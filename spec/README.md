@@ -15,9 +15,12 @@ conversation and approval APIs. The session APIs include a generic
 `AgentConversation` container, an `HttpConversationEngine`, and the
 `ConversationRuntimeCache`; the approval APIs include a bounded, framework
 neutral `ApprovalLoop` alongside confirmation and gated-operation primitives.
-The optional MCP client provides generic binding loading and validation,
-stdio/streamable-HTTP connection lifecycle, and a typed dialect registry; a
-separate Python package hosts MCP servers. These Python capabilities are not
+The optional MCP client provides generic binding loading and validation, lazy
+stdio/streamable-HTTP connection lifecycle, a typed dialect registry, and one
+asynchronous HTTPX pool per HTTP server in an agent registry. It uses typed
+retry and circuit-breaker policies shared with the Python security package,
+which separately manages synchronous HTTPX lookups for remote JWT/OIDC keys.
+A separate Python package hosts MCP servers. These Python capabilities are not
 implied to have .NET or Java equivalents; the parity document records their
 current language boundary.
 
@@ -42,6 +45,7 @@ checks remain runtime behavior.
 | System purpose and request flow | [Architecture overview](architecture/system-overview.md) |
 | Runtime domains and dependency boundaries | [Component model](architecture/component-model.md) |
 | Request, response, error, and stream values | [Exchange contract](contracts/exchange-contract.md) |
+| Authenticated identity and correlation during one invocation | [Agent invocation context](contracts/agent-invocation-context.md) |
 | Typed agent results, content, usage, and streaming lifecycle | [Agent output and streaming](contracts/agent-output-and-streaming.md) |
 | Provider-compatible invocation and streaming | [Endpoint surfaces](endpoints/provider-surfaces.md) |
 | Trusted factories, identity-scoped state, and managed HTTP lifecycle | [Managed native-agent worker](endpoints/managed-agent-worker.md) |
@@ -62,13 +66,13 @@ checks remain runtime behavior.
 
 ## Reading order
 
-Start with the architecture overview and component model. The exchange and
-typed-output contracts define the values used across endpoints. Endpoint,
-discovery, configuration, and security documents then describe externally
-visible behavior. The runtime and framework integration pages explain how
-applications compose workers, conversations, approval, and reasoning. MCP and
-operations pages describe optional hosting and deployment boundaries. The
-language support document records current parity limits.
+Start with the architecture overview and component model. The exchange,
+invocation-context, and typed-output contracts define the values used across
+endpoints. Endpoint, discovery, configuration, and security documents then
+describe externally visible behavior. The runtime and framework integration
+pages explain how applications compose workers, conversations, approval, and
+reasoning. MCP and operations pages describe optional hosting and deployment
+boundaries. The language support document records current parity limits.
 
 ## Sources of behavior
 

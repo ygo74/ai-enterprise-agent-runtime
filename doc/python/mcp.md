@@ -65,12 +65,38 @@ authentication_api_key:
   value: ${MAIL_MCP_API_KEY}
 network:
   proxy_url: http://proxy.example.test:8080
+  max_connections: 20
+  max_keepalive_connections: 10
+retry:
+  max_attempts: 3
+  initial_delay_seconds: 0.1
+  maximum_delay_seconds: 0.5
+circuit_breaker:
+  failure_threshold: 5
+  open_seconds: 30
 ```
 
 The server file supports `http` and `stdio`. HTTP authentication can be
 `none`, `api_key`, `oauth`, or `oauth_on_behalf_of`; stdio accepts no HTTP
 headers, authentication, or proxy. Timeouts and proxy settings apply only to
 HTTP. Proxy URLs must use HTTP or HTTPS and cannot contain credentials.
+The optional `retry` and `circuit_breaker` objects also apply only to HTTP
+servers. Defaults are three total attempts with 100 ms initial and 500 ms
+maximum jittered backoff, and a circuit that opens after five failed operations
+for 30 seconds. Retry settings cover safe transport/session setup and OBO token
+exchange. MCP tool calls are never replayed automatically because a transport
+failure can leave their server-side outcome unknown. Retries share the request
+deadline. The circuit is keyed by upstream service, so an unavailable MCP
+server does not stop calls to another; an OBO token endpoint has its own circuit
+while using the containing MCP server's policy.
+
+The registry creates one HTTPX async client lazily for each configured HTTP
+server in an agent. Skills that reference the same server share its connection
+and pool; separate server definitions and agent registries have separate
+clients. Proxy, request timeout, and pool limits come from that server's YAML,
+and TLS verification stays enabled. Per-request identity headers, MCP OAuth,
+and OBO credentials stay isolated to their requests or principal-partitioned
+sessions rather than becoming mutable defaults on the shared client.
 
 HTTP `headers` accept literal values, exact `${ENV_NAME}` references, and
 request-context templates. Environment references use the process environment
@@ -167,14 +193,27 @@ contains only that skill's allow-listed aliases and `remote_tool(alias)` rejects
 all others, even when another skill shares the same server. The registry owns
 the shared connection lifecycle, including all principal-partitioned OBO
 sessions, and should be closed with `await registry.aclose()` when the agent
-stops. Existing direct use of
+stops. A hosted application should close it from the application lifespan after
+it stops accepting work. This closes each server's async client once. Async
+clients belong to the event loop that uses them. Existing direct use of
 `McpServerBinding`, `McpServerBindingLoader`, and `McpConnection` remains
 available for application-controlled composition.
+
+Keep an agent's MCP responsibilities focused. The recommended guidance is one
+or two MCP servers per agent; define a separate server entry when proxy,
+timeout, retry, breaker, or pool configuration needs to differ.
+
+Tool calls return the MCP SDK result object as supplied by the server. The
+runtime preserves content blocks, `structuredContent`, and the `isError` flag:
+an empty successful result stays distinguishable from a tool result with
+`isError=true`. Transport and JSON-RPC failures remain exceptions; they are
+distinct from an MCP tool result that reports an application error.
 
 The agents `configuration` extra includes PyYAML, python-dotenv, and JSON Schema
 validation for manifests. The `mcp` extra installs those configuration
 dependencies together with the MCP SDK and HTTPX; they remain optional for
-unrelated runtime domains. Existing skill-level server declarations remain
+unrelated runtime domains. It also installs Tenacity for bounded retries.
+Existing skill-level server declarations remain
 valid. Non-MCP skills need neither `mcp_server` nor `mcp_tools`; MCP skills must
 declare `mcp_tools` and resolve a server from either the skill or its agent.
 Skills that declare a local `mcp_server` must also add at least one `mcp_tools`

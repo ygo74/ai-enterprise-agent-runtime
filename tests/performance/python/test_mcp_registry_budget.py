@@ -11,14 +11,21 @@ from pathlib import Path
 
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
 from ygo74.agent_runtime.domains.configuration.directory import ConfigurationDirectory
+from ygo74.agent_runtime.domains.contracts.invocation_context import (
+    AgentInvocationContext,
+)
 from ygo74.agent_runtime.domains.contracts.manifests import AgentManifest, SkillManifest
+from ygo74.agent_runtime.domains.http.resilience import (
+    CircuitBreakerSettings,
+    CircuitOpenError,
+    ServiceCircuitBreakerRegistry,
+)
 from ygo74.agent_runtime.domains.mcp.registry import (
     McpAgentRegistry,
     McpAgentRegistryLoader,
 )
 from ygo74.agent_runtime.domains.mcp.request_context import (
     McpOutboundHeaderResolver,
-    McpRequestContext,
     McpRequestContextRegistry,
 )
 from ygo74.agent_runtime.domains.security.operations import (
@@ -159,7 +166,7 @@ def test_mcp_context_header_rendering_stays_within_p95_budget() -> None:
     for request_id in range(1000):
         contexts.register(
             request_id,
-            McpRequestContext(
+            AgentInvocationContext(
                 principal=principal,
                 request_id=f"req-{request_id}",
                 conversation_id=f"conversation-{request_id}",
@@ -186,3 +193,40 @@ def test_mcp_context_header_rendering_stays_within_p95_budget() -> None:
     asyncio.run(measure())
     p95 = statistics.quantiles(elapsed_ms, n=100)[94]
     assert p95 < _budget("mcp_header_rendering_p95_ms")
+
+
+def test_http_circuit_closed_overhead_stays_within_p95_budget() -> None:
+    """The closed breaker adds less than one millisecond at p95 per operation."""
+    breaker = ServiceCircuitBreakerRegistry().for_service("https://mcp.test")
+    elapsed_ms: list[float] = []
+    for _ in range(1000):
+        started = time.perf_counter()
+        breaker.before_call()
+        breaker.record_success()
+        elapsed_ms.append((time.perf_counter() - started) * 1000)
+
+    p95 = statistics.quantiles(elapsed_ms, n=100)[94]
+    assert p95 < _budget("http_circuit_closed_overhead_p95_ms")
+
+
+def test_http_circuit_open_rejection_stays_within_p95_budget() -> None:
+    """An open breaker rejects an operation in under ten milliseconds at p95."""
+    breaker = ServiceCircuitBreakerRegistry().for_service(
+        "https://mcp.test",
+        CircuitBreakerSettings(failure_threshold=1, open_seconds=30),
+    )
+    breaker.before_call()
+    breaker.record_failure()
+    elapsed_ms: list[float] = []
+    for _ in range(1000):
+        started = time.perf_counter()
+        try:
+            breaker.before_call()
+        except CircuitOpenError:
+            pass
+        else:
+            raise AssertionError("open circuit accepted an operation")
+        elapsed_ms.append((time.perf_counter() - started) * 1000)
+
+    p95 = statistics.quantiles(elapsed_ms, n=100)[94]
+    assert p95 < _budget("http_circuit_open_rejection_p95_ms")

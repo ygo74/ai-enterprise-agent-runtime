@@ -12,16 +12,18 @@ container.
 | Endpoint adapters and mapping | Identify provider dialects and convert inputs/results | Python HTTP adapter; mapping building blocks in .NET and Java |
 | Configuration | Bind route/endpoint settings and load delivered agent configuration | Python models plus optional `.env` and YAML loaders/schemas; .NET options; Java properties |
 | Authentication | Validate credentials and project caller identity | Python security distribution; authentication classes in .NET and Java |
+| Outbound HTTP lifecycle and resilience | Typed bounded retries, service-scoped circuit breakers, and synchronous HTTPX ownership for remote JWT key lookups | Python security and agents (MCP client) |
 | Reasoning | Framework-neutral async text-reasoning port and typed result/errors | Python |
 | Routing | Resolve a route key and invoke a registered handler | Python, .NET, Java |
 | Middleware | Ordered pre-handler and post-handler extension points | Python, .NET, Java |
 | Agent discovery | Describe agents and project provider model listings | Python |
 | Application security | Permissions, operation posture, audit, user context, and untrusted input | Python |
-| Agent context and common errors | Build user context from caller-supplied identity/permissions; shared Python domain error base | Python |
+| Application user context and common errors | Build user context from caller-supplied identity/permissions; shared Python domain error base | Python |
+| Invocation context | Bind authenticated identity, request/conversation correlation, and an optional verified token to request and stream execution | Python |
 | Sessions | Typed conversation container, HTTP turn engine, and runtime cache | Python |
 | Human approval | Confirmation/gating primitives and bounded approval-loop orchestration | Python |
 | Framework integrations | Typed output conversion and native LangGraph session/worker binding | Separate Python LangChain and Agent Framework distributions |
-| MCP client | Generic bindings, connection lifecycle, and dialect registry | Python |
+| MCP client | Generic bindings, lazy connections, one asynchronous HTTPX pool per HTTP server in an agent registry, and dialect registry | Python |
 | MCP server | Authenticated server hosting | Separate Python distribution |
 | Observability | Standard logging and telemetry integration hooks | Python, .NET, Java; telemetry hooks are incomplete placeholders |
 
@@ -60,6 +62,12 @@ agents distribution includes an MCP **client** as an optional extra and the
 configuration loader as a separate `configuration` extra. The separate MCP
 distribution provides an MCP **server**. Configuration loading does not require
 the HTTP or MCP extras.
+
+The security package also owns shared retry and circuit-breaker policies and
+the synchronous HTTPX owner used by remote JWT key retrieval. The agents MCP
+client composes those policies and owns its per-server asynchronous pools,
+preserving the one-way dependency from agents to security. The synchronous
+authentication client and asynchronous MCP pools have separate lifecycles.
 
 ## Language package boundaries
 

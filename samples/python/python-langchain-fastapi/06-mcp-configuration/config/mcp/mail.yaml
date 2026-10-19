@@ -20,3 +20,12 @@ headers:
   X-Gateway-Key: ${MAIL_MCP_GATEWAY_KEY}
 network:
   proxy_url: http://proxy.example.test:8080
+  max_connections: 20
+  max_keepalive_connections: 10
+retry:
+  max_attempts: 3
+  initial_delay_seconds: 0.1
+  maximum_delay_seconds: 0.5
+circuit_breaker:
+  failure_threshold: 5
+  open_seconds: 30
