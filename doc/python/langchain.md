@@ -5,7 +5,7 @@ Return to the [Python documentation entry point](README.md).
 ## Installation and ownership
 
 ```powershell
-python -m pip install "ygo74-agent-runtime-langchain==0.8.0"
+python -m pip install "ygo74-agent-runtime-langchain==0.8.1"
 ```
 
 Requires Python 3.12+, `ygo74-agent-runtime-agents>=0.8,<2`,
