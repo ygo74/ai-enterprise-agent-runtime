@@ -7,7 +7,7 @@ remain available for advanced producers.
 Install explicitly; the agents library and meta base do not depend on an agent SDK:
 
 ```powershell
-python -m pip install "ygo74-agent-runtime-agentframework==0.8.0" "ygo74-agent-runtime-agents[http]>=0.8,<2"
+python -m pip install "ygo74-agent-runtime-agentframework==0.8.1" "ygo74-agent-runtime-agents[http]>=0.8,<2"
 ```
 
 Requires Python 3.12+, runtime agents 1.x, and

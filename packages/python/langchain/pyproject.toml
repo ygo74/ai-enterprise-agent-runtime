@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ygo74-agent-runtime-langchain"
-version = "0.8.0"
+version = "0.8.1"
 description = "Native LangChain and LangGraph binding for the ygo74 agent runtime"
 readme = {text = "Native LangGraph conversation binding and typed LangChain result and streaming adapters for the neutral ygo74 agent runtime. See doc/python/langchain.md in the project repository for installation, supported SDK versions, runnable offline examples, and explicit conversion diagnostics.", content-type = "text/plain"}
 requires-python = ">=3.12"
