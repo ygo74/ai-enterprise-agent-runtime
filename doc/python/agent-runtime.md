@@ -153,7 +153,10 @@ Use `ManifestSchemas.agent()` and `ManifestSchemas.skill()` from
 `ygo74.agent_runtime.domains.configuration.manifest_schemas` to read those
 resources. `AGENT.md` and `SKILL.md` remain separate Markdown inputs. See the
 [manifest schema guide](../../spec/operations/packaging-configuration-observability.md)
-and the [agent configuration details](#delivered-agent-configuration).
+and the [agent configuration details](#delivered-agent-configuration). The
+[agent manifest reference](agent-manifest.md) lists every `agent.yaml` key,
+its value type and default, and explains how to enable schema validation in
+VS Code.
 
 ### Configure HTTP hosting in `agent.yaml`
 

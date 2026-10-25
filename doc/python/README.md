@@ -13,6 +13,8 @@ to serve a local endpoint.
 - [Agent runtime](agent-runtime.md): endpoint setup, handler payloads, routing,
   middleware, sessions, approvals, manifest loading, declarative HTTP security
   and rate limits, and observability
+- [Agent manifest reference](agent-manifest.md): every `agent.yaml` key, value
+  type, default, and VS Code schema validation setup
 - [Typed outputs and migration](typed-outputs.md): neutral results/events,
   media, notifications and protocol filtering
 - [LangChain integration](langchain.md): independently installed output adapters

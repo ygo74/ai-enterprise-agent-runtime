@@ -105,6 +105,9 @@ commits et Pull Requests indépendants.
 - Actualiser les exemples FastAPI du runtime qui livrent un manifeste
   `agent.yaml`, notamment les exemples de configuration MCP LangChain et
   Microsoft Agent Framework, ainsi que les guides et le schéma éditorial.
+- Publier une référence complète de `agent.yaml` qui décrit chaque clé,
+  chaque type de valeur et les valeurs par défaut; documenter la configuration
+  de VS Code pour associer le schéma JSON livré aux fichiers manifestes.
 
 Forme YAML proposée pour clarifier le contrat (les noms peuvent être ajustés
 pendant le PLAN sans changer le comportement attendu) :
@@ -187,6 +190,9 @@ les valeurs d'identité et les paramètres non sensibles restent littéraux.
 - Les manifestes Mail et Wiki une fois migrés conservent les mêmes routes,
   modes d'authentification, attributs d'identité, fonctions de découverte et
   comportements applicatifs qu'avant migration.
+- Les développeurs peuvent consulter la référence de chaque clé `agent.yaml`
+  et configurer VS Code pour obtenir la validation structurelle à partir du
+  schéma livré avec le runtime.
 
 ## Architecture, interfaces et données
 

@@ -13,6 +13,10 @@ does not resolve them during CLI/MCP loading. The composition root resolves
 them with `AgentHttpSettingsBuilder` before handing the result to
 `HostingFactory.add_http_settings()`.
 
+The [Python agent manifest reference](../python/agent-manifest.md) documents
+all `agent.yaml` keys and value types, including the HTTP settings, and shows
+how developers can enable the packaged schema in VS Code.
+
 ```mermaid
 classDiagram
     class ConfigurationDirectory

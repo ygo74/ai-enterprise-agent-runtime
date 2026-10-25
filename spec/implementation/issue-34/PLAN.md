@@ -152,14 +152,16 @@ incluses avec FastAPI 0.137+](https://github.com/laurents/slowapi/issues/281).
     `samples/python/python-langchain-fastapi/06-mcp-configuration/` et
     `samples/python/python-agentframework-fastapi/06-mcp-configuration/`;
   - `doc/python/agent-runtime.md`, `doc/python/security.md`,
-    `doc/python/installation.md`, `doc/python/README.md` et le schéma éditorial
-    concerné;
+    `doc/python/installation.md`, `doc/python/README.md`, la référence complète
+    `doc/python/agent-manifest.md` et le schéma éditorial concerné;
   - métadonnées de paquet affectées par l'extra et le versionnement.
 - **Changement :** montrer un exemple API key et un exemple JWT, les trois
   surfaces, le backend mémoire et un URI Redis par référence d'environnement,
   les réponses 401/404/429 et les limites derrière proxy. Documenter que les
   quotas par adresse IP peuvent regrouper des utilisateurs derrière un proxy et
-  que le stockage mémoire ne coordonne pas plusieurs processus.
+  que le stockage mémoire ne coordonne pas plusieurs processus. Répertorier
+  chaque clé de `agent.yaml`, son type, son caractère requis et sa valeur par
+  défaut; expliquer l'association du schéma livré aux manifestes dans VS Code.
 - **Validation :** suite Python complète, Ruff, construction et contrôle Twine
   des distributions, installation indépendante du wheel `agents[http]`, et
   vérification que le package `agents` sans extra HTTP n'importe pas SlowAPI.
