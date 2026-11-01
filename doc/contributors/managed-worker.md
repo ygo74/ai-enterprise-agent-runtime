@@ -55,15 +55,18 @@ sequenceDiagram
 
 The framework workers use `TrustedFactoryLoader` to load an
 `AgentDefinition.factory` selected by deployment configuration; request data
-cannot choose that module. The core worker requires explicit authentication
-and identity namespace. Cache defaults and turn timeout live in
-`WorkerSettings`; state is local to one process. Framework bindings add their
-own tool-admission checks.
+cannot choose that module. The core worker requires a verified authentication
+policy and identity namespace. Authentication and invocation surfaces can be
+provided directly or together through resolved HTTP settings from `agent.yaml`;
+the paths are mutually exclusive. Discovery remains separately configured.
+Cache defaults and turn timeout live in `WorkerSettings`; state is local to one
+process. Framework bindings add their own tool-admission checks.
 
 Source: [`managed_worker.py`](../../packages/python/agents/ygo74/agent_runtime/domains/endpoints/managed_worker.py)
 and [`agent_definition.py`](../../packages/python/agents/ygo74/agent_runtime/domains/contracts/agent_definition.py).
-Tests: [native agent definition](../../tests/integration/python/test_native_agent_definition.py)
-and [native worker](../../tests/integration/python/test_native_worker.py).
+Tests: [native agent definition](../../tests/integration/python/test_native_agent_definition.py),
+[native worker](../../tests/integration/python/test_native_worker.py), and
+[LangGraph worker manifest settings](../../tests/integration/python/test_langgraph_worker.py).
 
 See the [managed worker specification](../../spec/endpoints/managed-agent-worker.md)
 and [native agent guide](../../doc/python/native-agents.md).

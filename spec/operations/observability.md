@@ -24,6 +24,20 @@ Security audit records are separate application-security events with their own
 content minimization rules. They do not imply that the runtime has configured a
 distributed trace or an OpenTelemetry pipeline.
 
+Python FastAPI invocation and stream failures add the request ID, route key,
+protocol where applicable, exception type, and innermost raising origin to the
+warning log. Arbitrary exception messages are not logged because handlers and
+producers may include credentials or response content in them. A `DomainError`
+may opt in to credential-free `safe_diagnostic_detail`; the runtime flattens
+whitespace and truncates that detail to 1024 characters. The MCP configuration
+loader uses this for a missing environment reference, recording only the
+configuration filename, field, and variable name. The value is never logged.
+
+When a streamed invocation fails, its HTTP status may already be committed.
+For OpenAI Responses the client receives an `error` event and then
+`response.failed`, while the server log supplies the safe origin and
+correlation data. See the [agent output and streaming contract](../contracts/agent-output-and-streaming.md).
+
 ## Host responsibility and limits
 
 The host configures logging sinks, OpenTelemetry providers and exporters,

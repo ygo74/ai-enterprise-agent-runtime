@@ -9,11 +9,17 @@ dependency-only meta-package:
 | Distribution | Responsibility | Optional features |
 |---|---|---|
 | `ygo74-agent-runtime-security` | Authentication, application-security primitives, common Python domain errors, user-context construction, and shared outbound HTTP resilience | `oidc-http` for HTTPX and Tenacity-backed remote OIDC/JWKS lookups |
-| `ygo74-agent-runtime-agents` | Agent contracts, configuration loading and schemas, reasoning port, endpoints, discovery, routing, sessions, approval, and the MCP client | `configuration` for YAML and `.env`; `http` for FastAPI; `mcp` for the MCP SDK, HTTPX, and Tenacity-based retries |
+| `ygo74-agent-runtime-agents` | Agent contracts, configuration loading and schemas, reasoning port, endpoints, discovery, routing, sessions, approval, and the MCP client | `configuration` for YAML and `.env`; `http` for FastAPI, SlowAPI rate limiting, and Redis storage; `mcp` for the MCP SDK, HTTPX, and Tenacity-based retries |
 | `ygo74-agent-runtime-mcp` | MCP server hosting | `http` for streamable HTTP server transport |
 | `ygo74-agent-runtime-agentframework` | Native Microsoft Agent Framework execution and typed output integration | `http` for the managed worker |
 | `ygo74-agent-runtime-langchain` | LangChain result/stream conversion and native LangGraph session binding | `http` for the managed LangGraph worker |
 | `ygo74-agent-runtime` | Installs the security, agents, and MCP core distributions | `http`, `mcp`, and `mcp-server` extras forwarded to the relevant package |
+
+The HTTP dependencies are optional: importing manifests and using non-HTTP
+configuration does not require FastAPI or SlowAPI. Rate limiting is activated
+only when an HTTP host receives rate-limit settings. Without a storage URI it
+uses process-local counters; Redis is available for shared counters. See the
+[agent manifest specification](../configuration/agent-manifests.md).
 
 The packages contribute to a shared `ygo74.agent_runtime` namespace and should
 be imported from their domain modules. The current design avoids a flat facade

@@ -23,6 +23,23 @@ its collected setup, and registers through `add_ai_endpoints`. Use
 explicit. Multi-agent applications continue to use the direct helper with a
 dispatcher and `DescriptorRegistry`.
 
+For a manifest-configured host, `AgentHttpSettingsBuilder` resolves the
+validated `AgentManifest.http` declaration into those same route and
+authentication policies, plus optional rate-limit settings. Pass the resolved
+settings to `HostingFactory.add_http_settings`; do not also configure endpoint
+selection or authentication separately. The factory validates the complete
+configuration before registering routes and attaches owned resource cleanup to
+the ASGI lifespan. Discovery remains separately configured. A managed native
+worker can receive the same resolved settings through `WorkerSettings`.
+
+Manifest rate limits use the client address seen by FastAPI, apply separately
+to enabled invocation routes, and return 429 before handler execution. Their
+storage is process-local by default; a supported Redis URI provides shared
+counters. Proxy trust is configured at the server boundary, and forwarded
+headers supplied by clients are not used as the rate-limit identity. The
+[agent manifest specification](../configuration/agent-manifests.md) describes
+the declaration and deferred secret resolution.
+
 The .NET and Java packages identify the same endpoint type strings and provide
 typed configuration, normalization, response-mapping, streaming, and dispatch
 building blocks. This repository currently includes no built-in HTTP route
