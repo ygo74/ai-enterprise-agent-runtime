@@ -24,6 +24,24 @@ Not every language or framework currently provides all four options. For
 Python support and runnable examples, see [native agent hosting](../python/native-agents.md)
 and the [Python sample catalog](../../samples/python/README.md).
 
+## Declare Python HTTP hosting in `agent.yaml`
+
+Python applications can also select their invocation routes, authentication
+mode, and optional request limits in an agent manifest. API keys and static JWT
+key material are supplied through environment-variable references. Loading the
+manifest for a command-line or MCP use does not require those HTTP credentials;
+they are resolved when the HTTP host is built.
+
+Limits apply to the client address seen by FastAPI. They use process-local
+storage by default; Redis can share counters across workers. Configure trusted
+proxy handling at the server boundary because client-supplied forwarding
+headers are not used as the limit identity. An unselected route stays disabled,
+and a request over its limit receives HTTP 429 before agent code runs.
+
+This manifest-driven HTTP setup is currently a Python FastAPI capability. See
+the [agent manifest reference](../python/agent-manifest.md) for the accepted
+keys and [Python hosting guide](../python/agent-runtime.md) for setup details.
+
 ## Readiness and shutdown
 
 Keep readiness distinct from liveness. Readiness should report whether the

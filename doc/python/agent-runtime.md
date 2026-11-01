@@ -153,7 +153,71 @@ Use `ManifestSchemas.agent()` and `ManifestSchemas.skill()` from
 `ygo74.agent_runtime.domains.configuration.manifest_schemas` to read those
 resources. `AGENT.md` and `SKILL.md` remain separate Markdown inputs. See the
 [manifest schema guide](../../spec/operations/packaging-configuration-observability.md)
-and the [agent configuration details](#delivered-agent-configuration).
+and the [agent configuration details](#delivered-agent-configuration). The
+[agent manifest reference](agent-manifest.md) lists every `agent.yaml` key,
+its value type and default, and explains how to enable schema validation in
+VS Code.
+
+### Configure HTTP hosting in `agent.yaml`
+
+The optional `http` section selects invocation routes, one required
+authentication mode, and optional SlowAPI limits. It remains a typed manifest
+declaration: loading it for CLI or MCP use does not read the HTTP secret
+references. Resolve them only when constructing a host with
+`AgentHttpSettingsBuilder`, then pass the result to `HostingFactory`:
+
+```yaml
+http:
+  endpoints: [chat_completions, responses]
+  security:
+    mode: api_key
+    api_key:
+      value: ${MAIL_HTTP_API_KEY}
+      header_name: X-API-Key
+      user:
+        subject: mail-service
+        email: mailbox@example.test
+  rate_limit:
+    limits: [60/minute]
+    storage_uri: ${HTTP_LIMIT_STORAGE_URI}
+```
+
+For JWT, set `mode: jwt` and provide `jwt` settings. Configure `issuer` for
+OIDC discovery, or select one direct `jwks_url`, static `secret`, or static
+`public_key` source. Set `allowed_algorithms`, required claims, audience,
+leeway, and role/group claim paths to match the issuer. Secret and key material
+must use complete `${VARIABLE_NAME}` references. Remote issuer/JWKS sources
+require asymmetric algorithms such as `RS256`; static `secret` uses HMAC
+algorithms such as `HS256`, while `public_key` uses asymmetric algorithms.
+The API-key identity requires an explicit `subject`; an email is optional.
+
+```python
+from pathlib import Path
+
+from ygo74.agent_runtime.domains.configuration.agent_http_configuration import (
+    AgentHttpSettingsBuilder,
+)
+from ygo74.agent_runtime.domains.configuration.environment import EnvironmentFile
+from ygo74.agent_runtime.domains.endpoints.hosting_factory import HostingFactory
+
+EnvironmentFile(Path(".env")).load()
+if manifest.http is None:
+    raise ValueError("the agent manifest must declare HTTP hosting")
+http_settings = AgentHttpSettingsBuilder().build(manifest.http)
+HostingFactory(app).add_agent(agent_entrypoint, descriptor).add_http_settings(
+    http_settings
+).register()
+```
+
+The `http` extra installs FastAPI, SlowAPI, and Redis support. SlowAPI is
+imported only when `rate_limit` is present. Without `storage_uri`, counters are
+kept in process memory. A Redis URI can be supplied directly or through an
+environment reference; only a shared backend coordinates multiple workers.
+Limits use the client address seen by FastAPI and apply independently to each
+enabled invocation route. Behind a proxy, configure trusted proxy handling at
+the server boundary; the runtime does not trust client-supplied forwarding
+headers. Disabled routes remain 404, and an exceeded limit returns 429 before
+the agent handler is invoked.
 
 ## Reasoning port
 

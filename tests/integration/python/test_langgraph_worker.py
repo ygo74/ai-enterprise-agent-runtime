@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any, cast
 
+import httpx
 import pytest
 from langchain_core.runnables.schema import StreamEvent
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
@@ -17,13 +18,22 @@ from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
 )
 from ygo74.agent_runtime.domains.auth.auth_context import ResolvedUser
 from ygo74.agent_runtime.domains.auth.authentication_policy import AuthenticationPolicy
+from ygo74.agent_runtime.domains.configuration.agent_http_configuration import (
+    AgentHttpSettingsBuilder,
+)
 from ygo74.agent_runtime.domains.contracts.agent_definition import (
     AgentDefinition,
     AgentFactoryContext,
 )
+from ygo74.agent_runtime.domains.contracts.http_configuration import (
+    AgentHttpConfiguration,
+)
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import (
     AgentCapabilitySet,
     AgentDescriptor,
+)
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
+    DiscoveryConfiguration,
 )
 from ygo74.agent_runtime.domains.endpoints.managed_worker import WorkerSettings
 from ygo74.agent_runtime.integrations.langchain.worker import LangGraphWorker
@@ -79,6 +89,55 @@ def _settings() -> WorkerSettings:
         StaticApiKeyUserResolver({"local": ResolvedUser(user_id="demo")})
     )
     return WorkerSettings("tests", "issuer", authentication)
+
+
+@pytest.mark.asyncio
+async def test_managed_worker_registers_routes_and_security_from_manifest_settings() -> None:
+    """Apply manifest HTTP settings while retaining worker lifecycle routes."""
+    manifest_http = AgentHttpConfiguration.model_validate(
+        {
+            "endpoints": ["chat_completions"],
+            "security": {
+                "mode": "api_key",
+                "api_key": {
+                    "value": "${TEST_HTTP_API_KEY}",
+                    "user": {"subject": "manifest-user"},
+                },
+            },
+            "rate_limit": {"limits": ["60/minute"]},
+        }
+    )
+    http_settings = AgentHttpSettingsBuilder(
+        {"TEST_HTTP_API_KEY": "local-manifest-key"}
+    ).build(manifest_http)
+    settings = WorkerSettings(
+        deployment_id="tests",
+        identity_namespace="manifest-user",
+        discovery=DiscoveryConfiguration(
+            enable_openai_models=True,
+            require_authentication=True,
+        ),
+        http_settings=http_settings,
+    )
+    worker = LangGraphWorker(_definition(), settings, factory=lambda _: GraphFake())
+
+    app = worker.build_app()
+    async with app.router.lifespan_context(app), httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        unauthenticated = await client.get("/v1/models")
+        models = await client.get(
+            "/v1/models", headers={"x-api-key": "local-manifest-key"}
+        )
+        responses = await client.post("/v1/responses", json={})
+        messages = await client.post("/v1/messages", json={})
+
+        assert unauthenticated.status_code == 401
+        assert models.status_code == 200
+        assert models.json()["data"][0]["id"] == "graph-demo"
+        assert responses.status_code == 404
+        assert messages.status_code == 404
 
 
 @pytest.mark.asyncio

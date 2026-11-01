@@ -35,6 +35,10 @@ Host an agent over HTTP (FastAPI and Uvicorn):
 python -m pip install 'ygo74-agent-runtime-agents[http]'
 ```
 
+The HTTP extra also includes SlowAPI and its Redis client for manifests that
+enable `rate_limit`. Hosts without that section do not import SlowAPI; the
+default limiter storage is process-local memory.
+
 Add a framework adapter independently:
 
 ```bash

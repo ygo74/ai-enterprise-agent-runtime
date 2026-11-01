@@ -2,6 +2,7 @@
 
 import inspect
 import logging
+import os
 from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
 from typing import Protocol, cast
 
@@ -19,6 +20,7 @@ from ygo74.agent_runtime.domains.contracts.stream_events import (
     TerminalEvent,
     UsageEvent,
 )
+from ygo74.agent_runtime.domains.errors import DomainError
 from ygo74.agent_runtime.domains.handlers.handler_protocol import (
     AgentInvocation,
     AgentResult,
@@ -48,7 +50,55 @@ from ygo74.agent_runtime.domains.streaming.stream_projector import StreamProject
 from ygo74.agent_runtime.domains.streaming.stream_state import StreamState
 
 logger = logging.getLogger(__name__)
-__all__ = ["AgentInvocation", "AgentResult", "StreamProcessor"]
+__all__ = [
+    "AgentInvocation",
+    "AgentResult",
+    "StreamProcessor",
+    "exception_origin",
+    "safe_diagnostic_detail",
+]
+
+
+def exception_origin(exc: BaseException) -> str:
+    """Describe where a failure was raised without the exception's own message.
+
+    Returns ``module.qualname:basename:lineno`` for the innermost traceback
+    frame so an operator can locate the failing call site (for example a
+    handler's conversation construction) without ever logging ``str(exc)``,
+    which may carry credentials, tokens, or response bodies from a developer-
+    supplied producer.
+
+    Args:
+        exc (BaseException): The error whose raising frame is described.
+    """
+    frame_type = type(exc)
+    origin = f"{frame_type.__module__}.{frame_type.__qualname__}"
+    tb = exc.__traceback__
+    while tb is not None and tb.tb_next is not None:
+        tb = tb.tb_next
+    if tb is None:
+        return origin
+    code = tb.tb_frame.f_code
+    basename = os.path.basename(code.co_filename)
+    return f"{origin}:{basename}:{tb.tb_lineno}"
+
+
+def safe_diagnostic_detail(exc: BaseException) -> str | None:
+    """Return only explicitly supplied safe metadata, never an error message.
+
+    Known configuration producers opt in with credential-free field and
+    variable names. Bound the detail and flatten whitespace to prevent
+    multiline log injection; arbitrary domain errors remain redacted.
+
+    Args:
+        exc (BaseException): The error carrying optional safe diagnostic metadata.
+
+    Returns:
+        str | None: A bounded single-line diagnostic, or no safe detail.
+    """
+    if not isinstance(exc, DomainError) or exc.safe_diagnostic_detail is None:
+        return None
+    return " ".join(exc.safe_diagnostic_detail.split())[:1024]
 
 
 class AsyncCloseable(Protocol):
@@ -137,12 +187,17 @@ class StreamProcessor:
                 if invalid or isinstance(exc, OutputProjectionError)
                 else "Agent stream execution failed",
             )
+            detail = safe_diagnostic_detail(exc)
             logger.warning(
-                "Agent stream failed request_id=%s route_key=%s protocol=%s code=%s",
+                "Agent stream failed request_id=%s route_key=%s protocol=%s "
+                "code=%s exception_type=%s origin=%s%s",
                 context.request_id,
                 context.route_key,
                 context.protocol,
                 error.code,
+                type(exc).__name__,
+                exception_origin(exc),
+                f" detail={detail}" if detail else "",
             )
             for wire in projector.finish(
                 Termination(TerminationStatus.FAILED, error=error), state

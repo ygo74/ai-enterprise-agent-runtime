@@ -12,6 +12,9 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
 from ygo74.agent_runtime.domains.auth.authentication_policy import AuthenticationPolicy
+from ygo74.agent_runtime.domains.configuration.agent_http_configuration import (
+    AgentHttpRuntimeSettings,
+)
 from ygo74.agent_runtime.domains.contracts.agent_definition import AgentDefinition
 from ygo74.agent_runtime.domains.contracts.exchange_models import (
     StandardExchangeResponse,
@@ -60,8 +63,9 @@ class WorkerSettings:
     Args:
         deployment_id: Stable deployment partition, one per process.
         identity_namespace: Verified issuer/tenant partition selected by operator.
-        authentication: Explicit authentication; anonymous hosting is refused.
-        surfaces: Enabled invocation endpoints.
+        authentication: Explicit authentication for hosts configured without a manifest.
+        surfaces: Enabled invocation endpoints for hosts configured without a manifest.
+        http_settings: Resolved route, authentication, and optional rate-limit settings from an agent manifest.
         discovery: Operator-selected discovery access and surfaces.
         max_conversations: Cache capacity.
         idle_lifetime: Expiry after last completed lease.
@@ -70,18 +74,30 @@ class WorkerSettings:
 
     deployment_id: str
     identity_namespace: str
-    authentication: AuthenticationPolicy
-    surfaces: tuple[EndpointSurface, ...] = tuple(EndpointSurface)
+    authentication: AuthenticationPolicy | None = None
+    surfaces: tuple[EndpointSurface, ...] | None = None
     discovery: DiscoveryConfiguration | None = None
     max_conversations: int = 200
     idle_lifetime: timedelta = timedelta(minutes=30)
     turn_timeout: float = 120
+    http_settings: AgentHttpRuntimeSettings | None = None
 
     def __post_init__(self) -> None:
-        """Refuse missing identity boundaries, nonpositive limits and open hosts."""
+        """Refuse incomplete configuration, nonpositive limits and open hosts."""
         if not self.deployment_id or not self.identity_namespace:
             raise ValueError("worker requires deployment and identity namespace")
-        if not self.authentication.authenticators:
+        if self.http_settings is not None and (
+            self.authentication is not None or self.surfaces is not None
+        ):
+            raise ValueError(
+                "manifest HTTP settings cannot be combined with separate authentication or surfaces"
+            )
+        authentication = (
+            self.http_settings.authentication
+            if self.http_settings is not None
+            else self.authentication
+        )
+        if authentication is None or not authentication.authenticators:
             raise ValueError("managed worker requires verified authentication")
         if self.max_conversations < 1 or self.turn_timeout <= 0 or self.idle_lifetime <= timedelta(0):
             raise ValueError("worker lifecycle limits must be positive")
@@ -136,7 +152,18 @@ class ManagedAgentWorker:
         app.state.conversations = self.conversations
         app.state.worker = self
         host = HostingFactory(app).add_agent(self._invoke, self.definition.descriptor)
-        host.add_ai_endpoints(*self.settings.surfaces).add_security(self.settings.authentication)
+        if self.settings.http_settings is not None:
+            host.add_http_settings(self.settings.http_settings)
+        else:
+            authentication = self.settings.authentication
+            if authentication is None:
+                raise RuntimeError("worker authentication was not configured")
+            surfaces = (
+                self.settings.surfaces
+                if self.settings.surfaces is not None
+                else tuple(EndpointSurface)
+            )
+            host.add_ai_endpoints(*surfaces).add_security(authentication)
         if self.settings.discovery is not None:
             host.add_discovery(self.settings.discovery)
         host.register()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -300,11 +301,17 @@ class AgentManifestLoader:
     def load(self, agent: str) -> AgentManifest:
         """Read the identity, instructions and declared capabilities of an agent.
 
+        ``AGENT_MANIFEST_FILENAME`` selects the YAML file within the agent folder
+        at load time. An absent or blank value defaults to ``agent.yaml``;
+        instructions and skill package paths are unchanged.
+
         Args:
             agent (str): The agent configuration or descriptor being processed.
         """
         folder = self._directory.require(_AGENTS, agent)
-        document = YamlDocument(folder / AGENT_MANIFEST)
+        filename = os.environ.get("AGENT_MANIFEST_FILENAME", "").strip() or AGENT_MANIFEST
+        path = folder / filename
+        document = YamlDocument(path)
         source = document.validate(AgentManifestInput, schema=ManifestSchemas.agent())
         try:
             return AgentManifest(
@@ -313,10 +320,11 @@ class AgentManifestLoader:
                 instructions=self._instructions(folder),
                 mcp_server=source.mcp_server,
                 skills=self._declared_skills(agent, source.skills),
+                http=source.http,
             )
         except ValidationError as error:
             raise ConfigurationError(
-                f"{folder / AGENT_MANIFEST} has an invalid MCP skill configuration: {error}"
+                f"{path} has an invalid MCP skill configuration: {error}"
             ) from error
 
     @staticmethod

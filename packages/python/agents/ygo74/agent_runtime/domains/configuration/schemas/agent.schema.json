@@ -1,6 +1,368 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:ygo74:agent-runtime:agent-manifest:1",
+  "$defs": {
+    "AgentHttpConfiguration": {
+      "additionalProperties": false,
+      "description": "HTTP endpoint, security, and optional rate-limit declaration for one agent.\n\nArgs:\n    endpoints: One or more supported invocation endpoints activated by the host.\n    security: Required authentication policy for all enabled invocation routes.\n    rate_limit: Optional limit applied to enabled invocation routes only.",
+      "properties": {
+        "endpoints": {
+          "items": {
+            "$ref": "#/$defs/HttpEndpoint"
+          },
+          "minItems": 1,
+          "title": "Endpoints",
+          "type": "array"
+        },
+        "security": {
+          "$ref": "#/$defs/HttpSecurityConfiguration"
+        },
+        "rate_limit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RateLimitConfiguration"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "endpoints",
+        "security"
+      ],
+      "title": "AgentHttpConfiguration",
+      "type": "object"
+    },
+    "ApiKeyConfiguration": {
+      "additionalProperties": false,
+      "description": "One API key reference and the identity it authenticates.\n\nArgs:\n    value: Protected environment-variable reference containing the API key.\n    header_name: HTTP header that carries the API key.\n    user: Explicit identity established after the key is accepted.",
+      "properties": {
+        "value": {
+          "description": "Environment variable reference containing the API key.",
+          "format": "password",
+          "pattern": "^\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}$",
+          "title": "Value",
+          "type": "string",
+          "writeOnly": true
+        },
+        "header_name": {
+          "default": "X-API-Key",
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Header Name",
+          "type": "string"
+        },
+        "user": {
+          "$ref": "#/$defs/ApiKeyIdentityConfiguration"
+        }
+      },
+      "required": [
+        "value",
+        "user"
+      ],
+      "title": "ApiKeyConfiguration",
+      "type": "object"
+    },
+    "ApiKeyIdentityConfiguration": {
+      "additionalProperties": false,
+      "description": "Non-secret identity information attached to one configured API key.\n\nArgs:\n    subject: Stable subject identifier projected into the authenticated user context.\n    email: Optional email address associated with the service identity.\n    username: Optional username projected into the authenticated identity.\n    name: Optional display name projected into the authenticated identity.",
+      "properties": {
+        "subject": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Subject",
+          "type": "string"
+        },
+        "email": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Email"
+        },
+        "username": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Username"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        }
+      },
+      "required": [
+        "subject"
+      ],
+      "title": "ApiKeyIdentityConfiguration",
+      "type": "object"
+    },
+    "HttpEndpoint": {
+      "description": "Invocation endpoints that an agent manifest can activate.",
+      "enum": [
+        "chat_completions",
+        "responses",
+        "messages"
+      ],
+      "title": "HttpEndpoint",
+      "type": "string"
+    },
+    "HttpSecurityConfiguration": {
+      "additionalProperties": false,
+      "description": "Select one complete, explicit JWT or API-key authentication configuration.\n\nArgs:\n    mode: Authentication mode required for every HTTP-hosted agent.\n    jwt: JWT settings, required only when ``mode`` is ``jwt``.\n    api_key: API-key settings, required only when ``mode`` is ``api_key``.",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/HttpSecurityMode"
+        },
+        "jwt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/JwtConfiguration"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "api_key": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ApiKeyConfiguration"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "HttpSecurityConfiguration",
+      "type": "object"
+    },
+    "HttpSecurityMode": {
+      "description": "Authentication policy selected by the HTTP section of an agent manifest.",
+      "enum": [
+        "jwt",
+        "api_key"
+      ],
+      "title": "HttpSecurityMode",
+      "type": "string"
+    },
+    "JwtConfiguration": {
+      "additionalProperties": false,
+      "description": "JWT validation and signing-key source accepted by the runtime security package.\n\nExactly one key source is selected: ``jwks_url``, ``secret`` or\n``public_key``. When none is named, ``issuer`` supplies OIDC discovery.\n\nArgs:\n    allowed_algorithms: JWT algorithms accepted by the validator.\n    required_claims: Claims that must exist in every accepted token.\n    issuer: Expected issuer and, when used alone as the key source, OIDC discovery issuer.\n    audience: Expected audience value or values.\n    leeway_seconds: Nonnegative clock-skew allowance.\n    roles_claim_path: Optional dotted claim path for role projection.\n    groups_claim_path: Optional dotted claim path for group projection.\n    jwks_url: Direct HTTPS JSON Web Key Set URL.\n    secret: Environment reference holding a static symmetric signing secret.\n    public_key: Environment reference holding a static public signing key.",
+      "properties": {
+        "allowed_algorithms": {
+          "default": [
+            "HS256"
+          ],
+          "items": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "title": "Allowed Algorithms",
+          "type": "array"
+        },
+        "required_claims": {
+          "default": [
+            "sub"
+          ],
+          "items": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "title": "Required Claims",
+          "type": "array"
+        },
+        "issuer": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Issuer"
+        },
+        "audience": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "items": {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Audience"
+        },
+        "leeway_seconds": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Leeway Seconds",
+          "type": "integer"
+        },
+        "roles_claim_path": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Roles Claim Path"
+        },
+        "groups_claim_path": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Groups Claim Path"
+        },
+        "jwks_url": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Jwks Url"
+        },
+        "secret": {
+          "anyOf": [
+            {
+              "format": "password",
+              "type": "string",
+              "writeOnly": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Environment variable reference containing the symmetric signing secret.",
+          "pattern": "^\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}$",
+          "title": "Secret"
+        },
+        "public_key": {
+          "anyOf": [
+            {
+              "format": "password",
+              "type": "string",
+              "writeOnly": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Environment variable reference containing the static public key.",
+          "pattern": "^\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}$",
+          "title": "Public Key"
+        }
+      },
+      "title": "JwtConfiguration",
+      "type": "object"
+    },
+    "RateLimitConfiguration": {
+      "additionalProperties": false,
+      "description": "Optional SlowAPI limits and protected storage URI declared for an agent.\n\nArgs:\n    limits: One or more per-client limits, such as ``60/minute``.\n    storage_uri: Optional literal backend URI or protected environment reference.",
+      "properties": {
+        "limits": {
+          "items": {
+            "pattern": "^[1-9][0-9]*/(?:second|minute|hour|day|month|year)$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Limits",
+          "type": "array"
+        },
+        "storage_uri": {
+          "anyOf": [
+            {
+              "format": "password",
+              "type": "string",
+              "writeOnly": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Storage Uri"
+        }
+      },
+      "required": [
+        "limits"
+      ],
+      "title": "RateLimitConfiguration",
+      "type": "object"
+    }
+  },
   "additionalProperties": false,
   "description": "The fixed YAML fields accepted for one agent.",
   "properties": {
@@ -39,6 +401,17 @@
       "minItems": 1,
       "title": "Skills",
       "type": "array"
+    },
+    "http": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AgentHttpConfiguration"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [

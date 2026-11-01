@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from ygo74.agent_runtime.domains.auth.auth_context import (
@@ -35,7 +35,7 @@ class StaticApiKeyUserResolver(ApiKeyUserResolver):
     Args:
         users_by_key (dict[str, ResolvedUser]): API key lookup table mapping credentials to resolved users.
     """
-    users_by_key: dict[str, ResolvedUser]
+    users_by_key: dict[str, ResolvedUser] = field(repr=False)
 
     def resolve_user(self, api_key: str) -> ResolvedUser | None:
         """Resolve user using configuration and registered candidates.

@@ -100,9 +100,9 @@ def test_the_security_foundation_loads_no_web_stack() -> None:
     assert loaded == "", f"the security foundation pulled in {loaded}"
 
 
-def test_a_domain_import_does_not_load_the_transport() -> None:
+def test_a_domain_import_does_not_load_the_transport_or_rate_limiter() -> None:
     """Kept from the lazy-facade era, because the guarantee outlived the facade."""
-    loaded = _modules_loaded_by(AGENT_MODULES, ("fastapi", "starlette"))
+    loaded = _modules_loaded_by(AGENT_MODULES, ("fastapi", "starlette", "slowapi"))
 
     assert loaded == "", f"a domain import pulled in a web stack: {loaded}"
 

@@ -43,3 +43,10 @@ Streaming uses Server-Sent Events where supported. Set `stream` to `true`; the
 handler must produce events rather than a completed response. Each provider has
 its own event format. The [Python agent runtime guide](../python/agent-runtime.md)
 describes event mapping and implementation limits.
+
+If a failure happens before streaming begins, the server can return a structured
+HTTP error. After SSE headers are sent, the HTTP status cannot change. For
+OpenAI Responses, a failed stream ends with an `error` event followed by
+`response.failed`, never `response.completed`; check the terminal event instead
+of treating HTTP 200 alone as success. See [typed outputs and migration](../python/typed-outputs.md)
+for the error details.

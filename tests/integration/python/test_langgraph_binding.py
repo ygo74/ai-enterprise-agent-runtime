@@ -99,6 +99,29 @@ class ResolverFake:
         return tuple(LangGraphApprovalDecision(LangGraphDecisionType.APPROVE) for _ in pending)
 
 
+class RoundedGraphFake:
+    """Serve a distinct scripted event sequence for each successive stream round."""
+
+    def __init__(self, rounds: Sequence[Sequence[StandardStreamEvent]]) -> None:
+        self._rounds = [list(round_events) for round_events in rounds]
+        self.stream_inputs: list[object] = []
+        self.configs: list[Mapping[str, Any]] = []
+
+    async def astream_events(
+        self,
+        value: object,
+        *,
+        config: Mapping[str, Any],
+        version: str,
+    ) -> AsyncIterator[StandardStreamEvent]:
+        """Yield the next scripted round, preserving call order for assertions."""
+        assert version == "v2"
+        self.stream_inputs.append(value)
+        self.configs.append(config)
+        for item in self._rounds.pop(0):
+            yield item
+
+
 @pytest.mark.asyncio
 async def test_ask_output_uses_only_latest_text_and_extracts_assistant_usage() -> None:
     """Conversation state stays server-managed and output contains only the final assistant message."""
@@ -230,6 +253,81 @@ async def test_cancelled_stream_closes_graph_producer_and_invalidates_session() 
     assert closed
     with pytest.raises(RuntimeError, match="invalidated"):
         await session.ask_output("next")
+
+
+@pytest.mark.asyncio
+async def test_ask_stream_resolves_streamed_interruption_and_keeps_history_valid() -> None:
+    """A streamed interrupt is captured even though it is absent from on_chain_end.
+
+    LangGraph only carries ``__interrupt__`` on an intermediate root
+    ``on_chain_stream`` chunk; the terminal ``on_chain_end`` output for the
+    suspended round never repeats it. The approval loop must still see the
+    pending action so it resolves it before the turn completes, otherwise the
+    next turn's prompt would contain an ``AIMessage.tool_calls`` entry with no
+    matching ``ToolMessage`` response (invalid history, rejected by providers).
+    """
+    pending_state = {"messages": [
+        HumanMessage("please act"),
+        AIMessage(
+            content="",
+            tool_calls=[{"name": "search", "args": {"query": "one"}, "id": "call-1", "type": "tool_call"}],
+        ),
+    ]}
+    interrupt = SimpleNamespace(value={"action_requests": [
+        {"name": "search", "args": {"query": "one"}},
+    ]})
+    resumed_state = {"messages": [
+        *pending_state["messages"],
+        ToolMessage(content="ok", tool_call_id="call-1", name="search"),
+        AIMessage(content="done"),
+    ]}
+    graph = RoundedGraphFake([
+        [
+            _event("model", run_id="model-1", event="on_chat_model_end",
+                   data={"output": pending_state["messages"][-1]}),
+            # Only the streamed chunk carries the interrupt; on_chain_end never does.
+            _event("graph", run_id="graph-1", event="on_chain_stream",
+                   data={"chunk": {"__interrupt__": (interrupt,)}}, parents=()),
+            _event("graph", run_id="graph-1", event="on_chain_end",
+                   data={"output": pending_state}, parents=()),
+        ],
+        [
+            _event("model", run_id="model-2", event="on_chat_model_end",
+                   data={"output": resumed_state["messages"][-1]}),
+            _event("graph", run_id="graph-2", event="on_chain_end",
+                   data={"output": resumed_state}, parents=()),
+        ],
+    ])
+    resolver = ResolverFake()
+    session = LangGraphSession(graph, thread_id="t", resolver=resolver)
+
+    events = [item async for item in session.ask_stream("please act")]
+
+    assert tuple(call.tool_name for call in resolver.batches[0]) == ("search",)
+    assert graph.stream_inputs[1] == Command(resume={"decisions": [{"type": "approve"}]})
+    assert sum(isinstance(item, TerminalEvent) for item in events) == 1
+    final_messages = resumed_state["messages"]
+    tool_call_ids = {call["id"] for call in final_messages[1].tool_calls}
+    answered_ids = {
+        message.tool_call_id for message in final_messages if isinstance(message, ToolMessage)
+    }
+    assert tool_call_ids == answered_ids
+
+
+@pytest.mark.asyncio
+async def test_ask_stream_without_interruption_still_terminates_once() -> None:
+    """An ordinary ungated stream round is unaffected by interrupt capture."""
+    final_state = {"messages": [HumanMessage("q"), AIMessage(content="hi")]}
+    graph = GraphFake([], [
+        _event("model", run_id="model-1", event="on_chat_model_end",
+               data={"output": AIMessage(content="hi")}),
+        _event("graph", run_id="graph-1", event="on_chain_end", data={"output": final_state}, parents=()),
+    ])
+    session = LangGraphSession(graph, thread_id="t")
+
+    events = [item async for item in session.ask_stream("q")]
+
+    assert sum(isinstance(item, TerminalEvent) for item in events) == 1
 
 
 def test_pending_approval_requires_an_action_request_mapping() -> None:

@@ -50,6 +50,22 @@ remain errors. Reasoning is hidden unless the application explicitly marks it
 exposable and the protocol supports that projection. Internal tool activity is
 not automatically made into a client-executable tool request.
 
+For OpenAI Responses streaming, a failed invocation emits one standalone
+`error` event followed by one `response.failed` lifecycle event. The two events
+carry the same stable public error; the standalone event includes the nested
+error envelope expected by the OpenAI Python SDK. A failed stream never emits
+`response.completed`. If execution fails before streaming headers are sent,
+the HTTP request instead receives a structured 500 response. Once headers are
+sent, the already-committed HTTP status cannot change, so clients must inspect
+the stream's terminal error rather than treating HTTP 200 as success.
+
+Python FastAPI failure logs include correlation fields, exception type, and
+raising origin, but do not log arbitrary exception messages. Only explicitly
+marked, credential-free diagnostic metadata is included; it is flattened and
+bounded. For missing MCP environment references this metadata may identify the
+configuration file, field, and variable name, never the referenced value. See
+the [observability specification](../operations/observability.md).
+
 The three protocol projections have different requirements. Anthropic Messages
 requires genuine input and output usage in its response and before visible
 stream content. The runtime does not invent a zero-usage baseline after model

@@ -77,6 +77,10 @@ from ygo74.agent_runtime.domains.endpoints.header_forwarding import (
 from ygo74.agent_runtime.domains.endpoints.openai_responses import (
     OpenAIResponsesCreateRequest,
 )
+from ygo74.agent_runtime.domains.endpoints.rate_limiting import (
+    RateLimitSettings,
+    SlowApiRateLimiter,
+)
 from ygo74.agent_runtime.domains.http.asgi_lifecycle import AsgiShutdownRegistrar
 from ygo74.agent_runtime.domains.mapping.output_normalizer import OutputNormalizer
 from ygo74.agent_runtime.domains.mapping.output_projector import (
@@ -92,6 +96,12 @@ from ygo74.agent_runtime.domains.mapping.response_mapper import (
 from ygo74.agent_runtime.domains.streaming.stream_processor import (
     AgentInvocation,
     StreamProcessor,
+)
+from ygo74.agent_runtime.domains.streaming.stream_processor import (
+    exception_origin as _exception_origin,
+)
+from ygo74.agent_runtime.domains.streaming.stream_processor import (
+    safe_diagnostic_detail as _safe_diagnostic_detail,
 )
 
 AgentEntrypoint = Callable[[dict[str, Any]], AgentInvocation]
@@ -172,6 +182,7 @@ def add_ai_endpoints(
     descriptor_registry: DescriptorRegistry | None = None,
     discovery: DiscoveryConfiguration | None = None,
     authorization_policy: AgentAccessPolicy | None = None,
+    rate_limit_settings: RateLimitSettings | None = None,
     forwarded_headers: Sequence[str] | None = None,
     conversation_header: str = DEFAULT_CONVERSATION_HEADER,
 ) -> None:
@@ -203,6 +214,7 @@ def add_ai_endpoints(
         descriptor_registry (DescriptorRegistry | None): Registry of validated agent descriptors indexed by public ID and route key.
         discovery (DiscoveryConfiguration | None): Discovery settings and registry used to expose agent metadata.
         authorization_policy (AgentAccessPolicy | None): Policy applied to the authenticated identity before exposing a protected resource.
+        rate_limit_settings (RateLimitSettings | None): Optional per-IP limits applied to enabled invocation routes.
         forwarded_headers (Sequence[str] | None): Request headers safe to expose to application code.
         conversation_header (str): Header carrying the client conversation identifier.
     """
@@ -219,6 +231,12 @@ def add_ai_endpoints(
     )
     if jwt_validation is not None and authenticators is None:
         AsgiShutdownRegistrar.register(app, request_authenticator.close)
+
+    rate_limiter = (
+        SlowApiRateLimiter(app, rate_limit_settings)
+        if rate_limit_settings is not None
+        else None
+    )
 
     header_forwarder = RequestHeaderForwarder.create(
         forwarded=forwarded_headers,
@@ -405,11 +423,16 @@ def add_ai_endpoints(
                 ),
             ) from ex
         except Exception as ex:
+            detail = _safe_diagnostic_detail(ex)
             logger.warning(
-                "Agent execution failed for endpoint_type=%s request_id=%s route_key=%s",
+                "Agent execution failed for endpoint_type=%s request_id=%s "
+                "route_key=%s exception_type=%s origin=%s%s",
                 endpoint_type,
                 payload.get("request_id"),
                 payload.get("route_key"),
+                type(ex).__name__,
+                _exception_origin(ex),
+                f" detail={detail}" if detail else "",
             )
             err = AgentOutput(
                 termination=Termination(
@@ -443,41 +466,53 @@ def add_ai_endpoints(
 
     if enable_openai_responses:
 
-        @app.post("/v1/responses")
         async def openai_responses(body: dict[str, Any], request: Request) -> Any:
             """Handle one OpenAI Responses request and return its projected response or stream.
 
             Args:
-                body (dict[str, Any]): Incoming HTTP request body or approval message handled by this operation.
-                request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+                body (dict[str, Any]): Incoming HTTP request body handled by this operation.
+                request (Request): Request carrying the client IP and protocol-specific fields.
             """
             return await _invoke("openai.responses", body, request)
 
+        if rate_limiter is None:
+            app.post("/v1/responses")(openai_responses)
+        else:
+            rate_limiter.register(app, "/v1/responses", openai_responses)
+
     if enable_openai_chat_completions:
 
-        @app.post("/v1/chat/completions")
         async def openai_chat_completions(
             body: dict[str, Any], request: Request
         ) -> Any:
             """Handle one OpenAI Chat Completions request and return its projected response or stream.
 
             Args:
-                body (dict[str, Any]): Incoming HTTP request body or approval message handled by this operation.
-                request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+                body (dict[str, Any]): Incoming HTTP request body handled by this operation.
+                request (Request): Request carrying the client IP and protocol-specific fields.
             """
             return await _invoke("openai.chat_completions", body, request)
 
+        if rate_limiter is None:
+            app.post("/v1/chat/completions")(openai_chat_completions)
+        else:
+            rate_limiter.register(app, "/v1/chat/completions", openai_chat_completions)
+
     if enable_anthropic_messages:
 
-        @app.post("/v1/messages")
         async def anthropic_messages(body: dict[str, Any], request: Request) -> Any:
             """Handle one Anthropic Messages request and return its projected response or stream.
 
             Args:
-                body (dict[str, Any]): Incoming HTTP request body or approval message handled by this operation.
-                request (Request): The request received at this layer, with its protocol-specific or normalized fields.
+                body (dict[str, Any]): Incoming HTTP request body handled by this operation.
+                request (Request): Request carrying the client IP and protocol-specific fields.
             """
             return await _invoke("anthropic.messages", body, request)
+
+        if rate_limiter is None:
+            app.post("/v1/messages")(anthropic_messages)
+        else:
+            rate_limiter.register(app, "/v1/messages", anthropic_messages)
 
     if descriptor_registry is not None and discovery is not None:
         discovery_authenticator = RequestAuthenticator(

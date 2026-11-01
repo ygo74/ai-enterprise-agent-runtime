@@ -35,6 +35,14 @@ Completions, and Anthropic Messages endpoints. Optional discovery shares the
 descriptor registry but applies the configured access policy to both model
 invocation and discovery results.
 
+`HostingFactory.add_http_settings()` applies the resolved `agent.yaml` HTTP
+declaration to the same route and authentication pipeline. The settings builder
+converts manifest choices into existing endpoint and authentication policies;
+it does not add another authorization path. The optional SlowAPI adapter is
+created only when rate limits are present and decorates only enabled invocation
+routes. It uses FastAPI's observed client address, returns a stable 429 response,
+and registers backend cleanup with the ASGI lifespan.
+
 ```mermaid
 classDiagram
     class HostingFactory
@@ -57,6 +65,12 @@ failure or cancellation termination; they must not be reported as success.
 Keep provider-specific event rules in `domains/streaming` and neutral event
 types in `domains/contracts/stream_events.py`.
 
+For OpenAI Responses, an execution failure is rendered as one `error` event
+before `response.failed`; it must never produce `response.completed`. When the
+entrypoint fails before streaming headers are committed, return the structured
+HTTP 500 response instead. Keep tests for both failure timings and ensure the
+OpenAI SDK receives the nested error envelope it expects.
+
 ## Extension points
 
 - Add or adjust an endpoint adapter when a provider has a different request or
@@ -73,6 +87,8 @@ and [`domains/streaming`](../../packages/python/agents/ygo74/agent_runtime/domai
 Relevant tests include [non-stream endpoints](../../tests/integration/python/test_non_stream_endpoints.py),
 [streaming endpoints](../../tests/integration/python/test_streaming_endpoints.py),
 [Responses API](../../tests/integration/python/test_openai_responses_api.py),
+[manifest HTTP hosting](../../tests/integration/python/test_manifest_http_hosting.py),
+[HTTP route and rate-limit behavior](../../tests/integration/python/test_fastapi_add_ai_endpoints.py),
 and endpoint tests under `tests/integration/dotnet/` and
 `tests/integration/java/`.
 

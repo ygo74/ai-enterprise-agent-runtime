@@ -7,6 +7,10 @@ from enum import StrEnum
 from typing import Any, Self
 
 from ygo74.agent_runtime.domains.auth.authentication_policy import AuthenticationPolicy
+from ygo74.agent_runtime.domains.configuration.agent_http_configuration import (
+    AgentHttpRuntimeSettings,
+)
+from ygo74.agent_runtime.domains.contracts.http_configuration import HttpEndpoint
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentDescriptor
 from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
 from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
@@ -15,6 +19,8 @@ from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
 from ygo74.agent_runtime.domains.endpoints.fastapi_endpoints import (
     _register_ai_endpoints,
 )
+from ygo74.agent_runtime.domains.endpoints.rate_limiting import RateLimitSettings
+from ygo74.agent_runtime.domains.http.asgi_lifecycle import AsgiShutdownRegistrar
 from ygo74.agent_runtime.domains.streaming.stream_processor import AgentInvocation
 
 AgentEntrypoint = Callable[[dict[str, Any]], AgentInvocation]
@@ -29,6 +35,13 @@ class EndpointSurface(StrEnum):
     OPENAI_RESPONSES = "openai.responses"
     OPENAI_CHAT_COMPLETIONS = "openai.chat_completions"
     ANTHROPIC_MESSAGES = "anthropic.messages"
+
+
+_HTTP_ENDPOINT_SURFACES: dict[HttpEndpoint, EndpointSurface] = {
+    HttpEndpoint.CHAT_COMPLETIONS: EndpointSurface.OPENAI_CHAT_COMPLETIONS,
+    HttpEndpoint.RESPONSES: EndpointSurface.OPENAI_RESPONSES,
+    HttpEndpoint.MESSAGES: EndpointSurface.ANTHROPIC_MESSAGES,
+}
 
 
 class HostingFactory:
@@ -56,6 +69,8 @@ class HostingFactory:
         self._descriptor: AgentDescriptor | None = None
         self._surfaces: frozenset[EndpointSurface] | None = None
         self._authentication: AuthenticationPolicy | None = None
+        self._rate_limit: RateLimitSettings | None = None
+        self._http_settings: AgentHttpRuntimeSettings | None = None
         self._discovery: DiscoveryConfiguration | None = None
         self._registered = False
 
@@ -116,6 +131,29 @@ class HostingFactory:
         self._authentication = policy
         return self
 
+    def add_http_settings(self, settings: AgentHttpRuntimeSettings) -> Self:
+        """Apply the resolved HTTP section of an agent manifest to this host.
+
+        This method keeps endpoint selection and security sourced from one
+        validated manifest object; hosts may still use the individual fluent
+        methods for application-owned configuration.
+
+        Args:
+            settings: Runtime settings resolved from ``AgentManifest.http``.
+        """
+        self._ensure_configurable()
+        if self._surfaces is not None or self._authentication is not None:
+            raise HostingConfigurationError(
+                "HTTP settings cannot be combined with separately configured endpoints or security"
+            )
+        self._surfaces = frozenset(
+            _HTTP_ENDPOINT_SURFACES[endpoint] for endpoint in settings.endpoints
+        )
+        self._authentication = settings.authentication
+        self._rate_limit = settings.rate_limit
+        self._http_settings = settings
+        return self
+
     def add_discovery(self, configuration: DiscoveryConfiguration) -> Self:
         """Enable provider model discovery with its own authentication setting.
 
@@ -172,6 +210,14 @@ class HostingFactory:
             raise HostingConfigurationError(
                 "the configured app must support FastAPI POST route registration"
             )
+        if self._http_settings is not None:
+            router = getattr(self._app, "router", None)
+            if router is None or not callable(
+                getattr(router, "lifespan_context", None)
+            ):
+                raise HostingConfigurationError(
+                    "the configured app must expose an ASGI shutdown lifecycle for manifest HTTP settings"
+                )
         if self._discovery is not None and not callable(
             getattr(self._app, "get", None)
         ):
@@ -192,7 +238,12 @@ class HostingFactory:
             authenticators=authentication.authenticators,
             descriptor_registry=descriptor_registry,
             discovery=self._discovery,
+            rate_limit_settings=self._rate_limit,
         )
+        if self._http_settings is not None:
+            AsgiShutdownRegistrar.register(
+                self._app, self._http_settings.close, wrap_lifespan=True
+            )
         self._registered = True
 
     def _ensure_configurable(self) -> None:

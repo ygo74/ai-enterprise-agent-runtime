@@ -219,6 +219,31 @@ scheme from a selected header. Keep key storage, rotation, revocation, and the
 resolver's lookup behavior in the application. The resolver is the API-key
 extension point.
 
+### Authentication from an agent manifest
+
+For a single FastAPI agent, `agent.yaml` can declare either `jwt` or `api_key`
+under `http.security`. The declaration is converted to the same
+`AuthenticationPolicy`, JWT validators, and API-key authenticator described
+above. API-key configuration includes a required subject and optional identity
+attributes; this is the identity projected into `auth_context` after the key
+is accepted.
+
+Use `${VARIABLE_NAME}` references for API keys and static JWT key material.
+The manifest loader keeps those references protected and unresolved, so a CLI
+or MCP consumer of the same manifest does not need HTTP credentials. Resolve
+them with `AgentHttpSettingsBuilder` only when building the HTTP host. Missing
+or empty variables fail host construction without including their values in
+the error. See the [HTTP manifest example](agent-runtime.md#configure-http-hosting-in-agentyaml)
+for OIDC, JWKS, static-key, endpoint, and rate-limit options.
+
+JWT supports discovered issuer metadata, direct JWKS URLs, and the static key
+resolvers already supplied by the security package. The runtime rejects
+insecure URLs, mismatched key/algorithm families, mixed JWT/API-key options,
+and unsupported algorithms before registering routes. Issuer discovery and
+remote JWKS sources require asymmetric algorithms such as `RS256`; static
+`secret` uses HMAC algorithms such as `HS256`, while `public_key` uses
+asymmetric algorithms.
+
 ### Combining or extending authenticators
 
 [`RequestAuthenticator`](../../packages/python/security/ygo74/agent_runtime/domains/auth/authenticator.py)

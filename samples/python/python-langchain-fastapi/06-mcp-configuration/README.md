@@ -16,13 +16,17 @@ point.
 - `config/mcp/delegated.yaml`: separate OBO server with its token endpoint and
   client ID in YAML, a client-secret environment reference, audience, and scopes.
 - `config/agents/mail-assistant/agent.yaml` and `config/skills/mail-assistant/`:
-  four delivered skills, with the two mail skills inheriting the agent default.
+  four delivered skills, with the two mail skills inheriting the agent default;
+  the agent manifest also selects Chat Completions and Responses, API-key
+  identity, and a per-IP rate limit.
 - `.env.sample`: placeholder values for API-key, gateway-header, OAuth-client,
-  and OBO-client secrets.
+  OBO-client, and HTTP API-key secrets.
 - `OfflineOAuthOnBehalfOfTokenSource`: fake source proving the OBO provider port can
   be supplied without contacting an identity provider.
 - `registry_smoke.py`: loads the delivered agent and skill manifests, then loads
   the server configuration through `McpAgentRegistryLoader`.
+- `http_configuration_smoke.py`: resolves the manifest's HTTP settings and
+  prints endpoints, authentication mode, and limits without starting a server.
 
 ## Run the configuration smoke path
 
@@ -35,11 +39,16 @@ python -m pip install -e ../../../../packages/python/security
 python -m pip install -e '../../../../packages/python/agents[mcp]'
 cp .env.sample .env
 python registry_smoke.py
+python http_configuration_smoke.py
 ```
 
 The placeholder credentials are enough to validate and compose the registry.
 Replace them with real values only when the application later opens a remote
 connection. The OBO fake token is never requested during configuration loading.
+The MCP registry smoke path does not resolve the HTTP API-key reference. The
+separate HTTP settings smoke uses the placeholder `MAIL_ASSISTANT_HTTP_API_KEY`
+from `.env` and never prints its value. A real FastAPI composition can pass the
+returned settings to `HostingFactory.add_http_settings()`.
 To use a proxy, edit `config/mcp/mail.yaml` and set
 `network.proxy_url`; the registry validates it before any connection is opened.
 

@@ -7,3 +7,15 @@ skills:
   - send_mail
   - search_archive
   - delegated_lookup
+http:
+  endpoints: [chat_completions, responses]
+  security:
+    mode: api_key
+    api_key:
+      value: ${MAIL_ASSISTANT_HTTP_API_KEY}
+      header_name: X-API-Key
+      user:
+        subject: mail-assistant-service
+        email: mail-assistant@example.test
+  rate_limit:
+    limits: [60/minute]

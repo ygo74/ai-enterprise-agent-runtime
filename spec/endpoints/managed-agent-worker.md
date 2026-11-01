@@ -33,11 +33,14 @@ application policy.
 
 ## Authentication, state, and limits
 
-`WorkerSettings` requires explicit authentication, deployment identity, and
-identity namespace. Anonymous access is refused. It also sets enabled endpoint
-surfaces, optional discovery, a conversation limit, idle lifetime, and a turn
-timeout. Defaults are 200 cached conversations, 30 minutes idle lifetime, and
-120 seconds per turn.
+`WorkerSettings` requires deployment identity and identity namespace, plus
+verified authentication. Authentication and invocation surfaces may be set
+directly, or supplied together through resolved HTTP settings from an
+`agent.yaml` manifest; the two configuration paths cannot be combined. Anonymous
+access is refused. Optional discovery remains separately configured. Worker
+settings also set a conversation limit, idle lifetime, and turn timeout.
+Defaults are 200 cached conversations, 30 minutes idle lifetime, and 120
+seconds per turn.
 
 The worker builds or reuses one conversation per verified identity and
 conversation ID. The cache serializes turns for an entry, keeps a lease while a
@@ -48,10 +51,13 @@ shutdown. This is process-local state, not durable or shared across workers.
 ## HTTP lifecycle
 
 The worker registers the selected invocation endpoints and optional discovery
-using the existing endpoint host. It applies request authentication before
-creating the native conversation. `/health/ready` reports `503` before startup
-and during shutdown, and `200` while the worker lifespan is active. The
-readiness response contains no identity or secret data.
+using the existing endpoint host. With manifest HTTP settings, the selected
+routes, authentication, and optional per-route rate limit come from the
+validated manifest declaration. It applies request authentication before
+creating the native conversation. Manifest-owned authentication and rate-limit
+resources are closed through the ASGI lifespan. `/health/ready` reports `503`
+before startup and during shutdown, and `200` while the worker lifespan is
+active. The readiness response contains no identity or secret data.
 
 Turn timeout applies to normal and streamed execution. Stream producers are
 closed when a response completes, fails, or is cancelled. On shutdown, the

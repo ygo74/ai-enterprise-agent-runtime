@@ -313,13 +313,29 @@ class ResponsesStreamProjector:
             TerminationStatus.FAILED: "failed",
         }[termination.status]
         response = self._response(state, status)
+        frames: list[WireEvent] = []
         if termination.error is not None:
             response["error"] = {
                 "code": termination.error.code,
                 "message": termination.error.message,
             }
+            # Responses consumers use the flat error event; the Python SDK's
+            # generic stream reader also requires a nested error envelope to
+            # raise APIError rather than silently yielding the failed event.
+            frames.append(
+                self._event(
+                    "error",
+                    {
+                        "code": termination.error.code,
+                        "message": termination.error.message,
+                        "param": None,
+                        "error": response["error"],
+                    },
+                )
+            )
         if termination.status == TerminationStatus.INCOMPLETE:
             response["incomplete_details"] = OutputWireValues.incomplete_details(
                 termination, state.context
             )
-        return [self._event(f"response.{status}", {"response": response})]
+        frames.append(self._event(f"response.{status}", {"response": response}))
+        return frames

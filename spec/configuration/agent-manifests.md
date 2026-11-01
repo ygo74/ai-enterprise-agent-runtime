@@ -30,6 +30,39 @@ are packaged with the Python distribution under stable identifiers:
 - `urn:ygo74:agent-runtime:agent-manifest:1`
 - `urn:ygo74:agent-runtime:skill-manifest:1`
 
+## Optional HTTP hosting declaration
+
+`agent.yaml` may include an `http` section for Python FastAPI hosting. It
+selects a non-empty, duplicate-free set of invocation surfaces (`chat_completions`,
+`responses`, and/or `messages`), requires one explicit `jwt` or `api_key`
+authentication configuration, and may declare per-client rate limits. Existing
+manifests without this section remain valid for command-line, MCP, and other
+non-HTTP uses.
+
+The section is structurally validated with the rest of the manifest, but its
+secret references are resolved only when an application constructs an HTTP
+host through `AgentHttpSettingsBuilder`. Thus loading the same manifest for a
+non-HTTP use does not require its HTTP credentials. API keys and static JWT
+key material must be complete `${VARIABLE_NAME}` references. JWT configuration
+uses the existing validator and supports a direct JWKS URL, issuer-based OIDC
+discovery, or one static symmetric/public key source. API-key configuration
+declares the authenticated service identity; a subject is required and email,
+username, and display name are optional.
+
+Rate limits are optional and apply to each enabled invocation route using the
+client address observed by FastAPI. Without a storage URI, counters are local to
+the process; supported Redis URIs allow workers to share counters. Client
+forwarding headers are not trusted by this configuration. An omitted route
+remains unregistered, and a request to it receives the host's normal 404. Limit
+exhaustion returns 429 before the agent handler runs. Host-owned authentication
+and storage resources are closed through the ASGI application lifecycle.
+
+The HTTP declaration is converted into the runtime's existing authentication,
+route, and rate-limit settings rather than creating a separate authorization
+system. See [provider invocation surfaces](../endpoints/provider-surfaces.md),
+[managed native-agent workers](../endpoints/managed-agent-worker.md), and the
+[packaging and operations specification](../operations/packaging-configuration-observability.md).
+
 ## Structural validation and security checks
 
 Schema validation describes the accepted file shape. It does not grant a

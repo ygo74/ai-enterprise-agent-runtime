@@ -50,7 +50,7 @@ class StaticSymmetricKeyResolver(JwtKeyResolver):
         secret (str): Symmetric signing secret held by the configured key resolver.
     """
 
-    secret: str
+    secret: str = field(repr=False)
 
     def resolve_key(self, token: str, unverified_header: Mapping[str, Any]) -> Any:
         """Resolve key using configuration and registered candidates.

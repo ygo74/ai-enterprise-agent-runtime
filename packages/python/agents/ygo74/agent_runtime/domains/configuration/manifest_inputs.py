@@ -13,6 +13,9 @@ from pydantic import (
     StringConstraints,
     model_validator,
 )
+from ygo74.agent_runtime.domains.contracts.http_configuration import (
+    AgentHttpConfiguration,
+)
 from ygo74.agent_runtime.domains.security.operations import OperationType, RiskLevel
 
 ManifestText = Annotated[
@@ -84,3 +87,4 @@ class AgentManifestInput(BaseModel):
     description: ManifestText
     mcp_server: ManifestText | None = None
     skills: tuple[ManifestText, ...] = Field(min_length=1)
+    http: AgentHttpConfiguration | None = None

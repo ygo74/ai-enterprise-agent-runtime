@@ -155,6 +155,8 @@ class LangChainStreamAdapter:
             chunk = event["data"].get("chunk")
             if not isinstance(chunk, AIMessageChunk):
                 return self.result_adapter.unsupported("unsupported_chunk", "The chat stream event must contain an SDK AIMessageChunk.")
+            if self._is_nested_in_tool(event["parent_ids"]):
+                return self._suppress_nested_chunk(chunk, run_id=run_id)
             return self.convert_chunk(chunk, run_id=run_id)
         if kind == NativeEvent.CHAT_END:
             output = event["data"].get("output")
@@ -162,6 +164,8 @@ class LangChainStreamAdapter:
                 return self.result_adapter.unsupported("unsupported_model_snapshot", "The chat end event must contain an SDK AIMessage.")
             if isinstance(output, AIMessageChunk):
                 output = cast(AIMessage, message_chunk_to_message(output))
+            if self._is_nested_in_tool(event["parent_ids"]):
+                return self._suppress_nested_end(output, run_id)
             converted = self._end_model(output, run_id)
             if not event["parent_ids"]:
                 finished = self.finish()
@@ -190,6 +194,55 @@ class LangChainStreamAdapter:
         return self.result_adapter.unsupported(
             "unsupported_event", "The SDK event has no built-in mapping; the developer may select a notification.",
         )
+
+    def _is_nested_in_tool(self, parent_ids: tuple[str, ...]) -> bool:
+        """Detect whether a chat-model event's ancestry includes a currently open tool invocation.
+
+        A tool may invoke its own chat model internally (for example to perform structured
+        reasoning). That nested model is a private implementation detail of the tool, not the
+        agent's own assistant turn, so its text must never reach the client while the tool's
+        own call/result representation still does.
+
+        Args:
+            parent_ids (tuple[str, ...]): SDK run ancestry chain supplied with the event.
+        """
+        return any(parent_id in self._tools for parent_id in parent_ids)
+
+    def _suppress_nested_chunk(self, chunk: AIMessageChunk, *, run_id: str) -> ConversionOutcome:
+        """Account for usage from a tool-internal model chunk without exposing its content.
+
+        Args:
+            chunk (AIMessageChunk): Partial SDK message produced by a model invoked inside a tool.
+            run_id (str): SDK run identity used to keep interleaved model output correlated.
+        """
+        if self._finished:
+            return self._excluded("stream_finished", "The invocation is already terminal.")
+        state = self._runs.setdefault(run_id, _RunState())
+        usage = self.result_adapter.usage(chunk)
+        if usage is None:
+            return self._excluded("nested_tool_model_content", "Tool-internal model output is a private implementation detail.")
+        state.usage = self._combine_usage(state.usage, usage)
+        return ConversionOutcome(ConversionStatus.CONVERTED, (UsageEvent(self._total_usage()),))
+
+    def _suppress_nested_end(self, message: AIMessage, run_id: str) -> ConversionOutcome:
+        """Account for usage from a tool-internal model's final snapshot without exposing its content.
+
+        Args:
+            message (AIMessage): Final SDK message produced by a model invoked inside a tool.
+            run_id (str): SDK run identity used to keep interleaved model output correlated.
+        """
+        if self._finished:
+            return self._excluded("stream_finished", "The invocation is already terminal.")
+        state = self._runs.setdefault(run_id, _RunState())
+        if state.closed:
+            return self._excluded("model_already_closed", "This SDK model snapshot was already processed.")
+        state.closed = True
+        usage = self.result_adapter.usage(message)
+        if usage is None:
+            return self._excluded("nested_tool_model_content", "Tool-internal model output is a private implementation detail.")
+        if usage != state.usage:
+            state.usage = usage
+        return ConversionOutcome(ConversionStatus.CONVERTED, (UsageEvent(self._total_usage()),))
 
     def convert_chunk(self, chunk: AIMessageChunk, *, run_id: str) -> ConversionOutcome:
         """Convert an SDK chunk into correlated typed stream events and per-run usage.

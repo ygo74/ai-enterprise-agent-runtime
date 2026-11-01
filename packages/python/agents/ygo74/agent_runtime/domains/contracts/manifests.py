@@ -15,6 +15,9 @@ host decision and stays outside this library.
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from ygo74.agent_runtime.domains.contracts.http_configuration import (
+    AgentHttpConfiguration,
+)
 from ygo74.agent_runtime.domains.security.operations import ToolOperationDescriptor
 
 
@@ -70,6 +73,7 @@ class AgentManifest(BaseModel):
         instructions: Agent-level instructions supplied to its orchestrator.
         mcp_server: Optional default MCP server for skills without an override.
         skills: Capabilities the agent exposes, in the order offered to the model.
+        http: Optional routes, authentication, and rate limits for a FastAPI host.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -79,6 +83,7 @@ class AgentManifest(BaseModel):
     instructions: str = Field(min_length=1)
     mcp_server: str | None = Field(default=None, min_length=1)
     skills: tuple[SkillManifest, ...] = ()
+    http: AgentHttpConfiguration | None = None
 
     @model_validator(mode="after")
     def _require_effective_mcp_server(self) -> AgentManifest:
