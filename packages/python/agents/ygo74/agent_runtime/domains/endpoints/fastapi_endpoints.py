@@ -97,6 +97,12 @@ from ygo74.agent_runtime.domains.streaming.stream_processor import (
     AgentInvocation,
     StreamProcessor,
 )
+from ygo74.agent_runtime.domains.streaming.stream_processor import (
+    exception_origin as _exception_origin,
+)
+from ygo74.agent_runtime.domains.streaming.stream_processor import (
+    safe_diagnostic_detail as _safe_diagnostic_detail,
+)
 
 AgentEntrypoint = Callable[[dict[str, Any]], AgentInvocation]
 P = ParamSpec("P")
@@ -417,11 +423,16 @@ def add_ai_endpoints(
                 ),
             ) from ex
         except Exception as ex:
+            detail = _safe_diagnostic_detail(ex)
             logger.warning(
-                "Agent execution failed for endpoint_type=%s request_id=%s route_key=%s",
+                "Agent execution failed for endpoint_type=%s request_id=%s "
+                "route_key=%s exception_type=%s origin=%s%s",
                 endpoint_type,
                 payload.get("request_id"),
                 payload.get("route_key"),
+                type(ex).__name__,
+                _exception_origin(ex),
+                f" detail={detail}" if detail else "",
             )
             err = AgentOutput(
                 termination=Termination(

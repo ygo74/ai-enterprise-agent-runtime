@@ -88,6 +88,25 @@ Invalid data, malformed event order and handler execution failures are errors,
 not protocol limitations. The producer is closed on termination, cancellation
 or failure. The runtime does not emit a successful terminal after an error.
 
+## Diagnose a failed stream
+
+A failure after streaming starts cannot change the HTTP status already sent.
+Inspect the stream events rather than treating HTTP 200 as a successful answer.
+For OpenAI Responses, the runtime sends an `error` event followed by one
+`response.failed` lifecycle event, never `response.completed`. The error event
+has the Responses `code`, `message`, and `param` fields plus a nested `error`
+envelope for OpenAI Python SDK stream readers. Both representations contain
+only the same public, redacted error.
+
+For example, a handler construction failure produces `agent_execution_error`
+with `Agent stream execution failed`. Use the correlated server log to find
+`request_id`, `route_key`, `protocol`, `exception_type`, and the raising
+`origin`. Missing MCP secret references also log the configuration filename,
+field, and environment variable name, but never its value. Other exception
+messages, including arbitrary `DomainError` messages, are not logged. Only
+explicit credential-free diagnostic metadata is included, with whitespace
+flattened and length limited to 1024 characters.
+
 ## Usage counters
 
 Supply only observed model-token counts through `TokenUsage` and cumulative

@@ -29,6 +29,7 @@ from ygo74.agent_runtime.domains.configuration.manifests import (
     ConfigurationError,
     YamlDocument,
 )
+from ygo74.agent_runtime.domains.errors import DomainError
 from ygo74.agent_runtime.domains.http.resilience import (
     CircuitBreakerSettings,
     RetrySettings,
@@ -785,7 +786,12 @@ class McpServerConfigurationLoader(Generic[CapabilityT]):
         variable_name = match.group("name")
         value = environment.get(variable_name, "")
         if not value:
-            raise self._error_factory(
+            error = self._error_factory(
                 f"{path}: {field} references environment variable {variable_name!r}, which is not set"
             )
+            if isinstance(error, DomainError):
+                error.safe_diagnostic_detail = (
+                    f"{path.name}: {field} references environment variable {variable_name!r}, which is not set"
+                )
+            raise error
         return value

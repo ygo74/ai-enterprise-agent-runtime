@@ -3,6 +3,7 @@ import json
 from collections.abc import AsyncIterator
 
 import httpx
+import pytest
 from fastapi import FastAPI
 from ygo74.agent_runtime.domains.contracts import (
     AgentOutput,
@@ -195,6 +196,39 @@ def test_responses_route_projects_tool_argument_fragments_without_parsing_early(
     assert events[-1]["response"]["output"][0]["call_id"] == "call_1"
 
 
+def test_responses_stream_failure_emits_standalone_error_event_before_failed() -> None:
+    """Emit a client error and one failed lifecycle event, without fabricated success."""
+
+    async def entrypoint(_: dict[str, object]) -> AsyncIterator[object]:
+        yield ContentStart("text", TextContent("partial"))
+        raise RuntimeError("stream broke")
+
+    app = FastAPI()
+    add_ai_endpoints(
+        app,
+        entrypoint,
+        default_route_key="support",
+        enable_openai_chat_completions=False,
+    )
+    response = asyncio.run(
+        _post_json(app, {"model": "support-agent", "input": "hi", "stream": True})
+    )
+    events = _parse_sse_events(response.text)
+
+    error_events = [event for event in events if event["type"] == "error"]
+    failed_events = [event for event in events if event["type"] == "response.failed"]
+    assert len(error_events) == 1
+    assert len(failed_events) == 1
+    assert events.index(error_events[0]) < events.index(failed_events[0])
+    assert error_events[0]["code"] == "agent_execution_error"
+    assert error_events[0]["message"]
+    assert error_events[0]["param"] is None
+    assert error_events[0]["error"] == failed_events[0]["response"]["error"]
+    assert failed_events[0]["response"]["error"]["code"] == "agent_execution_error"
+    assert all(event["type"] != "response.completed" for event in events)
+    assert "[DONE]" not in response.text
+
+
 def test_responses_stream_failure_ends_with_failed_event_not_success() -> None:
     async def entrypoint(_: dict[str, object]) -> AsyncIterator[object]:
         yield ContentStart("text", TextContent("partial"))
@@ -215,6 +249,105 @@ def test_responses_stream_failure_ends_with_failed_event_not_success() -> None:
     assert events[-1]["response"]["error"]["code"] == "agent_execution_error"
     assert all(event["type"] != "response.completed" for event in events)
     assert "[DONE]" not in response.text
+
+
+def test_responses_stream_setup_construction_failure_logs_safe_diagnostics(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A failure raised while building a conversation/tool registry during the
+    stream (for example inside a provider's ``_ensure_registry``, before any
+    content is produced) must surface as an explicit ``response.failed`` SSE
+    event to the client and log only safe, actionable diagnostics for an
+    operator - never the raw exception message, which can carry credentials,
+    tokens, or upstream response bodies.
+    """
+
+    class _MailToolsRegistryBuildFailure(RuntimeError):
+        pass
+
+    async def entrypoint(_: dict[str, object]) -> AsyncIterator[object]:
+        # Resolving the async setup (e.g. MailToolsProvider.build -> _ensure_registry)
+        # fails before any SSE header or frame is committed.
+        await asyncio.sleep(0)
+        raise _MailToolsRegistryBuildFailure(
+            "client_secret=super-secret-value endpoint=https://internal.example/mcp"
+        )
+        yield  # pragma: no cover - never reached, keeps this an async generator
+
+    app = FastAPI()
+    add_ai_endpoints(
+        app,
+        entrypoint,
+        default_route_key="mail-agent",
+        enable_openai_chat_completions=False,
+    )
+    with caplog.at_level("WARNING"):
+        response = asyncio.run(
+            _post_json(
+                app, {"model": "mail-agent", "input": "check inbox", "stream": True}
+            )
+        )
+
+    assert response.status_code == 200
+    events = _parse_sse_events(response.text)
+    assert events[-1]["type"] == "response.failed"
+    assert events[-1]["response"]["error"]["code"] == "agent_execution_error"
+    error_events = [event for event in events if event["type"] == "error"]
+    assert len(error_events) == 1
+    assert events.index(error_events[0]) < len(events) - 1
+    assert error_events[0]["code"] == "agent_execution_error"
+    assert "super-secret-value" not in response.text + caplog.text
+    assert "internal.example" not in response.text + caplog.text
+    assert "_MailToolsRegistryBuildFailure" in caplog.text
+    assert "exception_type=" in caplog.text
+    assert "origin=" in caplog.text
+    assert "test_openai_responses_api.py" in caplog.text
+    assert "mail-agent" in caplog.text
+    assert all(event["type"] != "response.completed" for event in events)
+
+
+def test_responses_pre_stream_construction_failure_returns_explicit_500(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A failure raised while resolving the entrypoint's awaitable setup -
+    before streaming headers are committed - must fail closed with an
+    explicit JSON error body and log safe diagnostics only (exception type
+    and raising origin, never the raw message or any secret it carries).
+    """
+
+    class _ConversationConstructionFailure(RuntimeError):
+        pass
+
+    async def entrypoint(_: dict[str, object]) -> AsyncIterator[object]:
+        raise _ConversationConstructionFailure(
+            "subject_token=private-subject-token api_key=sk-leaked"
+        )
+
+    app = FastAPI()
+    add_ai_endpoints(
+        app,
+        entrypoint,
+        default_route_key="mail-agent",
+        enable_openai_chat_completions=False,
+    )
+    with caplog.at_level("WARNING"):
+        response = asyncio.run(
+            _post_json(
+                app, {"model": "mail-agent", "input": "check inbox", "stream": True}
+            )
+        )
+
+    assert response.status_code == 500
+    assert response.headers["content-type"] == "application/json"
+    body = response.json()
+    assert body["error"]["code"] == "agent_execution_error"
+    assert "private-subject-token" not in response.text + caplog.text
+    assert "sk-leaked" not in response.text + caplog.text
+    assert "_ConversationConstructionFailure" in caplog.text
+    assert "exception_type=" in caplog.text
+    assert "origin=" in caplog.text
+    assert "test_openai_responses_api.py" in caplog.text
+    assert "response.created" not in response.text
 
 
 def test_responses_errors_use_openai_error_envelope() -> None:
