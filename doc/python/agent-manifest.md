@@ -7,6 +7,29 @@ The runtime also checks semantic combinations, such as matching the selected
 authentication mode to its settings and matching JWT algorithms to their key
 source.
 
+## Select the manifest file
+
+`AgentManifestLoader.load(agent)` reads
+`<configuration root>/agents/<agent>/agent.yaml` by default. Set the process
+variable `AGENT_MANIFEST_FILENAME` to select another YAML file in the same folder:
+
+```powershell
+$env:AGENT_MANIFEST_FILENAME = "agent.local.yaml"
+```
+
+Create `agent.local.yaml` beside the existing `agent.yaml` before calling the
+loader. Both files use the same schema. The loader reads this variable on each
+call; absent, empty, or whitespace-only values keep the default `agent.yaml`.
+Instructions still come from `AGENT.md`, and skill packages still come from
+`<configuration root>/skills/<agent>/`. The existing
+`YGO74_AGENT_RUNTIME_CONFIG_DIR` variable selects the configuration root.
+A missing or invalid selected file raises `ConfigurationError`; there is no
+fallback to another manifest.
+
+The caller chooses the `agent` argument. For example, an application can read
+`AGENT_CONFIG_SUBDIR` and pass its value to `load`; the runtime does not interpret
+that application-specific selector itself.
+
 ## Top-level keys
 
 | Key | Type | Required | Description |

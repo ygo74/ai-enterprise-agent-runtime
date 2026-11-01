@@ -150,6 +150,7 @@ class LangGraphSession:
         self._max_total_rounds = max_total_rounds
         self._broken = False
         self._stream_state: object | None = None
+        self._stream_interrupt: tuple[object, ...] | None = None
         self._stream_incomplete = False
         self._cleanup_failed = False
         self._cleanup_still_pending = False
@@ -335,6 +336,7 @@ class LangGraphSession:
         """Convert one graph sub-run and retain its root state for approval inspection."""
         adapter = LangChainStreamAdapter()
         self._stream_state = None
+        self._stream_interrupt = None
         producer = self._graph.astream_events(value, config=self._config(), version="v2")
         close = getattr(producer, "aclose", None)
         terminal: Termination | None = None
@@ -343,6 +345,13 @@ class LangGraphSession:
                 root_state = _root_state(raw_event)
                 if root_state is not None:
                     self._stream_state = root_state
+                interrupt = _root_interrupt(raw_event)
+                if interrupt is not None:
+                    # LangGraph only carries __interrupt__ on the root on_chain_stream
+                    # chunk, never on the terminal on_chain_end output. Without
+                    # capturing it here the approval loop would see no pending
+                    # action and let an unanswered tool call reach the next turn.
+                    self._stream_interrupt = interrupt
                 outcome = adapter.convert(raw_event)
                 self._log_diagnostics(outcome)
                 if outcome.status is ConversionStatus.UNSUPPORTED:
@@ -359,6 +368,8 @@ class LangGraphSession:
                     yield event
             if self._stream_state is None:
                 raise LangGraphBindingError("LangGraph stream omitted the root chain result")
+            if self._stream_interrupt is not None:
+                self._stream_state = _with_interrupt(self._stream_state, self._stream_interrupt)
             if terminal is None:
                 outcome = adapter.finish()
                 terminal = next(
@@ -436,6 +447,42 @@ def _root_state(event: StreamEvent) -> object | None:
         return None
     output = event.get("data", {}).get("output")
     return output
+
+
+def _root_interrupt(event: StreamEvent) -> tuple[object, ...] | None:
+    """Read a root-level ``__interrupt__`` carried only on streamed chunks.
+
+    LangGraph's streaming mode never repeats the interrupt on the terminal
+    ``on_chain_end`` output; it is only visible on an intermediate root
+    ``on_chain_stream`` chunk shaped like ``{"__interrupt__": (...)}``. Missing
+    this means the approval loop would see no pending action request and the
+    turn would silently finish with an unanswered tool call still open.
+    """
+    if event.get("event") != "on_chain_stream" or event.get("parent_ids"):
+        return None
+    chunk = event.get("data", {}).get("chunk")
+    if not isinstance(chunk, Mapping):
+        return None
+    interrupt = chunk.get("__interrupt__")
+    if not interrupt:
+        return None
+    return tuple(interrupt)
+
+
+def _with_interrupt(result: object, interrupt: tuple[object, ...]) -> object:
+    """Merge a captured interrupt into the root state used for approval inspection.
+
+    The root ``on_chain_end`` output is a plain mapping of the final graph
+    state (for example ``{"messages": [...]}``) and never includes
+    ``__interrupt__`` during streaming. Returning a copy with the interrupt
+    attached lets :class:`LangGraphApprovalTranslator` find it exactly as it
+    would from a non-streaming ``ainvoke`` result.
+    """
+    if not isinstance(result, Mapping):
+        return result
+    merged = dict(result)
+    merged["__interrupt__"] = interrupt
+    return merged
 
 
 def _is_private_tool_event(event: AgentStreamEvent) -> bool:

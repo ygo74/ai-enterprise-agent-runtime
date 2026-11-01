@@ -143,16 +143,23 @@ def test_skill_yaml_is_validated_against_the_packaged_schema_at_runtime(
         YamlDocument(path).validate(SkillManifestInput, schema=ManifestSchemas.skill())
 
 
+@pytest.mark.parametrize("filename", [None, "", "   ", "agent.variant.yaml"])
 def test_agent_loader_retains_default_server_for_skill_level_resolution(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    filename: str | None,
 ) -> None:
-    """The assembled agent carries its default alongside unresolved skill references."""
+    """The selected manifest retains its MCP default and uses the same skill packages."""
+    monkeypatch.delenv("AGENT_MANIFEST_FILENAME", raising=False)
+    if filename is not None:
+        monkeypatch.setenv("AGENT_MANIFEST_FILENAME", filename)
+    manifest_filename = (filename or "").strip() or "agent.yaml"
     config_root = tmp_path / "config"
     agent_directory = config_root / "agents" / "mail"
     skill_directory = config_root / "skills" / "mail" / "lookup"
     agent_directory.mkdir(parents=True)
     skill_directory.mkdir(parents=True)
-    (agent_directory / "agent.yaml").write_text(
+    (agent_directory / manifest_filename).write_text(
         "name: mail\ndescription: Mail agent.\nmcp_server: mail\nskills: [lookup]\n",
         encoding="utf-8",
     )
@@ -181,7 +188,7 @@ def test_agent_loader_retains_default_server_for_skill_level_resolution(
     assert agent.skill("lookup").mcp_server is None
     assert agent.skill("lookup").mcp_tools == ("search_mail",)
 
-    (agent_directory / "agent.yaml").write_text(
+    (agent_directory / manifest_filename).write_text(
         "name: mail\ndescription: Mail agent.\nskills: [lookup]\n",
         encoding="utf-8",
     )

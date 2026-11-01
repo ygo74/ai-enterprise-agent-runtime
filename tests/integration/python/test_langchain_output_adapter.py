@@ -485,6 +485,47 @@ def test_reasoning_streaming_requires_selection_and_uses_its_own_identity() -> N
     assert selected.events[2] == ContentStart("r:text:1", TextContent(""))
 
 
+def test_tool_internal_model_text_is_never_exposed_as_assistant_output() -> None:
+    """A tool may invoke its own chat model (e.g. structured reasoning); that nested model's
+    text must stay private while the tool's own call/result and the nested run's token usage
+    are still surfaced normally.
+    """
+    from langchain_core.tools import tool
+
+    nested_model = FakeListChatModel(responses=["{\"title\": \"T\", \"body\": \"private reasoning text\"}"])
+
+    @tool
+    async def draft(instruction: str) -> str:
+        """Draft content using an internal reasoning model."""
+        reply = await nested_model.ainvoke(instruction)
+        return reply.content
+
+    async def collect() -> tuple[AgentStreamEvent, ...]:
+        adapter = LangChainStreamAdapter()
+        mapped: list[AgentStreamEvent] = []
+        async for native in draft.astream_events({"instruction": "write"}, version="v2"):
+            converted = adapter.convert(native, tool_call_id="call-1")
+            assert converted.status is not ConversionStatus.UNSUPPORTED
+            mapped.extend(converted.events)
+        return tuple(mapped)
+
+    mapped = asyncio.run(collect())
+    text_deltas = [item for item in mapped if isinstance(item, TextDelta)]
+    assert text_deltas == []
+    assert not any(
+        isinstance(item, ContentEvent) and isinstance(item.content, TextContent) for item in mapped
+    )
+    assert any(
+        isinstance(item, ContentEvent) and isinstance(item.content, ToolCallContent)
+        and item.content.call_id == "call-1" for item in mapped
+    )
+    assert any(
+        isinstance(item, ContentEvent) and isinstance(item.content, ToolResultContent)
+        and item.content.call_id == "call-1" for item in mapped
+    )
+    assert sum(isinstance(item, TerminalEvent) for item in mapped) == 1
+
+
 def test_protected_media_and_arbitrary_objects_are_not_guessed_or_leaked() -> None:
     result = LangChainResultAdapter().convert(AIMessage(content_blocks=[
         {"type": "audio", "base64": "YQ==", "mime_type": "audio/pcm"},
