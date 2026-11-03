@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-SCHEMA_PATH = Path("specs/001-openai-endpoint-exposure/contracts/agent-descriptor-v1.schema.json")
+SCHEMA_PATH = Path("spec/contracts/agent-descriptor-v1.schema.json")
 
 
 def _schema() -> dict:

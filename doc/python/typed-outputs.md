@@ -6,7 +6,7 @@ asynchronous iterator of typed `AgentStreamEvent` values. The runtime projects
 those values into the protocol the caller selected.
 
 The definitive fields and support matrix are in the
-[typed output contract](../../specs/001-openai-endpoint-exposure/contracts/typed-output-contract.md).
+[typed output contract](../../spec/contracts/agent-output-and-streaming.md).
 The [local echo example](../../samples/python/python-fastapi-quickstart/01-basic-endpoint/app.py) and
 [structured example](../../samples/python/python-fastapi-quickstart/02-structured-outputs/responses_structured_app.py)
 demonstrate runnable handlers.

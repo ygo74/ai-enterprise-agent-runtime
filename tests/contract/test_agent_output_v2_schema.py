@@ -43,7 +43,7 @@ from ygo74.agent_runtime.domains.contracts.output_serialization import (
 )
 
 SCHEMA_PATH = Path(
-    "specs/001-openai-endpoint-exposure/contracts/agent-output-v2.schema.json"
+    "spec/contracts/agent-output-v2.schema.json"
 )
 
 MODELS = (

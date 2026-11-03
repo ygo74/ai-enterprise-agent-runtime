@@ -66,8 +66,7 @@ Streaming requests use Server-Sent Events. Set `stream` on the request and have
 the handler return an async iterator of typed output events. Each
 endpoint family has its own event envelope; the
 [endpoint surface specification](../../spec/endpoints/provider-surfaces.md)
-and [quickstart scenarios](../../specs/001-openai-endpoint-exposure/quickstart.md)
-describe the supported requests and events.
+and the [Python quickstart](quickstart.md) show the supported request patterns.
 
 ## Handler and exchange payload
 
@@ -90,7 +89,7 @@ strings are not accepted as output contracts in agents 1.0. The exchange models
 are `StandardExchangeRequest` and `StandardExchangeResponse`; their fields are defined in
 [`exchange_models.py`](../../packages/python/agents/ygo74/agent_runtime/domains/contracts/exchange_models.py)
 and the [exchange specification](../../spec/contracts/exchange-contract.md).
-The [typed output contract](../../specs/001-openai-endpoint-exposure/contracts/typed-output-contract.md)
+The [typed output contract](../../spec/contracts/agent-output-and-streaming.md)
 replaces the historical v1 Python output shape. See [migration](typed-outputs.md).
 For ordinary endpoint integration, the FastAPI adapter currently passes a
 normalized mapping to the configured entrypoint. Framework or agent adapters
@@ -244,7 +243,7 @@ handler. There is no standalone middleware example yet.
 `AgentDescriptor` is the provider-neutral identity and capability record for a
 discoverable agent. For a detailed walkthrough of descriptor fields, discovery
 registration, and the OpenAI `GET /v1/models` endpoints, see [Agent description
-and model discovery](agent-discovery.md). The [agent descriptor schema](../../specs/001-openai-endpoint-exposure/contracts/agent-descriptor-v1.schema.json)
+and model discovery](agent-discovery.md). The [agent descriptor schema](../../spec/contracts/agent-descriptor-v1.schema.json)
 defines the canonical serialized shape. Anthropic model discovery and A2A agent
 card details are outside that topic.
 

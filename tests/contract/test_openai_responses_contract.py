@@ -19,7 +19,7 @@ def test_handler_stream_contract_does_not_expose_native_provider_events() -> Non
 
 def test_standard_exchange_provider_options_are_optional_wire_json() -> None:
     schema_path = Path(
-        "specs/001-openai-endpoint-exposure/contracts/standard-exchange-v1.schema.json"
+        "spec/contracts/standard-exchange-v1.schema.json"
     )
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     request_schema = schema["properties"]["request"]

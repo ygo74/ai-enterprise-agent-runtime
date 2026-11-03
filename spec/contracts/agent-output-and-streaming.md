@@ -93,4 +93,5 @@ The integration suites include
 [`test_neutral_stream_lifecycle.py`](../../tests/integration/python/test_neutral_stream_lifecycle.py),
 [`test_streaming_endpoints.py`](../../tests/integration/python/test_streaming_endpoints.py),
 and framework adapter tests. The older machine-readable feature contract remains
-available in [`typed-output-contract.md`](../../specs/001-openai-endpoint-exposure/contracts/typed-output-contract.md).
+available in the [Python typed-output guide](../../doc/python/typed-outputs.md)
+and the [versioned output schema](agent-output-v2.schema.json).

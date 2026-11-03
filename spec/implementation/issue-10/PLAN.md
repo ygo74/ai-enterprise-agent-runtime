@@ -18,8 +18,8 @@ documents instead of copying their rules.
 
 - [x] SPEC approved by the requester.
 - [x] Repository is `/data/repos/ai-enterprise-agent-runtime`.
-- [x] Existing guidance is available in `.specify/memory/constitution.md`,
-  `.specify/feature.json`, `.github/copilot-instructions.md`,
+- [x] Existing guidance was available in the project constitution and active
+  feature pointer, `.github/copilot-instructions.md`,
   `.github/instructions/python.instructions.md`, and the active feature plan.
 - [x] PLAN approved by the requester.
 
@@ -33,17 +33,17 @@ project rules and feature context.
 **Fichiers/composants :**
 
 - `AGENTS.md` (new)
-- `.specify/memory/constitution.md` (reference only)
-- `.specify/feature.json` (reference only)
-- `specs/<active-feature>/` (reference only)
+- `AGENTS.md` and `WORKFLOW.md` (current repository guidance)
+- `spec/implementation/<request>/` (request tracking)
+- `spec/` (consolidated system behavior)
 - `.github/instructions/python.instructions.md` (reference only)
-- `specs/001-openai-endpoint-exposure/plan.md` (reference only for the currently
-  documented package and test layout)
+- `spec/implementation/adhoc-openai-anthropic-endpoints/PLAN.md` (migrated
+  feature backlog context)
 
 **Modifications :**
 
-- Direct Codex to read the constitution and determine the active feature from
-  `.specify/feature.json` before feature work.
+- Direct Codex to read repository guidance and select the canonical request
+  tracking record before feature work.
 - Direct Codex to consult the applicable `spec.md`, `plan.md`, `tasks.md`, and
   supporting contracts or design documents before changing implementation files.
 - Summarize where production code, tests, examples, and specifications belong,
@@ -56,8 +56,8 @@ project rules and feature context.
 **Validation :**
 
 - Review `AGENTS.md` against the cited source documents for consistency.
-- Confirm that the active feature pointer, constitution, Python instructions,
-  and plan paths cited by the guidance exist.
+- Confirm that the repository guidance, request tracking, Python instructions,
+  and consolidated specification cited by the instructions exist.
 
 **État :** Terminé. The root guidance was added and its direct references were
 checked against the repository.
@@ -77,7 +77,7 @@ readable as repository guidance.
 
 - Check that the new guidance introduces no competing rules or hard-coded active
   feature path.
-- Check that no Copilot/SpecKit workflows, code, or CI files were changed.
+- Check that no unrelated Copilot workflow, code, or CI files were changed.
 
 **Validation :**
 
@@ -95,10 +95,10 @@ referenced files, confirming their paths, and checking the documentation diff.
 
 ## Validation finale
 
-- `AGENTS.md` accurately points to the current constitution, active feature
-  artifacts, project layout, and applicable language guidance.
-- All referenced paths exist or are explicitly documented as a pattern such as
-  `specs/<active-feature>/`.
+- `AGENTS.md` accurately points to repository rules, request tracking, project
+  layout, and applicable language guidance.
+- All referenced paths exist or are explicitly documented as patterns such as
+  `spec/implementation/<request>/`.
 - The change is limited to `AGENTS.md` and the approved issue planning documents.
 - `git diff --check` reports no whitespace errors.
 
@@ -106,8 +106,8 @@ referenced files, confirming their paths, and checking the documentation diff.
 
 - Duplicated rules can drift. Keep `AGENTS.md` short and point to the canonical
   documents.
-- Hard-coding the current feature can make guidance stale. Read the feature path
-  from `.specify/feature.json`.
+- Hard-coding a request path can make guidance stale. Select the current request
+  record under `spec/implementation/`.
 - References into `.github/` are named for the existing Copilot integration;
   describe them as repository guidance sources rather than requiring Copilot
   tools or commands.
@@ -117,8 +117,8 @@ referenced files, confirming their paths, and checking the documentation diff.
 - Use a root-level `AGENTS.md` as the Codex instruction entry point.
 - Add no Codex skills, custom agents, prompts, or slash-command workflows; these
   are outside the requester-approved scope.
-- Keep the existing SpecKit constitution, feature artifacts, and language
-  instructions as the source of truth.
+- Keep the existing project rules, feature artifacts, and language instructions
+  as the source of truth.
 - Do not run runtime tests for a documentation-only change.
 
 ## Critères de réussite
@@ -127,5 +127,5 @@ referenced files, confirming their paths, and checking the documentation diff.
   conventions and structure.
 - The entry point directs Codex to the active feature and relevant language
   guidance without duplicating their contents.
-- No behavior, CI, Copilot, or SpecKit workflow changes are included.
+- No behavior, CI, Copilot, or feature-tool workflow changes are included.
 - Documentation review and `git diff --check` complete without findings.

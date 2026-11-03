@@ -1,8 +1,7 @@
-<!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
-at specs/001-openai-endpoint-exposure/plan.md
-<!-- SPECKIT END -->
+Follow the repository guidance in [`AGENTS.md`](../AGENTS.md) and
+[`WORKFLOW.md`](../WORKFLOW.md). Start new requests from the consolidated
+system specification in [`spec/README.md`](../spec/README.md), then load only
+the relevant local skill and role references.
 
 When a Python change affects public behavior, APIs, configuration, dependencies,
 or supported workflows, update the corresponding user documentation and runnable

@@ -48,12 +48,12 @@ to serve a local endpoint.
 - [Consolidated system specification](../../spec/README.md)
 - [OpenAI and Anthropic endpoint surfaces](../../spec/endpoints/provider-surfaces.md)
 - [Standard exchange contract](../../spec/contracts/exchange-contract.md)
-- [OpenAI and Anthropic machine-readable endpoint contract](../../specs/001-openai-endpoint-exposure/contracts/endpoint-surface-contract.md)
-- [Standard exchange schema](../../specs/001-openai-endpoint-exposure/contracts/standard-exchange-v1.schema.json)
-- [Typed output contract](../../specs/001-openai-endpoint-exposure/contracts/typed-output-contract.md)
-- [Typed output v2 schema](../../specs/001-openai-endpoint-exposure/contracts/agent-output-v2.schema.json)
-- [Agent descriptor schema](../../specs/001-openai-endpoint-exposure/contracts/agent-descriptor-v1.schema.json)
-- [Feature quickstart and validation scenarios](../../specs/001-openai-endpoint-exposure/quickstart.md)
+- [OpenAI and Anthropic endpoint contract](../../spec/endpoints/provider-surfaces.md)
+- [Standard exchange schema](../../spec/contracts/standard-exchange-v1.schema.json)
+- [Typed output contract](../../spec/contracts/agent-output-and-streaming.md)
+- [Typed output v2 schema](../../spec/contracts/agent-output-v2.schema.json)
+- [Agent descriptor schema](../../spec/contracts/agent-descriptor-v1.schema.json)
+- [Python runtime quickstart](quickstart.md)
 
 These guides and the [system specification](../../spec/README.md) describe the
 currently implemented Python behavior. Public APIs and configuration can evolve;

@@ -92,7 +92,8 @@ whole or maps its features to examples that can be run.
 - `AGENTS.md` and `.github/copilot-instructions.md` (documentation maintenance
   instructions).
 - `packages/python/*/pyproject.toml` and
-  `specs/001-openai-endpoint-exposure/` (reference sources, not design changes).
+  `spec/implementation/adhoc-openai-anthropic-endpoints/` (migrated request
+  record; current behavior is defined by consolidated pages under `spec/`).
 
 ## Contraintes
 

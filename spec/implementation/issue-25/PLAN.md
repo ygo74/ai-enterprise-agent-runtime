@@ -96,7 +96,7 @@ Responses sans casser les champs normalisés existants.
 - `packages/python/agents/ygo74/agent_runtime/domains/endpoints/fastapi_endpoints.py`
 - `packages/python/agents/ygo74/agent_runtime/domains/endpoints/adapters.py`
 - `packages/python/agents/ygo74/agent_runtime/domains/contracts/exchange_models.py`
-- `specs/001-openai-endpoint-exposure/contracts/standard-exchange-v1.schema.json`
+- `spec/contracts/standard-exchange-v1.schema.json`
 - `spec/contracts/exchange-contract.md`
 - `tests/integration/python/test_metadata_preservation.py`
 - Nouveaux tests Responses de l’étape 1
