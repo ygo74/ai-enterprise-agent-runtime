@@ -1,24 +1,25 @@
 # Repository guidance
 
-These instructions apply to the whole repository. The project constitution is
-the source of truth for engineering rules; feature plans and contracts are the
-source of truth for feature design.
+These instructions apply throughout the repository. Current behavior is
+described under [`spec/`](spec/README.md); approved work is tracked under
+`spec/implementation/`. Repository principles also live in
+[`WORKFLOW.md`](WORKFLOW.md) and the relevant skill references.
 
 ## Read the project context first
 
 Before planning or changing implementation files:
 
-1. Read `.specify/memory/constitution.md` and follow its required principles and
-quality gates.
-2. Read `.specify/feature.json` and use its `feature_directory` value to find
-   the active feature under `specs/`.
-3. Read that feature's `spec.md`, `plan.md`, and `tasks.md` when present. Also
-   consult relevant contracts, research, data model, and quickstart documents.
+1. Start from [`spec/README.md`](spec/README.md) and follow only the domain
+   pages relevant to the request.
+2. For active work, read its approved `SPEC.md`, `PLAN.md`, and current
+   `TASKS.md` in `spec/implementation/`.
+3. Inspect the affected code, public contracts, tests, documentation, and
+   runnable examples before choosing changes.
 4. Read relevant package documentation and examples when they clarify existing
    APIs or implementation patterns.
 
-Do not assume a feature number or copy rules from these source documents into a
-competing set of Codex-only conventions.
+Do not copy obsolete task material into a competing source of current system
+behavior.
 
 ## Repository layout
 
@@ -29,16 +30,13 @@ competing set of Codex-only conventions.
 - `samples/<language>/` contains runnable language catalogs;
   `samples/README.md` indexes them. Existing .NET and Java samples remain
   under `samples/examples/` until migrated.
-- `spec/` contains consolidated system behavior and issue implementation
+- `spec/` contains consolidated system behavior and request implementation
   records under `spec/implementation/`.
-- `specs/<feature>/` contains active feature specifications, plans, tasks, and
-  related design artifacts.
 - `tests/contract/`, `tests/integration/`, `tests/parity/`, and
   `tests/performance/` contain shared contract and quality coverage. Follow the
   language-specific subdirectories already used by the affected tests.
 
-Follow the active feature plan for the detailed layout and conventions relevant
-to the change.
+Follow the approved request plan and task list for the detailed change scope.
 
 ## Engineering conventions
 
@@ -63,13 +61,16 @@ to the change.
   avoid comments that merely repeat the next line of code.
 
 - Prefer extending reusable code over adding duplicate types or modules; record
-  the reuse decision as required by the constitution and active plan.
+  the reuse decision in the request plan or journal.
 - Preserve language-neutral contracts and equivalent behavior across Python,
   .NET, and Java where the feature affects more than one runtime.
-- Use the typed, domain-oriented APIs and language standards required by the
-  constitution.
-- Follow the test-first and validation gates in the constitution and active
-  feature plan for behavior changes.
+- Use the typed, domain-oriented APIs and language standards described in
+  `WORKFLOW.md` and the relevant technology role reference.
+- Follow the test-first and validation gates in `WORKFLOW.md` and the approved
+  request plan for behavior changes.
+- Review compliance with repository principles during plan review, pull request
+  review, and release readiness. Treat non-compliance as blocking unless a
+  maintainer approves a time-bound exception and remediation plan.
 - Apply any relevant language-specific repository instructions. In particular,
   read `.github/instructions/python.instructions.md` for changes to Python
   files.
@@ -78,5 +79,25 @@ to the change.
   runnable examples. Use [`doc/python/README.md`](doc/python/README.md) as the
   Python documentation entry point.
 
-These instructions provide repository context only. Copilot-specific agents,
-prompts, and commands are not prerequisites for Codex work.
+## Workflow skills
+
+- [`development-workflow`](.agents/skills/development-workflow/SKILL.md) routes
+  ad hoc and Issue-linked requests through specification, plan, tasks, and
+  implementation.
+- [`feature-specification`](.agents/skills/feature-specification/SKILL.md)
+  creates the request SPEC and chooses relevant role guidance.
+- [`implementation-plan`](.agents/skills/implementation-plan/SKILL.md) analyzes
+  the existing architecture and prepares the plan.
+- [`implementation-tasks`](.agents/skills/implementation-tasks/SKILL.md)
+  creates the ordered implementation checklist after plan approval.
+- [`test-driven-implementation`](.agents/skills/test-driven-implementation/SKILL.md)
+  implements approved tasks and tracks scoped follow-ups.
+- [`multi-repo-coordination`](.agents/skills/multi-repo-coordination/SKILL.md)
+  coordinates independent repository histories when needed.
+- [`spec-consolidation`](.agents/skills/spec-consolidation/SKILL.md) updates
+  current behavior under `spec/` when requested or included in approved scope.
+- [`repository-delivery`](.agents/skills/repository-delivery/SKILL.md) covers
+  validation and repository delivery boundaries.
+
+Copilot adapters may point to these repository instructions; they must not
+define a competing workflow.

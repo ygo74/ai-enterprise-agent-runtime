@@ -18,7 +18,7 @@ Framework Python distributions adapt their SDK outputs without core dependencies
 on either framework.
 
 .NET and Java implementation is pending. It must preserve the versioned
-[typed output contract](../../specs/001-openai-endpoint-exposure/contracts/typed-output-contract.md),
+[typed output contract](../../spec/contracts/agent-output-and-streaming.md),
 including protocol-specific filtering diagnostics, notification exclusion in
 non-streaming results, content correlation, errors and stream cleanup.
 The historical v1 runtime/tests do not establish v2 parity. Task T199 in the

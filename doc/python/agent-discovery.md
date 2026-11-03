@@ -382,7 +382,7 @@ call the model provider.
 
 - [Consolidated system specification](../../spec/README.md)
 - [Agent catalog specification](../../spec/discovery/agent-catalog.md)
-- [Agent descriptor schema](../../specs/001-openai-endpoint-exposure/contracts/agent-descriptor-v1.schema.json)
+- [Agent descriptor schema](../../spec/contracts/agent-descriptor-v1.schema.json)
 - [Endpoint surface specification](../../spec/endpoints/provider-surfaces.md)
 - [Configuration walkthrough](agent-runtime.md#configuration-and-routing)
 - [Authorization guide](security.md#agent-access-and-handler-authorization)

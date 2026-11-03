@@ -46,7 +46,7 @@ When changing a public field or serialization rule:
 
 1. Update the typed model and its serializer or mapper.
 2. Update the applicable schema or machine-readable contract under
-   `specs/001-openai-endpoint-exposure/contracts/`.
+   `spec/contracts/`.
 3. Update the language implementations that promise the same contract.
 4. Update contract tests and endpoint projections.
 5. Update the relevant page under `spec/` and consumer docs when behavior is

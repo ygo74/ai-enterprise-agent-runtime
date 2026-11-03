@@ -32,7 +32,7 @@ parity limits.
 - [`tests/`](tests/): contract, integration, parity, and performance tests
 - [`samples/`](samples/): language-first sample catalogs; existing .NET and Java samples remain under `samples/examples/`
 - [`spec/`](spec/): consolidated system specification
-- [`specs/001-openai-endpoint-exposure/`](specs/001-openai-endpoint-exposure/): legacy feature contracts and validation assets
+- [`spec/contracts/`](spec/contracts/): machine-readable and versioned endpoint contracts
 
 ## Python packaging
 
@@ -110,7 +110,7 @@ selection, installation, a local quickstart, and the current Python runtime
 capabilities.
 
 1. Pick your target runtime in [`packages/python/`](packages/python/), [`packages/dotnet/`](packages/dotnet/), or [`packages/java/`](packages/java/).
-2. Review current behavior in [`spec/`](spec/) and shared machine-readable contracts in [`specs/001-openai-endpoint-exposure/contracts/`](specs/001-openai-endpoint-exposure/contracts/).
+2. Review current behavior in [`spec/`](spec/) and shared machine-readable contracts in [`spec/contracts/`](spec/contracts/).
 3. Explore runnable integrations in the language-first [`samples/`](samples/) catalog.
 
 Important documents:
@@ -121,7 +121,7 @@ Important documents:
 - [Exchange contract](spec/contracts/exchange-contract.md)
 - [Provider endpoint surfaces](spec/endpoints/provider-surfaces.md)
 - [Language support and parity](spec/compatibility/language-status.md)
-- [Shared machine-readable contracts and validation assets](specs/001-openai-endpoint-exposure/contracts/)
+- [Shared machine-readable contracts and validation assets](spec/contracts/)
 - Hosting an MCP server: [`doc/users/mcp-server-hosting.md`](doc/users/mcp-server-hosting.md)
 - Cross-language parity status: [`doc/contributors/parity-status.md`](doc/contributors/parity-status.md)
 
@@ -164,4 +164,4 @@ not need an external LLM provider or API key.
 
 - Current system behavior is described in [`spec/`](spec/).
 - Runtime code is organized across Python, .NET, and Java packages in [`packages/`](packages/).
-- Validation assets live under [`tests/`](tests/) and shared machine-readable contracts under [`specs/001-openai-endpoint-exposure/contracts/`](specs/001-openai-endpoint-exposure/contracts/).
+- Validation assets live under [`tests/`](tests/) and shared machine-readable contracts under [`spec/contracts/`](spec/contracts/).

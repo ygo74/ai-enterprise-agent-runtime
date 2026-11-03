@@ -1,8 +1,8 @@
-# Issue specifications and plans
+# Request specifications and plans
 
-This directory keeps the SPEC and PLAN records for completed or active issues.
-These files preserve the problem, decisions, and implementation plan for each
-piece of work.
+This directory keeps developer tracking records for active and completed
+requests. New work starts from the consolidated system specification in
+[`../README.md`](../README.md), not from an earlier request record.
 
 | Issue | Records |
 |---|---|
@@ -15,8 +15,9 @@ piece of work.
 | [#31](issue-31/) | [SPEC](issue-31/SPEC.md), [PLAN](issue-31/PLAN.md) |
 | [#34](issue-34/) | [SPEC](issue-34/SPEC.md), [PLAN](issue-34/PLAN.md) |
 
-Keep issue-specific records here. When implementation is complete, update the
-relevant domain pages under [`../`](../README.md) with the durable behavior and
-contracts. Preserve the issue record so the original tracking history remains
-available. Active Speckit feature work stays under the separate `specs/`
-directory.
+Keep request records here. When an approved change updates durable system
+behavior, consolidate it under [`../README.md`](../README.md); request records
+are not user documentation. The former feature `001` backlog was migrated to
+[`adhoc-openai-anthropic-endpoints/`](adhoc-openai-anthropic-endpoints/), which
+preserves its task identifiers and statuses without serving as the starting
+point for new requests.
