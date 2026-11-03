@@ -45,4 +45,4 @@ for this workflow change.
 - [x] AUDIT-002 Check Markdown links, skill metadata and references, obsolete-path mentions, repository diffs, and `git diff --check` in both repositories.
 - [x] AUDIT-003 Run the four affected runtime contract tests listed in the approved PLAN.
 - [x] AUDIT-004 Remove this temporary SPEC only after AUDIT-001 passes; retain PLAN, TASKS, and JOURNAL as the developer tracking record.
-- [ ] AUDIT-005 Record final validation evidence, remaining follow-ups, and per-repository branch status in JOURNAL.
+- [x] AUDIT-005 Record final validation evidence, remaining follow-ups, and per-repository branch status in JOURNAL.

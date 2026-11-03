@@ -90,3 +90,13 @@ both repositories' local instructions and consolidated workflow pages:
 - After repository-local replacements and validation were complete, the
   workspace owner approved elevated deletion of `/data/repos/.agents/skills`;
   the shared copies are now removed.
+
+## Delivery
+
+| Repository | Branch | Commit | Pull request |
+|---|---|---|---|
+| `ai-enterprise-agent-runtime` | `chore/adhoc-repo-local-vibe-workflow` | `51f2daf` | [#36](https://github.com/ygo74/ai-enterprise-agent-runtime/pull/36) |
+| `ai_agents` | `chore/adhoc-repo-local-vibe-workflow` | `f41cec2` | [#12](https://github.com/ygo74/ai_agents/pull/12) |
+
+Both pull requests are open and cross-linked. Neither was merged. No release
+tag was created or pushed.
