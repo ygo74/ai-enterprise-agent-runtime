@@ -33,6 +33,14 @@ separate proposal.
 
 ## Engineering constitution
 
+- Structure runtime domains with Clean Architecture / Onion Architecture:
+  dependencies point inward toward domain and application policy. Keep
+  transports, frameworks, databases, and external SDKs in outer adapters or
+  infrastructure, and connect them at an explicit composition root.
+- Prefer constructor dependency injection through typed interfaces or ports for
+  replaceable behavior. Compose concrete implementations at the application
+  boundary; avoid service locators, hidden globals, and abstractions that do not
+  isolate a real dependency or policy.
 - Define shared Python, .NET, and Java behavior through language-neutral
   contracts. Maintain equivalent behavior unless an approved exception is
   documented.
@@ -43,6 +51,13 @@ separate proposal.
 - Use typed domain models: dataclasses/validated models in Python, records or
   classes in .NET and Java. Convert wire data at system boundaries. Use enums
   for fixed value sets, not scattered string comparisons.
+- Design for horizontal scalability whenever application state is retained
+  beyond one operation. Put state access behind an injected port/interface;
+  provide an in-memory adapter for development and tests and a PostgreSQL or
+  Redis production adapter selected by configuration, chosen to match
+  durability, query, and concurrency needs. Do not silently rely on
+  process-local state in production. Treat bounded process-local caches as a
+  separate design choice and document their limits.
 - Define user-visible inputs, outputs, errors, defaults, and interaction flows
   as contracts. Document and approve any cross-language difference.
 - Use test-first development with unit and relevant contract, integration,

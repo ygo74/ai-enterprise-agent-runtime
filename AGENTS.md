@@ -55,10 +55,12 @@ Follow the approved request plan and task list for the detailed change scope.
 - Keep docstrings accurate to the actual behavior, including validation,
   defaults, side effects, and error conditions. Do not use empty, generic, or
   name-only descriptions as substitutes for useful documentation.
-- Add inline comments around non-obvious control flow, especially nested or
-  related `if` branches, loops, state transitions, and error/cleanup paths.
-  Explain why the steps are ordered or what invariant the logic preserves;
-  avoid comments that merely repeat the next line of code.
+- For each non-trivial method, document its algorithm in the method body with
+  concise comments at the logical stages. Explain the important steps, order,
+  invariants, and non-obvious branches, especially loops, state transitions,
+  and error/cleanup paths. Keep trivial accessors and forwarding methods free
+  of artificial comments; comments must explain the algorithm or why a step is
+  needed, not repeat the code.
 
 - Prefer extending reusable code over adding duplicate types or modules; record
   the reuse decision in the request plan or journal.
