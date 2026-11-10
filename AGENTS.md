@@ -100,6 +100,9 @@ Follow the approved request plan and task list for the detailed change scope.
   current behavior under `spec/` when requested or included in approved scope.
 - [`repository-delivery`](.agents/skills/repository-delivery/SKILL.md) covers
   validation and repository delivery boundaries.
+- [`origin-push`](.agents/skills/origin-push/SKILL.md) covers explicitly
+  requested commits and pushes, including the mandatory Python lint and test
+  checks.
 
 Copilot adapters may point to these repository instructions; they must not
 define a competing workflow.
