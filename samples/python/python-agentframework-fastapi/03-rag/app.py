@@ -1,9 +1,8 @@
 """Expose the local MAF RAG agent through a small developer-owned FastAPI app."""
 
+from agent import create_agent
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
-
-from agent import create_agent
 
 
 class AskRequest(BaseModel):

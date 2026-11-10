@@ -7,6 +7,8 @@ from collections.abc import AsyncIterator, Sequence
 from typing import Any
 from uuid import uuid4
 
+from mcp_mslearn_tool import mslearn_mcp_search
+from solution_architect_agent import OPERATIONS, build_agent
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
 from ygo74.agent_runtime.domains.contracts.agent_output import AgentOutput
 from ygo74.agent_runtime.domains.contracts.stream_events import AgentStreamEvent
@@ -16,7 +18,9 @@ from ygo74.agent_runtime.domains.humanapproval.confirmation import (
     ConfirmationPolicy,
     ConfirmationRequest,
 )
-from ygo74.agent_runtime.domains.humanapproval.pending_renderer import PendingConfirmationRenderer
+from ygo74.agent_runtime.domains.humanapproval.pending_renderer import (
+    PendingConfirmationRenderer,
+)
 from ygo74.agent_runtime.domains.humanapproval.tickets import (
     ConfirmationTicket,
     InMemoryPendingConfirmationStore,
@@ -30,9 +34,6 @@ from ygo74.agent_runtime.integrations.langchain import (
     LangGraphPendingApproval,
     LangGraphSession,
 )
-
-from mcp_mslearn_tool import mslearn_mcp_search
-from solution_architect_agent import OPERATIONS, build_agent
 
 
 class ArchitectRuntime:

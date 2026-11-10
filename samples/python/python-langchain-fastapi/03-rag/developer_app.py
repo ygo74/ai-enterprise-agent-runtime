@@ -10,7 +10,6 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-
 from rag_agent import LocalKnowledgeBaseAgent
 
 EXAMPLE_DIRECTORY = Path(__file__).resolve().parent

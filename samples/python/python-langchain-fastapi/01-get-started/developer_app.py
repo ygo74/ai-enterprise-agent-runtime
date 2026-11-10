@@ -5,9 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
 from langchain_core.messages import AIMessage
-
+from pydantic import BaseModel, Field
 from solution_architect_graph import build_solution_architect_agent
 
 
