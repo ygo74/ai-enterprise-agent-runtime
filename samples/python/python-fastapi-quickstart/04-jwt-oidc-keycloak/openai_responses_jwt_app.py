@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from dotenv import load_dotenv
@@ -101,7 +101,7 @@ agent_descriptor = AgentDescriptor(
     ),
     version="1.0.0",
     owner="ai-enterprise-agent-runtime",
-    created_at_utc=datetime(2026, 8, 16, tzinfo=timezone.utc),
+    created_at_utc=datetime(2026, 8, 16, tzinfo=UTC),
     capabilities=AgentCapabilitySet(
         streaming=False,
         input_modalities=(Modality.TEXT,),

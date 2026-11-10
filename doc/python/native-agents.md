@@ -217,4 +217,4 @@ This is an implementation pilot requested by the consumer, not evidence of
 .NET/Java parity or production release approval. Their invocation/lifecycle/
 approval/worker semantics are deferred separately from the earlier output-only
 exception. Maintainer release-exception approval and cross-language quality gates
-remain outstanding. See the [pilot contract](../../specs/001-openai-endpoint-exposure/contracts/byoa-python-pilot.md).
+remain outstanding. See the [managed worker specification](../../spec/endpoints/managed-agent-worker.md).

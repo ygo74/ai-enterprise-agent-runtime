@@ -21,7 +21,6 @@ from typing import Any
 
 from langchain.agents.middleware import InterruptOnConfig
 from langgraph.types import Command
-
 from ygo74.agent_runtime.domains.humanapproval.confirmation import ConfirmationPolicy
 from ygo74.agent_runtime.domains.security.operations import ToolOperationDescriptor
 from ygo74.agent_runtime.domains.security.user_context import UserContext

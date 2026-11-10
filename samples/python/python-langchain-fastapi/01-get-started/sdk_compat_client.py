@@ -11,16 +11,18 @@ ensure_env_loaded()
 
 
 def _pretty(data: Any) -> str:
-    if hasattr(data, "model_dump"):
+    payload = data
+    model_dump = getattr(data, "model_dump", None)
+    if callable(model_dump):
         try:
-            return json.dumps(data.model_dump(), ensure_ascii=True, indent=2)
-        except Exception:
-            pass
+            payload = model_dump()
+        except (TypeError, ValueError):
+            payload = data
 
     try:
-        return json.dumps(data, ensure_ascii=True, indent=2)
-    except Exception:
-        return str(data)
+        return json.dumps(payload, ensure_ascii=True, indent=2)
+    except (TypeError, ValueError):
+        return str(payload)
 
 
 def _print_result(title: str, ok: bool, details: str) -> None:
@@ -30,8 +32,8 @@ def _print_result(title: str, ok: bool, details: str) -> None:
 
 def test_openai_responses(base_url: str, model: str, prompt: str, route_key: str, stream: bool = False) -> bool:
     try:
-        from openai import OpenAI
-    except Exception as ex:
+        from openai import OpenAI, OpenAIError
+    except ImportError as ex:
         _print_result("OpenAI SDK import", False, f"Unable to import openai package: {ex}")
         return False
 
@@ -67,7 +69,7 @@ def test_openai_responses(base_url: str, model: str, prompt: str, route_key: str
                 f"chunks_received={len(deltas)}\nsaw_completed={saw_completed}\ntext={''.join(deltas)}",
             )
             return ok
-        except Exception as ex:
+        except (OpenAIError, AttributeError, TypeError, ValueError) as ex:
             _print_result(title, False, f"Request failed: {ex}")
             return False
 
@@ -85,15 +87,15 @@ def test_openai_responses(base_url: str, model: str, prompt: str, route_key: str
             f"status_code={raw.status_code}\nresponse={_pretty(payload)}",
         )
         return raw.status_code == 200
-    except Exception as ex:
+    except (OpenAIError, AttributeError, TypeError, ValueError) as ex:
         _print_result("OpenAI SDK -> /v1/responses", False, f"Request failed: {ex}")
         return False
 
 
 def test_openai_chat_completions(base_url: str, model: str, prompt: str, route_key: str, stream: bool = False) -> bool:
     try:
-        from openai import OpenAI
-    except Exception as ex:
+        from openai import OpenAI, OpenAIError
+    except ImportError as ex:
         _print_result("OpenAI SDK import", False, f"Unable to import openai package: {ex}")
         return False
 
@@ -127,7 +129,7 @@ def test_openai_chat_completions(base_url: str, model: str, prompt: str, route_k
                 f"chunks_received={len(chunks)}\nsaw_finish_reason={saw_finish_reason}\ntext={''.join(chunks)}",
             )
             return ok
-        except Exception as ex:
+        except (OpenAIError, AttributeError, TypeError, ValueError) as ex:
             _print_result(title, False, f"Request failed: {ex}")
             return False
 
@@ -145,7 +147,7 @@ def test_openai_chat_completions(base_url: str, model: str, prompt: str, route_k
             f"status_code={raw.status_code}\nresponse={_pretty(payload)}",
         )
         return raw.status_code == 200
-    except Exception as ex:
+    except (OpenAIError, AttributeError, TypeError, ValueError) as ex:
         _print_result("OpenAI SDK -> /v1/chat/completions", False, f"Request failed: {ex}")
         return False
 
@@ -153,7 +155,7 @@ def test_openai_chat_completions(base_url: str, model: str, prompt: str, route_k
 def test_anthropic_messages(base_url: str, model: str, prompt: str, stream: bool = False) -> bool:
     try:
         import anthropic
-    except Exception as ex:
+    except ImportError as ex:
         _print_result("Anthropic SDK import", False, f"Unable to import anthropic package: {ex}")
         return False
 
@@ -189,7 +191,7 @@ def test_anthropic_messages(base_url: str, model: str, prompt: str, stream: bool
                 f"chunks_received={len(deltas)}\nsaw_message_stop={saw_message_stop}\ntext={''.join(deltas)}",
             )
             return ok
-        except Exception as ex:
+        except (anthropic.APIError, AttributeError, TypeError, ValueError) as ex:
             _print_result(
                 title,
                 False,
@@ -212,7 +214,7 @@ def test_anthropic_messages(base_url: str, model: str, prompt: str, stream: bool
             f"status_code={raw.http_response.status_code}\nresponse={_pretty(payload)}",
         )
         return raw.http_response.status_code == 200
-    except Exception as ex:
+    except (anthropic.APIError, AttributeError, TypeError, ValueError) as ex:
         _print_result(
             "Anthropic SDK -> /v1/messages",
             False,

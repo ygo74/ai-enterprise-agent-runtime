@@ -5,21 +5,25 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from env_loader import ensure_env_loaded
 from conversation import ArchitectConversationFactory
+from env_loader import ensure_env_loaded
 from solution_architect_agent import OPERATIONS
-from ygo74.agent_runtime.domains.auth.apikey_authenticator import StaticApiKeyUserResolver
+from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
+    StaticApiKeyUserResolver,
+)
 from ygo74.agent_runtime.domains.auth.auth_context import ResolvedUser
 from ygo74.agent_runtime.domains.auth.authentication_policy import AuthenticationPolicy
 from ygo74.agent_runtime.domains.contracts.agent_definition import AgentDefinition
 from ygo74.agent_runtime.domains.contracts.manifests import AgentManifest, SkillManifest
-from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
-from ygo74.agent_runtime.domains.endpoints.hosting_factory import EndpointSurface
-from ygo74.agent_runtime.domains.endpoints.managed_worker import WorkerSettings
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
+    DiscoveryConfiguration,
+)
 from ygo74.agent_runtime.domains.discovery.manifest_descriptor import (
     AdvertisedSecurity,
     AgentDescriptorFactory,
 )
+from ygo74.agent_runtime.domains.endpoints.hosting_factory import EndpointSurface
+from ygo74.agent_runtime.domains.endpoints.managed_worker import WorkerSettings
 from ygo74.agent_runtime.domains.humanapproval.confirmation import (
     ConfiguredConfirmationPolicy,
     InMemoryConfirmationPreferenceStore,

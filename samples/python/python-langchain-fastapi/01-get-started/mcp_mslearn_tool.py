@@ -6,10 +6,9 @@ import os
 from collections.abc import Mapping
 from typing import Any
 
+from env_loader import ensure_env_loaded
 from langchain.tools import tool
 from pydantic import BaseModel, Field
-
-from env_loader import ensure_env_loaded
 
 ensure_env_loaded()
 
@@ -19,10 +18,12 @@ try:
     try:
         # Newer MCP SDK name.
         from mcp.client.streamable_http import streamable_http_client
-    except Exception:
+    except ImportError:
         # Backward-compatible MCP SDK name.
-        from mcp.client.streamable_http import streamablehttp_client as streamable_http_client
-except Exception:  # pragma: no cover - import availability depends on local env
+        from mcp.client.streamable_http import (
+            streamablehttp_client as streamable_http_client,
+        )
+except ImportError:  # pragma: no cover - import availability depends on local env
     ClientSession = None
     streamable_http_client = None
 

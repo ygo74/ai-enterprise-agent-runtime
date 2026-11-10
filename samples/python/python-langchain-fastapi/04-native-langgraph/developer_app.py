@@ -6,9 +6,8 @@ from typing import Any
 
 from fastapi import FastAPI
 from langchain_core.messages import AIMessage
-from pydantic import BaseModel, Field
-
 from native_agent import build_graph
+from pydantic import BaseModel, Field
 
 
 class AskRequest(BaseModel):

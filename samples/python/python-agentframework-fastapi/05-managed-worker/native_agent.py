@@ -1,7 +1,6 @@
 """Build the native MAF agent used by the lower-level managed-worker sample."""
 
 from agent_framework import Agent
-
 from echo_client import EchoClient
 
 

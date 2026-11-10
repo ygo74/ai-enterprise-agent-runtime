@@ -186,7 +186,7 @@ Official API references:
 and [Microsoft Agent Framework](https://github.com/microsoft/agent-framework).
 
 Definitive runtime references:
-[typed output contract and support matrix](../../specs/001-openai-endpoint-exposure/contracts/typed-output-contract.md)
-and [output snapshot schema v2](../../specs/001-openai-endpoint-exposure/contracts/agent-output-v2.schema.json).
+[typed output contract and support matrix](../../spec/contracts/agent-output-and-streaming.md)
+and [output snapshot schema v2](../../spec/contracts/agent-output-v2.schema.json).
 The schema describes complete serialized snapshots; handlers still return typed
 objects, not raw dictionaries.

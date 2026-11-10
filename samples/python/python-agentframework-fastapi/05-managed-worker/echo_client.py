@@ -3,7 +3,14 @@
 from collections.abc import AsyncIterator, Awaitable, Mapping, Sequence
 from typing import Any
 
-from agent_framework import BaseChatClient, ChatResponse, ChatResponseUpdate, Content, Message, ResponseStream
+from agent_framework import (
+    BaseChatClient,
+    ChatResponse,
+    ChatResponseUpdate,
+    Content,
+    Message,
+    ResponseStream,
+)
 
 
 class EchoClient(BaseChatClient[Any]):

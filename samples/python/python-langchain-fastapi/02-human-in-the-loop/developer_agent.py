@@ -5,12 +5,11 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from env_loader import ensure_env_loaded
 from langchain.agents import create_agent
 from langchain.agents.middleware import HumanInTheLoopMiddleware, InterruptOnConfig
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
-
-from env_loader import ensure_env_loaded
 from mcp_mslearn_tool import mslearn_mcp_search
 
 ensure_env_loaded()

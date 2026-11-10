@@ -7,7 +7,9 @@ from datetime import UTC, datetime
 
 from native_agent import build_graph
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
-from ygo74.agent_runtime.domains.auth.apikey_authenticator import StaticApiKeyUserResolver
+from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
+    StaticApiKeyUserResolver,
+)
 from ygo74.agent_runtime.domains.auth.auth_context import ResolvedUser
 from ygo74.agent_runtime.domains.auth.authentication_policy import AuthenticationPolicy
 from ygo74.agent_runtime.domains.contracts.agent_definition import (
@@ -15,7 +17,9 @@ from ygo74.agent_runtime.domains.contracts.agent_definition import (
     AgentFactoryContext,
 )
 from ygo74.agent_runtime.domains.contracts.manifests import AgentManifest
-from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
+    DiscoveryConfiguration,
+)
 from ygo74.agent_runtime.domains.discovery.manifest_descriptor import (
     AdvertisedSecurity,
     AgentDescriptorFactory,
@@ -26,7 +30,9 @@ from ygo74.agent_runtime.domains.endpoints.managed_worker import (
     WorkerSettings,
 )
 from ygo74.agent_runtime.domains.humanapproval.commands import ConfirmationCommand
-from ygo74.agent_runtime.domains.humanapproval.pending_renderer import PendingConfirmationRenderer
+from ygo74.agent_runtime.domains.humanapproval.pending_renderer import (
+    PendingConfirmationRenderer,
+)
 from ygo74.agent_runtime.domains.humanapproval.tickets import (
     InMemoryPendingConfirmationStore,
     UnknownTicketError,

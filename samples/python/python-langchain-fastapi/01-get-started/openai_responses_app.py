@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator, Awaitable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from agent_solution_architect import (
@@ -88,7 +88,7 @@ agent_descriptor = AgentDescriptor(
     ),
     version="1.0.0",
     owner="ai-enterprise-agent-runtime",
-    created_at_utc=datetime(2026, 8, 16, tzinfo=timezone.utc),
+    created_at_utc=datetime(2026, 8, 16, tzinfo=UTC),
     capabilities=AgentCapabilitySet(
         streaming=True,
         input_modalities=(Modality.TEXT,),

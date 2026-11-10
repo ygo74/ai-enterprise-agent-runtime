@@ -15,23 +15,25 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from env_loader import ensure_env_loaded
 from langchain.agents import create_agent
 from langchain.agents.middleware import HumanInTheLoopMiddleware
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
-from ygo74.agent_runtime.domains.contracts.agent_definition import AgentFactoryContext
-
-from env_loader import ensure_env_loaded
 from langgraph_approval import LangGraphApprovalBridge
 from mcp_mslearn_tool import mslearn_mcp_search
-
+from ygo74.agent_runtime.domains.contracts.agent_definition import AgentFactoryContext
 from ygo74.agent_runtime.domains.humanapproval.confirmation import (
     ConfiguredConfirmationPolicy,
     ConfirmationPolicy,
     InMemoryConfirmationPreferenceStore,
 )
 from ygo74.agent_runtime.domains.security.floor import SecurityFloor
-from ygo74.agent_runtime.domains.security.operations import OperationType, RiskLevel, ToolOperationDescriptor
+from ygo74.agent_runtime.domains.security.operations import (
+    OperationType,
+    RiskLevel,
+    ToolOperationDescriptor,
+)
 from ygo74.agent_runtime.domains.security.permissions import Permission
 from ygo74.agent_runtime.domains.security.user_context import UserContext
 

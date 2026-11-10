@@ -8,21 +8,33 @@ from uuid import uuid4
 from agent_framework import Agent, ToolApprovalMiddleware, tool
 from agent_framework.openai import OpenAIChatClient
 from ygo74.agent_runtime.domains.auth.agent_principal import AgentPrincipal
-from ygo74.agent_runtime.domains.auth.apikey_authenticator import StaticApiKeyUserResolver
+from ygo74.agent_runtime.domains.auth.apikey_authenticator import (
+    StaticApiKeyUserResolver,
+)
 from ygo74.agent_runtime.domains.auth.auth_context import ResolvedUser
 from ygo74.agent_runtime.domains.auth.authentication_policy import AuthenticationPolicy
 from ygo74.agent_runtime.domains.contracts.agent_definition import AgentDefinition
 from ygo74.agent_runtime.domains.contracts.manifests import AgentManifest, SkillManifest
-from ygo74.agent_runtime.domains.discovery.discovery_configuration import DiscoveryConfiguration
+from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
+    DiscoveryConfiguration,
+)
 from ygo74.agent_runtime.domains.discovery.manifest_descriptor import (
     AdvertisedSecurity,
     AgentDescriptorFactory,
 )
 from ygo74.agent_runtime.domains.endpoints.hosting_factory import EndpointSurface
-from ygo74.agent_runtime.domains.endpoints.managed_worker import ManagedAgentWorker, WorkerSettings
+from ygo74.agent_runtime.domains.endpoints.managed_worker import (
+    ManagedAgentWorker,
+    WorkerSettings,
+)
 from ygo74.agent_runtime.domains.humanapproval.commands import ConfirmationCommand
-from ygo74.agent_runtime.domains.humanapproval.confirmation import ConfirmationDetail, ConfirmationRequest
-from ygo74.agent_runtime.domains.humanapproval.pending_renderer import PendingConfirmationRenderer
+from ygo74.agent_runtime.domains.humanapproval.confirmation import (
+    ConfirmationDetail,
+    ConfirmationRequest,
+)
+from ygo74.agent_runtime.domains.humanapproval.pending_renderer import (
+    PendingConfirmationRenderer,
+)
 from ygo74.agent_runtime.domains.humanapproval.tickets import (
     ConfirmationTicket,
     InMemoryPendingConfirmationStore,
@@ -34,12 +46,17 @@ from ygo74.agent_runtime.domains.security.operations import (
 )
 from ygo74.agent_runtime.domains.security.permissions import Permission
 from ygo74.agent_runtime.domains.security.user_context import UserContext
-from ygo74.agent_runtime.domains.sessions.agent_conversation import AgentConversation, ConversationPort
+from ygo74.agent_runtime.domains.sessions.agent_conversation import (
+    AgentConversation,
+    ConversationPort,
+)
 from ygo74.agent_runtime.integrations.agentframework.approval import (
     ApprovalRound,
     PendingToolApproval,
 )
-from ygo74.agent_runtime.integrations.agentframework.binding import AgentFrameworkSession
+from ygo74.agent_runtime.integrations.agentframework.binding import (
+    AgentFrameworkSession,
+)
 
 _TOOL_NAME = "record_local_note"
 _API_KEY = "local-demo-key"

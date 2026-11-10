@@ -1,9 +1,8 @@
 """Developer-owned FastAPI host for a normal Microsoft Agent Framework agent."""
 
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
-
 from native import create_agent
+from pydantic import BaseModel, Field
 
 
 class AskRequest(BaseModel):

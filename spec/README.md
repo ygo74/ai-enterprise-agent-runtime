@@ -45,6 +45,7 @@ checks remain runtime behavior.
 | System purpose and request flow | [Architecture overview](architecture/system-overview.md) |
 | Runtime domains and dependency boundaries | [Component model](architecture/component-model.md) |
 | Request, response, error, and stream values | [Exchange contract](contracts/exchange-contract.md) |
+| Versioned descriptor, exchange, and typed-output JSON contracts | [Machine-readable contracts](contracts/README.md) |
 | Authenticated identity and correlation during one invocation | [Agent invocation context](contracts/agent-invocation-context.md) |
 | Typed agent results, content, usage, and streaming lifecycle | [Agent output and streaming](contracts/agent-output-and-streaming.md) |
 | Provider-compatible invocation and streaming | [Endpoint surfaces](endpoints/provider-surfaces.md) |
@@ -63,6 +64,7 @@ checks remain runtime behavior.
 | Distributions, configuration, logging, and validation | [Packaging and operations](operations/packaging-configuration-observability.md) |
 | Logging and incomplete telemetry hooks | [Observability](operations/observability.md) |
 | Implemented behavior by language | [Language support and parity](compatibility/language-status.md) |
+| Request approvals, implementation tracking, and engineering principles | [Development workflow](development-workflow.md) |
 
 ## Reading order
 
@@ -85,7 +87,8 @@ design intent as implemented behavior.
 
 Task-specific design records remain under
 [`spec/implementation/`](implementation/README.md). Keep each issue's SPEC and
-PLAN there while work is active; consolidate durable behavior into the relevant
-domain pages in `spec/` without removing the issue tracking record. The active
-Speckit feature directory under `specs/` remains separate from this consolidated
-system specification.
+PLAN, TASKS, and JOURNAL there while work is active. They are developer and
+agent tracking records, not product documentation. New work starts from this
+consolidated system specification and the related domain pages. Consolidate
+verified durable behavior here; do not treat a planned feature or an older task
+record as evidence of current behavior.

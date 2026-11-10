@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 
@@ -15,7 +15,7 @@ def main() -> None:
     parser.add_argument("--ttl-seconds", type=int, default=300)
     args = parser.parse_args()
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
 
     claims = {
         "sub": args.subject,

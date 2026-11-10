@@ -10,6 +10,7 @@ from typing import Any
 from env_loader import ensure_env_loaded
 from langchain_core.messages import AIMessage
 from langchain_core.runnables.schema import StreamEvent
+from solution_architect_graph import build_solution_architect_agent
 from ygo74.agent_runtime.domains.contracts.agent_output import AgentOutput, Notification
 from ygo74.agent_runtime.domains.contracts.stream_events import (
     AgentStreamEvent,
@@ -21,7 +22,6 @@ from ygo74.agent_runtime.integrations.langchain import (
     LangChainResultAdapter,
     LangChainStreamAdapter,
 )
-from solution_architect_graph import build_solution_architect_agent
 
 ensure_env_loaded()
 logger = logging.getLogger(__name__)

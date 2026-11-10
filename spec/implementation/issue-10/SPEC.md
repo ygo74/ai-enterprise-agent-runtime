@@ -8,18 +8,19 @@
 
 Provide repository-level Codex guidance so Codex follows the project's existing
 engineering conventions and feature structure established through GitHub Copilot
-and SpecKit.
+and the feature workflow in use at that time.
 
 ## Contexte
 
-This is a multi-language library repository with an existing SpecKit constitution,
+This is a multi-language library repository with existing engineering rules,
 feature specifications, implementation plans, task lists, and language-specific
-instructions. Copilot currently receives repository context through
-`.github/copilot-instructions.md`; the repository has no root `AGENTS.md` for
-Codex.
+instructions. Copilot received repository context through
+`.github/copilot-instructions.md`; the repository had no root `AGENTS.md` for
+Codex at the time of this issue. Current guidance is in the repository root
+`AGENTS.md`, `WORKFLOW.md`, and local skills.
 
-The requester clarified that this issue covers project conventions and structure
-only. It does not require reproducing SpecKit's command workflows for Codex.
+The requester clarified that this issue covered project conventions and
+structure only. It did not require reproducing feature-tool commands for Codex.
 
 ## Problème
 
@@ -32,20 +33,20 @@ same structure used by existing work.
 
 - Add repository-level Codex instructions that direct Codex to the existing
   source-of-truth guidance rather than copying it into a second set of rules.
-- Direct Codex to `.specify/memory/constitution.md`, the active feature directory
-  recorded in `.specify/feature.json`, and the relevant feature documents such as
-  `spec.md`, `plan.md`, `tasks.md`, contracts, and quickstart.
+- Direct Codex to repository governance, the active request record under
+  `spec/implementation/`, and relevant `SPEC.md`, `PLAN.md`, `TASKS.md`,
+  contracts, and guides.
 - Describe the existing multi-language package, test, documentation, and feature
   specification layout at the level needed to place changes consistently.
 - Direct Codex to apply relevant language-specific guidance, including
   `.github/instructions/python.instructions.md` for Python files.
-- Keep the guidance consistent with the existing Copilot/SpecKit instructions
-  and project constitution.
+- Keep the guidance consistent with the existing Copilot instructions and
+  project principles.
 
 ## Hors périmètre
 
-- Recreating SpecKit agents, prompts, or slash-command workflows as Codex skills.
-- Modifying SpecKit templates, existing feature artifacts, code, or CI behavior.
+- Recreating generated agents, prompts, or slash-command workflows as Codex skills.
+- Modifying feature templates, existing feature artifacts, code, or CI behavior.
 - Introducing new engineering conventions that are not present in the
   constitution or current repository guidance.
 - Changing the Copilot integration.
@@ -66,24 +67,22 @@ When working in this repository, Codex is directed to:
 ## Architecture concernée
 
 - Repository guidance: root-level `AGENTS.md` (proposed Codex entry point).
-- Governance: `.specify/memory/constitution.md`.
-- Active feature selection: `.specify/feature.json`.
-- Feature design and structure: `specs/<feature>/spec.md`, `plan.md`, `tasks.md`,
-  and supporting design documents.
+- Governance: repository `AGENTS.md`, `WORKFLOW.md`, and local skills.
+- Active request tracking: `spec/implementation/<request>/`.
+- Current system behavior: consolidated pages under `spec/`.
 - Language guidance: `.github/instructions/python.instructions.md`.
 - Existing Copilot entry point: `.github/copilot-instructions.md`.
 
 The feature plan documents the canonical layout under `packages/`, `tests/`,
-`doc/`, and `specs/`.
+  `doc/`, and `spec/`.
 
 ## Contraintes
 
 - Keep the instructions concise and actionable; link to canonical documents
   instead of reproducing their full contents.
 - Do not require Codex to invoke Copilot-only agents or commands.
-- Do not make the guide assume that the current feature remains
-  `001-openai-endpoint-exposure`; use the feature pointer already maintained by
-  SpecKit.
+- Do not hard-code a request folder; follow the canonical tracking folder for
+  the active work under `spec/implementation/`.
 - Do not weaken or contradict the constitution or applicable language-specific
   instructions.
 
@@ -97,7 +96,7 @@ The feature plan documents the canonical layout under `packages/`, `tests/`,
   and direct it to follow the Python instructions for Python changes.
 - The guidance preserves the repository's cross-language contract and parity
   expectations where applicable.
-- No SpecKit command workflows, Copilot files, implementation code, or CI
+- No feature-tool command workflows, Copilot files, implementation code, or CI
   behavior are changed as part of this scope.
 
 ## Stratégie de test
@@ -113,8 +112,8 @@ The feature plan documents the canonical layout under `packages/`, `tests/`,
 - Duplicating rules in `AGENTS.md` can cause them to drift from the constitution
   or feature documents; mitigate this by using direct references wherever
   possible.
-- A hard-coded feature path would become stale as SpecKit advances to another
-  feature; use `.specify/feature.json` as the active feature pointer.
+- A hard-coded request path would become stale; select the canonical request
+  record under `spec/implementation/` for the current work.
 - Too little context could leave Codex missing important repository rules;
   explicitly reference the constitution, feature artifacts, layout, and
   applicable language guidance.
@@ -122,4 +121,4 @@ The feature plan documents the canonical layout under `packages/`, `tests/`,
 ## Questions ouvertes
 
 - None. The requester confirmed that this issue should add Codex convention
-  guidance only, without recreating SpecKit command workflows.
+  guidance only, without recreating feature-tool command workflows.
