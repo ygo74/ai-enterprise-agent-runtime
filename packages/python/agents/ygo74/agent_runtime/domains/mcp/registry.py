@@ -426,11 +426,10 @@ class McpAgentRegistryLoader(Generic[CapabilityT]):
                     raise self._error_factory(
                         f"server {configuration.binding.server!r} delegated token source factory returned an invalid source"
                     )
-            elif delegated_token_source is None:
-                if not has_client_settings:
-                    raise self._error_factory(
-                        f"server {configuration.binding.server!r} requires either an injected delegated token source or complete OAuth token-exchange settings"
-                    )
+            elif delegated_token_source is None and not has_client_settings:
+                raise self._error_factory(
+                    f"server {configuration.binding.server!r} requires either an injected delegated token source or complete OAuth token-exchange settings"
+                )
         return McpConnection(
             configuration.binding,
             timeout_seconds=configuration.request_timeout_seconds,
