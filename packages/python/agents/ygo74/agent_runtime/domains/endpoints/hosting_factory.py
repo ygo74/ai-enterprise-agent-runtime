@@ -10,7 +10,10 @@ from ygo74.agent_runtime.domains.auth.authentication_policy import Authenticatio
 from ygo74.agent_runtime.domains.configuration.agent_http_configuration import (
     AgentHttpRuntimeSettings,
 )
-from ygo74.agent_runtime.domains.contracts.http_configuration import HttpEndpoint
+from ygo74.agent_runtime.domains.contracts.http_configuration import (
+    HttpEndpoint,
+    McpHttpEndpointConfiguration,
+)
 from ygo74.agent_runtime.domains.discovery.agent_descriptor import AgentDescriptor
 from ygo74.agent_runtime.domains.discovery.descriptor_registry import DescriptorRegistry
 from ygo74.agent_runtime.domains.discovery.discovery_configuration import (
@@ -35,12 +38,14 @@ class EndpointSurface(StrEnum):
     OPENAI_RESPONSES = "openai.responses"
     OPENAI_CHAT_COMPLETIONS = "openai.chat_completions"
     ANTHROPIC_MESSAGES = "anthropic.messages"
+    MCP = "mcp"
 
 
 _HTTP_ENDPOINT_SURFACES: dict[HttpEndpoint, EndpointSurface] = {
     HttpEndpoint.CHAT_COMPLETIONS: EndpointSurface.OPENAI_CHAT_COMPLETIONS,
     HttpEndpoint.RESPONSES: EndpointSurface.OPENAI_RESPONSES,
     HttpEndpoint.MESSAGES: EndpointSurface.ANTHROPIC_MESSAGES,
+    HttpEndpoint.MCP: EndpointSurface.MCP,
 }
 
 
@@ -71,6 +76,7 @@ class HostingFactory:
         self._authentication: AuthenticationPolicy | None = None
         self._rate_limit: RateLimitSettings | None = None
         self._http_settings: AgentHttpRuntimeSettings | None = None
+        self._mcp_resource_url: str | None = None
         self._discovery: DiscoveryConfiguration | None = None
         self._registered = False
 
@@ -142,7 +148,11 @@ class HostingFactory:
             settings: Runtime settings resolved from ``AgentManifest.http``.
         """
         self._ensure_configurable()
-        if self._surfaces is not None or self._authentication is not None:
+        if (
+            self._surfaces is not None
+            or self._authentication is not None
+            or self._mcp_resource_url is not None
+        ):
             raise HostingConfigurationError(
                 "HTTP settings cannot be combined with separately configured endpoints or security"
             )
@@ -152,6 +162,28 @@ class HostingFactory:
         self._authentication = settings.authentication
         self._rate_limit = settings.rate_limit
         self._http_settings = settings
+        return self
+
+    def add_mcp_resource_url(self, resource_url: str) -> Self:
+        """Set the canonical OAuth resource URL for a manually configured MCP surface.
+
+        Manifest-backed hosts should set ``http.mcp.resource_url`` instead.
+
+        Args:
+            resource_url: Public HTTPS URL advertised for JWT-authenticated MCP.
+        """
+        self._ensure_configurable()
+        if self._http_settings is not None or self._mcp_resource_url is not None:
+            raise HostingConfigurationError(
+                "the MCP resource URL is already configured or owned by HTTP settings"
+            )
+        configuration = McpHttpEndpointConfiguration(resource_url=resource_url)
+        resolved = configuration.resource_url
+        if resolved is None or resolved.startswith("${"):
+            raise HostingConfigurationError(
+                "a manually configured MCP resource URL must be a literal HTTPS URL"
+            )
+        self._mcp_resource_url = resolved
         return self
 
     def add_discovery(self, configuration: DiscoveryConfiguration) -> Self:
@@ -210,6 +242,11 @@ class HostingFactory:
             raise HostingConfigurationError(
                 "the configured app must support FastAPI POST route registration"
             )
+        mcp_selected = EndpointSurface.MCP in surfaces
+        if mcp_selected and not authentication.authenticators:
+            raise HostingConfigurationError(
+                "an MCP agent endpoint requires authenticated caller identity"
+            )
         if self._http_settings is not None:
             router = getattr(self._app, "router", None)
             if router is None or not callable(
@@ -218,6 +255,45 @@ class HostingFactory:
                 raise HostingConfigurationError(
                     "the configured app must expose an ASGI shutdown lifecycle for manifest HTTP settings"
                 )
+        mcp_endpoint: Any | None = None
+        mcp_host: Any | None = None
+        if mcp_selected:
+            if not callable(getattr(self._app, "mount", None)):
+                raise HostingConfigurationError(
+                    "the configured app must support ASGI mounting for MCP"
+                )
+            router = getattr(self._app, "router", None)
+            if router is None or not callable(
+                getattr(router, "lifespan_context", None)
+            ):
+                raise HostingConfigurationError(
+                    "the configured app must expose an ASGI lifespan for MCP"
+                )
+            try:
+                from ygo74.agent_runtime.domains.endpoints.mcp_agent_endpoint import (
+                    McpAgentEndpoint,
+                )
+                from ygo74.agent_runtime.domains.mcpserver.host import McpServerHost
+            except ImportError as error:
+                raise HostingConfigurationError(
+                    "the MCP endpoint requires the optional "
+                    "'ygo74-agent-runtime-agents[mcp-server]' extra"
+                ) from error
+            resource_url = (
+                self._http_settings.mcp_resource_url
+                if self._http_settings is not None
+                else self._mcp_resource_url
+            )
+            try:
+                mcp_host = McpServerHost(
+                    policy=authentication,
+                    resource_url=resource_url or "",
+                )
+            except Exception as error:
+                raise HostingConfigurationError(
+                    f"MCP endpoint configuration is invalid: {type(error).__name__}"
+                ) from error
+            mcp_endpoint = McpAgentEndpoint(entrypoint, descriptor).build_server()
         if self._discovery is not None and not callable(
             getattr(self._app, "get", None)
         ):
@@ -226,20 +302,31 @@ class HostingFactory:
             )
 
         descriptor_registry = DescriptorRegistry((descriptor,))
-        _register_ai_endpoints(
-            self._app,
-            entrypoint,
-            default_route_key=descriptor.route_key,
-            enable_openai_responses=EndpointSurface.OPENAI_RESPONSES in surfaces,
-            enable_openai_chat_completions=EndpointSurface.OPENAI_CHAT_COMPLETIONS
-            in surfaces,
-            enable_anthropic_messages=EndpointSurface.ANTHROPIC_MESSAGES in surfaces,
-            require_bearer_token=authentication.requires_authentication,
-            authenticators=authentication.authenticators,
-            descriptor_registry=descriptor_registry,
-            discovery=self._discovery,
-            rate_limit_settings=self._rate_limit,
-        )
+        web_surfaces = surfaces - {EndpointSurface.MCP}
+        if web_surfaces or self._discovery is not None:
+            _register_ai_endpoints(
+                self._app,
+                entrypoint,
+                default_route_key=descriptor.route_key,
+                enable_openai_responses=EndpointSurface.OPENAI_RESPONSES
+                in web_surfaces,
+                enable_openai_chat_completions=EndpointSurface.OPENAI_CHAT_COMPLETIONS
+                in web_surfaces,
+                enable_anthropic_messages=EndpointSurface.ANTHROPIC_MESSAGES
+                in web_surfaces,
+                require_bearer_token=authentication.requires_authentication,
+                authenticators=authentication.authenticators,
+                descriptor_registry=descriptor_registry,
+                discovery=self._discovery,
+                rate_limit_settings=self._rate_limit,
+            )
+        if mcp_selected:
+            assert mcp_endpoint is not None and mcp_host is not None
+            mcp_host.mount(
+                self._app,
+                mcp_endpoint,
+                close_authenticator=self._http_settings is None,
+            )
         if self._http_settings is not None:
             AsgiShutdownRegistrar.register(
                 self._app, self._http_settings.close, wrap_lifespan=True

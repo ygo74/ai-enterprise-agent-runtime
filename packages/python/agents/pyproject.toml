@@ -29,6 +29,12 @@ http = [
   "uvicorn[standard]>=0.30",
 ]
 
+# Exposing an agent through MCP is a server transport. Keep it separate from
+# `mcp`, which installs the client stack used by agents to reach MCP tools.
+mcp-server = [
+  "ygo74-agent-runtime-mcp[http]>=0.8.2,<2",
+]
+
 # Reaching tools through the Model Context Protocol - the client side. Only
 # `domains.mcp` needs it, and that package imports the SDK defensively for the same
 # reason `http` does.

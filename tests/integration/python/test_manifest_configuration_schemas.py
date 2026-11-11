@@ -91,6 +91,33 @@ def test_agent_schema_accepts_an_optional_default_mcp_server() -> None:
     assert AgentManifestInput.model_validate(with_default).mcp_server == "mail"
 
 
+def test_agent_schema_accepts_mcp_http_endpoint_and_resource_url() -> None:
+    """The packaged agent schema exposes the new MCP HTTP settings."""
+    manifest = {
+        "name": "mail-agent",
+        "description": "Mail service.",
+        "skills": ["search"],
+        "http": {
+            "endpoints": ["mcp"],
+            "mcp": {"resource_url": "${MAIL_AGENT_MCP_RESOURCE_URL}"},
+            "security": {
+                "mode": "jwt",
+                "jwt": {
+                    "issuer": "https://identity.example.test/issuer",
+                    "secret": "${MAIL_AGENT_JWT_SECRET}",
+                    "audience": "mail-agent",
+                },
+            },
+        },
+    }
+    validator = Draft202012Validator(json.loads(ManifestSchemas.agent()))
+
+    errors = tuple(validator.iter_errors(manifest))
+
+    assert not errors
+    assert AgentManifestInput.model_validate(manifest).http is not None
+
+
 def test_skill_schema_accepts_a_named_server_for_its_mcp_tools() -> None:
     """A skill with MCP tools is valid when it names the server to use."""
     schema = json.loads(ManifestSchemas.skill())

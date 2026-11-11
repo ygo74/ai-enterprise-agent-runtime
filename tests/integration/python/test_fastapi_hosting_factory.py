@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import builtins
 import json
 import warnings
 from collections.abc import AsyncIterator, Callable
@@ -152,6 +153,43 @@ def test_factory_registers_each_supported_invocation_surface(
 
     assert response.status_code == 200
     assert response.json()
+
+
+def test_mcp_surface_reports_the_optional_server_extra_before_mutating_routes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Selecting MCP without its server extra fails during factory validation."""
+    app = FastAPI()
+    policy = AuthenticationPolicy.api_key(
+        StaticApiKeyUserResolver({"test-key": ResolvedUser(user_id="caller")})
+    )
+    factory = (
+        HostingFactory(app)
+        .add_agent(_entrypoint, make_descriptor("demo-agent"))
+        .add_ai_endpoints(EndpointSurface.MCP)
+        .add_security(policy)
+    )
+    original_routes = tuple(app.routes)
+    original_import = builtins.__import__
+
+    def without_mcp_server(
+        name: str,
+        globals: dict[str, Any] | None = None,
+        locals: dict[str, Any] | None = None,
+        fromlist: tuple[str, ...] = (),
+        level: int = 0,
+    ) -> Any:
+        """Simulate the server package being absent while preserving other imports."""
+        if name == "ygo74.agent_runtime.domains.endpoints.mcp_agent_endpoint":
+            raise ModuleNotFoundError("optional MCP server stack is not installed")
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", without_mcp_server)
+
+    with pytest.raises(HostingConfigurationError, match="mcp-server"):
+        factory.register()
+
+    assert tuple(app.routes) == original_routes
 
 
 def test_factory_registers_only_selected_surfaces_and_routes_by_descriptor() -> None:

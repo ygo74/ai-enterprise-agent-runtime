@@ -8,7 +8,7 @@ skills:
   - search_archive
   - delegated_lookup
 http:
-  endpoints: [chat_completions, responses]
+  endpoints: [chat_completions, responses, mcp]
   security:
     mode: api_key
     api_key:

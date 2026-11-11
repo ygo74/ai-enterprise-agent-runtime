@@ -26,6 +26,8 @@ work, and this host is shaped so that it does not have to be undone first.
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
 from ygo74.agent_runtime.domains.auth.auth_errors import AuthenticationError
@@ -112,6 +114,86 @@ class McpServerHost:
         Args:
             tools (Starlette): Declared tools exposed by the MCP server.
         """
+        return self._authenticated_application(tools, close_on_shutdown=True)
+
+    def mount(
+        self,
+        application: Starlette,
+        server: object,
+        *,
+        path: str = "/",
+        close_authenticator: bool = True,
+    ) -> None:
+        """Mount a protected FastMCP app into a parent ASGI application.
+
+        The MCP SDK does not run a mounted sub-application's lifespan. This
+        method starts its session manager inside the parent's existing lifespan
+        and closes the authenticator after that parent has shut down.
+
+        Args:
+            application: Parent FastAPI or Starlette application.
+            server: FastMCP instance whose Streamable HTTP app is mounted.
+            path: Parent route prefix; use ``/`` to retain the protocol's default ``/mcp`` path.
+            close_authenticator: Whether this host owns authenticator cleanup. A shared
+                manifest policy can instead be closed by its parent settings object.
+
+        Raises:
+            McpServerConfigurationError: The parent or server lacks the required ASGI lifecycle API.
+        """
+        mount = getattr(application, "mount", None)
+        router = getattr(application, "router", None)
+        if (
+            not callable(mount)
+            or router is None
+            or not callable(getattr(router, "lifespan_context", None))
+        ):
+            raise McpServerConfigurationError(
+                "mounting MCP requires a parent ASGI app with route and lifespan support"
+            )
+        streamable_http_app = getattr(server, "streamable_http_app", None)
+        if not callable(streamable_http_app):
+            raise McpServerConfigurationError(
+                "mounting MCP requires a FastMCP server with Streamable HTTP support"
+            )
+
+        tools = streamable_http_app()
+        session_manager = getattr(server, "session_manager", None)
+        if not callable(getattr(session_manager, "run", None)):
+            raise McpServerConfigurationError(
+                "FastMCP did not provide a Streamable HTTP session manager"
+            )
+        server_settings = getattr(server, "settings", None)
+        mcp_path = getattr(server_settings, "streamable_http_path", "/mcp")
+        if not isinstance(mcp_path, str) or not mcp_path.startswith("/"):
+            raise McpServerConfigurationError(
+                "FastMCP streamable_http_path must be an absolute route path"
+            )
+        protected_tools = self._authenticated_application(
+            tools,
+            close_on_shutdown=False,
+            protected_paths=frozenset({mcp_path}),
+        )
+        mount(path, protected_tools)
+        self._compose_parent_lifespan(
+            application,
+            session_manager,
+            close_authenticator=close_authenticator,
+        )
+
+    def _authenticated_application(
+        self,
+        tools: Starlette,
+        *,
+        close_on_shutdown: bool,
+        protected_paths: frozenset[str] | None = None,
+    ) -> Starlette:
+        """Add authentication, health and OAuth routes around an MCP app.
+
+        Args:
+            tools: Streamable HTTP ASGI application receiving the MCP routes.
+            close_on_shutdown: Whether the sub-application itself owns auth cleanup.
+            protected_paths: Exact MCP operation paths to guard when the app is mounted.
+        """
         from starlette.middleware.base import BaseHTTPMiddleware
         from starlette.requests import Request
         from starlette.responses import JSONResponse
@@ -146,6 +228,8 @@ class McpServerHost:
             """
             if self._is_open(request.url.path):
                 return await call_next(request)
+            if protected_paths is not None and request.url.path not in protected_paths:
+                return await call_next(request)
 
             try:
                 context = self._authenticator.authenticate(dict(request.headers))
@@ -175,8 +259,39 @@ class McpServerHost:
         if self._resource is not None:
             tools.router.routes.append(Route(PROTECTED_RESOURCE_PATH, metadata, methods=["GET"]))
         tools.add_middleware(BaseHTTPMiddleware, dispatch=guard)
-        AsgiShutdownRegistrar.register(tools, self._authenticator.close)
+        if close_on_shutdown:
+            AsgiShutdownRegistrar.register(tools, self._authenticator.close)
         return tools
+
+    def _compose_parent_lifespan(
+        self,
+        application: Starlette,
+        session_manager: object,
+        *,
+        close_authenticator: bool,
+    ) -> None:
+        """Run FastMCP sessions inside the parent lifecycle and release owned auth.
+
+        Args:
+            application: Parent ASGI application whose lifecycle remains authoritative.
+            session_manager: FastMCP Streamable HTTP session manager.
+            close_authenticator: Whether this host owns authenticator cleanup.
+        """
+        router = application.router
+        original_lifespan = router.lifespan_context
+        run = getattr(session_manager, "run", None)
+
+        @asynccontextmanager
+        async def lifespan_context(app: Any) -> AsyncIterator[Any]:
+            """Preserve parent state while starting MCP after its own startup."""
+            try:
+                async with original_lifespan(app) as state, run():
+                    yield state
+            finally:
+                if close_authenticator:
+                    self._authenticator.close()
+
+        router.lifespan_context = lifespan_context
 
     def verify_reachable(self, transport_security: object | None) -> None:
         """Refuse to serve a server that would reject its own callers.

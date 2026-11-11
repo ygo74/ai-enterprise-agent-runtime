@@ -13,6 +13,12 @@ provider. The server should return an authentication error for a missing or
 invalid credential and enforce authorization before running a tool. Keep
 credentials out of URLs and logs.
 
+## Expose a managed agent
+
+Python agents can expose their existing conversation entrypoint through MCP Streamable HTTP by selecting `mcp` in the agent manifest's `http.endpoints`. This mounts `/mcp` in the same FastAPI application as any selected provider routes. The runtime exposes one `invoke_agent` tool with `message` and optional `conversation_id` arguments. The caller identity comes from the request's verified authentication context. With JWT authentication, configure `http.mcp.resource_url` as the public HTTPS resource URL. Install the agents package with its `http` and `mcp-server` extras.
+
+The host starts the mounted MCP session manager and closes its resources with the parent FastAPI lifespan. The agent's existing conversation cache is process-local, so a deployment with multiple workers or replicas needs session affinity. See [agent hosting](agent-hosting.md) and the [Python MCP guide](../python/mcp.md) for configuration details.
+
 A health endpoint may be public if it reveals only service availability, such
 as `{"status":"ok"}`. Do not expose tool listings, configuration, or identity
 provider details through an unauthenticated health response.
