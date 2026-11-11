@@ -42,6 +42,15 @@ This manifest-driven HTTP setup is currently a Python FastAPI capability. See
 the [agent manifest reference](../python/agent-manifest.md) for the accepted
 keys and [Python hosting guide](../python/agent-runtime.md) for setup details.
 
+Add `mcp` to `http.endpoints` to expose the same agent at `/mcp` over Streamable
+HTTP. The MCP surface publishes a single `invoke_agent` tool. Its arguments
+contain the message and optional conversation ID; the verified HTTP identity
+is taken from the request context. Install the agents distribution's
+`mcp-server` extra as well as `http`. JWT authentication requires
+`http.mcp.resource_url` so clients can discover the protected resource. See the
+[Python MCP guide](../python/mcp.md) for the manifest example and package
+selection.
+
 ## Readiness and shutdown
 
 Keep readiness distinct from liveness. Readiness should report whether the
@@ -49,3 +58,6 @@ agent can accept work without exposing credentials, prompts, or user data.
 Shutdown should close framework clients and other resources owned by the
 application. A process-local worker may lose its conversations when it stops;
 choose shared or durable storage when requests can reach different replicas.
+The managed worker's conversation cache is also process-local while it is
+running, so multi-replica HTTP/MCP deployments need session affinity to continue
+an existing conversation.

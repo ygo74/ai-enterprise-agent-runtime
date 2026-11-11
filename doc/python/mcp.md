@@ -268,3 +268,39 @@ implicit anonymous service.
 
 For setup and environment variables, follow the detailed [MCP server hosting
 guide](../users/mcp-server-hosting.md) and [runnable MCP server example](../../samples/python/python-mcp-server/README.md).
+
+## Expose an agent through MCP
+
+The agents package has a separate optional server extra for hosting an existing
+agent over MCP Streamable HTTP:
+
+```bash
+python -m pip install 'ygo74-agent-runtime-agents[http,mcp-server]'
+```
+
+Add `mcp` to `http.endpoints` in `agent.yaml`. The FastAPI host mounts `/mcp`
+beside its selected OpenAI or Anthropic routes and exposes one `invoke_agent`
+tool. Its arguments are `message` and optional `conversation_id`. The host
+authenticates the MCP request using the manifest's existing HTTP policy, and
+the adapter passes the verified principal into the existing conversation
+entrypoint. MCP+JWT requires `http.mcp.resource_url` as an HTTPS URL or exact
+environment reference; API-key mode does not need it.
+
+For example:
+
+```yaml
+http:
+  endpoints: [chat_completions, mcp]
+  mcp:
+    resource_url: ${MAIL_AGENT_MCP_RESOURCE_URL}
+  security:
+    mode: jwt
+    jwt:
+      issuer: https://identity.example.test/issuer
+      jwks_url: https://identity.example.test/keys
+```
+
+The mounted server shares the parent application's startup and shutdown. The
+same process-local conversation cache serves MCP and HTTP calls; use session
+affinity when running multiple replicas, or callers may reach a replica that
+does not hold their conversation.

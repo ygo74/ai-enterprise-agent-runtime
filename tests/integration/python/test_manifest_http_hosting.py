@@ -19,6 +19,7 @@ from ygo74.agent_runtime.domains.configuration.agent_http_configuration import (
 )
 from ygo74.agent_runtime.domains.configuration.manifest_inputs import AgentManifestInput
 from ygo74.agent_runtime.domains.contracts import AgentOutput, TextContent
+from ygo74.agent_runtime.domains.contracts.http_configuration import HttpEndpoint
 from ygo74.agent_runtime.domains.endpoints.hosting_factory import HostingFactory
 
 
@@ -99,6 +100,92 @@ def test_manifest_settings_register_only_selected_authenticated_route() -> None:
     assert accepted.status_code == 200
     assert '"userId": "mail-service"' in accepted.json()["choices"][0]["message"]["content"]
     assert disabled.status_code == 404
+
+
+def test_manifest_resolves_mcp_resource_url_for_jwt_endpoint() -> None:
+    """The MCP resource URL is resolved only after the manifest is validated."""
+    manifest = AgentManifestInput.model_validate(
+        {
+            "name": "mail-agent",
+            "description": "Mail service.",
+            "skills": ["search"],
+            "http": {
+                "endpoints": ["mcp"],
+                "mcp": {"resource_url": "${MAIL_AGENT_MCP_RESOURCE_URL}"},
+                "security": {
+                    "mode": "jwt",
+                    "jwt": {
+                        "issuer": "https://identity.example.test/issuer",
+                        "secret": "${MAIL_AGENT_JWT_SECRET}",
+                        "audience": "mail-agent",
+                    },
+                },
+            },
+        }
+    )
+
+    assert manifest.http is not None
+    settings = AgentHttpSettingsBuilder(
+        {
+            "MAIL_AGENT_MCP_RESOURCE_URL": "https://mail.example.test/mcp",
+            "MAIL_AGENT_JWT_SECRET": "test-signing-secret",
+        }
+    ).build(manifest.http)
+
+    assert settings.endpoints == (HttpEndpoint.MCP,)
+    assert settings.mcp_resource_url == "https://mail.example.test/mcp"
+
+
+def test_manifest_requires_mcp_resource_url_for_jwt_endpoint() -> None:
+    """A JWT-protected MCP endpoint cannot start without OAuth resource metadata."""
+    with pytest.raises(ValueError, match="resource_url"):
+        AgentManifestInput.model_validate(
+            {
+                "name": "mail-agent",
+                "description": "Mail service.",
+                "skills": ["search"],
+                "http": {
+                    "endpoints": ["mcp"],
+                    "security": {
+                        "mode": "jwt",
+                        "jwt": {
+                            "issuer": "https://identity.example.test/issuer",
+                            "secret": "${MAIL_AGENT_JWT_SECRET}",
+                            "audience": "mail-agent",
+                        },
+                    },
+                },
+            }
+        )
+
+
+def test_manifest_mcp_api_key_endpoint_does_not_require_resource_url() -> None:
+    """API-key MCP does not advertise OAuth protected-resource metadata."""
+    manifest = AgentManifestInput.model_validate(
+        {
+            "name": "wiki-agent",
+            "description": "Wiki service.",
+            "skills": ["search"],
+            "http": {
+                "endpoints": ["mcp"],
+                "security": {
+                    "mode": "api_key",
+                    "api_key": {
+                        "value": "${WIKI_AGENT_API_KEY}",
+                        "user": {"subject": "wiki-service"},
+                    },
+                },
+            },
+        }
+    )
+
+    assert manifest.http is not None
+    settings = AgentHttpSettingsBuilder(
+        {"WIKI_AGENT_API_KEY": "test-api-key"}
+    ).build(manifest.http)
+
+    assert settings.endpoints == (HttpEndpoint.MCP,)
+    assert settings.mcp_resource_url is None
 
 
 def test_manifest_http_resources_close_after_custom_fastapi_lifespan(

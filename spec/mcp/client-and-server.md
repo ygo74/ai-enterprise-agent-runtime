@@ -136,6 +136,12 @@ make an untrusted tool argument authoritative for the subject whose data is
 accessed. The host validates its binding and checks FastMCP's DNS-rebinding
 allow-list against the public host configuration before serving.
 
+### Exposing an agent through MCP
+
+The Python agents distribution can mount one agent operation in an existing FastAPI host. Select `mcp` in `http.endpoints`; the host serves MCP Streamable HTTP at `/mcp` and registers one `invoke_agent` tool. Its business arguments are `message` and optional `conversation_id` (default `default`). The caller identity comes from the authenticated ASGI request context, never from tool arguments. The result carries typed agent output, status, conversation ID, and pending confirmation identifiers. Invocation failures remain MCP tool errors.
+
+Install `ygo74-agent-runtime-agents[mcp-server]` in addition to the HTTP extra to opt into this server adapter. MCP server imports stay lazy so agents that use only provider HTTP routes do not need the server package. JWT-protected agent MCP endpoints require an HTTPS `http.mcp.resource_url`; API-key deployments do not need OAuth resource metadata. The parent FastAPI lifespan starts and stops the mounted FastMCP session manager and closes host-owned authentication resources. The agent and MCP routes share the same bounded conversation cache, which is process-local; deployments with multiple replicas need session affinity to continue a conversation.
+
 ## Packaging and boundaries
 
 The client and server are separate roles: installing the MCP host does not pull

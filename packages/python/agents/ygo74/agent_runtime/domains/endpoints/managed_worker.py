@@ -161,13 +161,17 @@ class ManagedAgentWorker:
             surfaces = (
                 self.settings.surfaces
                 if self.settings.surfaces is not None
-                else tuple(EndpointSurface)
+                else tuple(
+                    surface
+                    for surface in EndpointSurface
+                    if surface is not EndpointSurface.MCP
+                )
             )
             host.add_ai_endpoints(*surfaces).add_security(authentication)
         if self.settings.discovery is not None:
             host.add_discovery(self.settings.discovery)
-        host.register()
         app.get("/health/ready")(self._readiness)
+        host.register()
         return app
 
     async def _invoke(self, payload: dict[str, Any]) -> StandardExchangeResponse | AsyncIterator[AgentStreamEvent]:
