@@ -91,6 +91,48 @@ def test_agent_schema_accepts_an_optional_default_mcp_server() -> None:
     assert AgentManifestInput.model_validate(with_default).mcp_server == "mail"
 
 
+def test_agent_schema_accepts_optional_mcp_agent_operation_metadata() -> None:
+    """Agent manifests may customize the name and description shown by MCP."""
+    base = {
+        "name": "mail-agent",
+        "description": "Mail agent.",
+        "skills": ["lookup"],
+    }
+    customized = {
+        **base,
+        "mcp_agent_operation_name": "mail_assistant",
+        "mcp_agent_description": "Use for searching and summarising mailbox content.",
+    }
+    validator = Draft202012Validator(json.loads(ManifestSchemas.agent()))
+
+    assert not tuple(validator.iter_errors(base))
+    assert not tuple(validator.iter_errors(customized))
+    assert AgentManifestInput.model_validate(base).mcp_agent_operation_name is None
+    assert AgentManifestInput.model_validate(base).mcp_agent_description is None
+    parsed = AgentManifestInput.model_validate(customized)
+    assert parsed.mcp_agent_operation_name == "mail_assistant"
+    assert parsed.mcp_agent_description == "Use for searching and summarising mailbox content."
+
+
+@pytest.mark.parametrize(
+    "field",
+    ("mcp_agent_operation_name", "mcp_agent_description"),
+)
+def test_agent_schema_rejects_blank_mcp_agent_operation_metadata(field: str) -> None:
+    """An explicit MCP override cannot erase its useful default with whitespace."""
+    manifest = {
+        "name": "mail-agent",
+        "description": "Mail agent.",
+        "skills": ["lookup"],
+        field: "   ",
+    }
+    validator = Draft202012Validator(json.loads(ManifestSchemas.agent()))
+
+    assert tuple(validator.iter_errors(manifest))
+    with pytest.raises(ValueError):
+        AgentManifestInput.model_validate(manifest)
+
+
 def test_agent_schema_accepts_mcp_http_endpoint_and_resource_url() -> None:
     """The packaged agent schema exposes the new MCP HTTP settings."""
     manifest = {
@@ -187,7 +229,10 @@ def test_agent_loader_retains_default_server_for_skill_level_resolution(
     agent_directory.mkdir(parents=True)
     skill_directory.mkdir(parents=True)
     (agent_directory / manifest_filename).write_text(
-        "name: mail\ndescription: Mail agent.\nmcp_server: mail\nskills: [lookup]\n",
+        "name: mail\ndescription: Mail agent.\n"
+        "mcp_agent_operation_name: mail_tool\n"
+        "mcp_agent_description: Use for mailbox searches.\n"
+        "mcp_server: mail\nskills: [lookup]\n",
         encoding="utf-8",
     )
     (agent_directory / "AGENT.md").write_text("Use mail tools.\n", encoding="utf-8")
@@ -212,6 +257,8 @@ def test_agent_loader_retains_default_server_for_skill_level_resolution(
     )
 
     assert agent.mcp_server == "mail"
+    assert agent.mcp_agent_operation_name == "mail_tool"
+    assert agent.mcp_agent_description == "Use for mailbox searches."
     assert agent.skill("lookup").mcp_server is None
     assert agent.skill("lookup").mcp_tools == ("search_mail",)
 

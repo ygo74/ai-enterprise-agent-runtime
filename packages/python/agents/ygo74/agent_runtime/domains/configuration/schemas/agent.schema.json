@@ -398,7 +398,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "The fixed YAML fields accepted for one agent.",
+  "description": "The fixed YAML fields accepted for one agent.\n\nThe optional MCP metadata overrides only the hosted MCP operation; when\nomitted, the runtime uses the manifest's name and description.",
   "properties": {
     "name": {
       "minLength": 1,
@@ -411,6 +411,34 @@
       "pattern": "\\S",
       "title": "Description",
       "type": "string"
+    },
+    "mcp_agent_operation_name": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mcp Agent Operation Name"
+    },
+    "mcp_agent_description": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mcp Agent Description"
     },
     "mcp_server": {
       "anyOf": [

@@ -68,9 +68,12 @@ def build_app() -> FastAPI:
         """Echo one normalized agent message through the MCP adapter."""
         return AgentOutput((TextContent(f"Echo: {payload['input']}"),))
 
-    HostingFactory(app).add_agent(invoke, descriptor).add_http_settings(
-        settings
-    ).register()
+    HostingFactory(app).add_agent(
+        invoke,
+        descriptor,
+        mcp_agent_operation_name=manifest.mcp_agent_operation_name,
+        mcp_agent_description=manifest.mcp_agent_description,
+    ).add_http_settings(settings).register()
     return app
 
 

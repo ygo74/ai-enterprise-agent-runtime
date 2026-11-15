@@ -79,12 +79,18 @@ class SkillManifestInput(BaseModel):
 
 
 class AgentManifestInput(BaseModel):
-    """The fixed YAML fields accepted for one agent."""
+    """The fixed YAML fields accepted for one agent.
+
+    The optional MCP metadata overrides only the hosted MCP operation; when
+    omitted, the runtime uses the manifest's name and description.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: ManifestText
     description: ManifestText
+    mcp_agent_operation_name: ManifestText | None = None
+    mcp_agent_description: ManifestText | None = None
     mcp_server: ManifestText | None = None
     skills: tuple[ManifestText, ...] = Field(min_length=1)
     http: AgentHttpConfiguration | None = None

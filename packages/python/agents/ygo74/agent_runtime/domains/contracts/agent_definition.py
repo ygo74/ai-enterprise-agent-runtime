@@ -47,6 +47,8 @@ class AgentDefinition:
         input_profile: Supported input behavior; other profiles are not admitted.
         tools: Native tool security declarations, not permissions.
         control_point: Admission identifier for an operator-verified deterministic gate.
+        mcp_agent_operation_name: Optional tool name override for the hosted MCP endpoint.
+        mcp_agent_description: Optional tool description override for the hosted MCP endpoint.
     """
 
     descriptor: AgentDescriptor
@@ -55,6 +57,8 @@ class AgentDefinition:
     input_profile: InputProfile = InputProfile.LATEST_USER_TEXT
     tools: tuple[ToolOperationDescriptor, ...] = ()
     control_point: str | None = None
+    mcp_agent_operation_name: str | None = None
+    mcp_agent_description: str | None = None
 
     def __post_init__(self) -> None:
         """Reject invalid exports, unsupported capabilities and unenforceable tools."""
@@ -62,6 +66,10 @@ class AgentDefinition:
             raise ValueError("factory must be a trusted module:export")
         if not isinstance(self.input_profile, InputProfile):
             raise TypeError("unsupported input profile")
+        if self.mcp_agent_operation_name is not None and not self.mcp_agent_operation_name.strip():
+            raise ValueError("MCP agent operation name must not be blank")
+        if self.mcp_agent_description is not None and not self.mcp_agent_description.strip():
+            raise ValueError("MCP agent description must not be blank")
         if len({tool.tool_name for tool in self.tools}) != len(self.tools):
             raise ValueError("tool declarations must be unique")
         for tool in self.tools:

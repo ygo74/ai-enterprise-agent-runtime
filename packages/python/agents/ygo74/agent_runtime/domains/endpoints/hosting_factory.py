@@ -72,6 +72,8 @@ class HostingFactory:
         self._app = app
         self._entrypoint: AgentEntrypoint | None = None
         self._descriptor: AgentDescriptor | None = None
+        self._mcp_agent_operation_name: str | None = None
+        self._mcp_agent_description: str | None = None
         self._surfaces: frozenset[EndpointSurface] | None = None
         self._authentication: AuthenticationPolicy | None = None
         self._rate_limit: RateLimitSettings | None = None
@@ -81,22 +83,35 @@ class HostingFactory:
         self._registered = False
 
     def add_agent(
-        self, entrypoint: AgentEntrypoint, descriptor: AgentDescriptor
+        self,
+        entrypoint: AgentEntrypoint,
+        descriptor: AgentDescriptor,
+        *,
+        mcp_agent_operation_name: str | None = None,
+        mcp_agent_description: str | None = None,
     ) -> Self:
         """Set the entrypoint and public descriptor for the hosted agent.
 
         Args:
             entrypoint (AgentEntrypoint): Application callback that handles the normalized request.
             descriptor (AgentDescriptor): The canonical agent descriptor whose identity and capabilities are used.
+            mcp_agent_operation_name (str | None): Optional MCP tool name override; defaults to the agent's display name.
+            mcp_agent_description (str | None): Optional MCP tool description override; defaults to the agent's description.
         """
         self._ensure_configurable()
         if self._entrypoint is not None or self._descriptor is not None:
             raise HostingConfigurationError(
                 "an agent is already configured for this factory"
             )
+        if mcp_agent_operation_name is not None and not mcp_agent_operation_name.strip():
+            raise HostingConfigurationError("MCP agent operation name must not be blank")
+        if mcp_agent_description is not None and not mcp_agent_description.strip():
+            raise HostingConfigurationError("MCP agent description must not be blank")
 
         self._entrypoint = entrypoint
         self._descriptor = descriptor
+        self._mcp_agent_operation_name = mcp_agent_operation_name
+        self._mcp_agent_description = mcp_agent_description
         return self
 
     def add_ai_endpoints(self, *surfaces: EndpointSurface) -> Self:
@@ -293,7 +308,12 @@ class HostingFactory:
                 raise HostingConfigurationError(
                     f"MCP endpoint configuration is invalid: {type(error).__name__}"
                 ) from error
-            mcp_endpoint = McpAgentEndpoint(entrypoint, descriptor).build_server()
+            mcp_endpoint = McpAgentEndpoint(
+                entrypoint,
+                descriptor,
+                operation_name=self._mcp_agent_operation_name,
+                operation_description=self._mcp_agent_description,
+            ).build_server()
         if self._discovery is not None and not callable(
             getattr(self._app, "get", None)
         ):

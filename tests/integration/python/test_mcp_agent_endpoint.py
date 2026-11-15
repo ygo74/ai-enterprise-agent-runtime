@@ -27,9 +27,30 @@ API_KEY = "agent-endpoint-test-key"
 
 
 @pytest.mark.asyncio
-async def test_mcp_operation_uses_verified_identity_and_returns_typed_exchange() -> (
-    None
-):
+@pytest.mark.parametrize(
+    (
+        "operation_name_override",
+        "description_override",
+        "expected_name",
+        "expected_description",
+    ),
+    (
+        (None, None, "mail-agent display", "Agent mail-agent."),
+        ("mail_search", None, "mail_search", "Agent mail-agent."),
+        (
+            None,
+            "Use this agent for mailbox requests.",
+            "mail-agent display",
+            "Use this agent for mailbox requests.",
+        ),
+    ),
+)
+async def test_mcp_operation_uses_verified_identity_and_returns_typed_exchange(
+    operation_name_override: str | None,
+    description_override: str | None,
+    expected_name: str,
+    expected_description: str,
+) -> None:
     """The tool schema excludes identity and the call preserves the typed reply."""
     captured_payloads: list[dict[str, Any]] = []
     captured_contexts = []
@@ -45,26 +66,29 @@ async def test_mcp_operation_uses_verified_identity_and_returns_typed_exchange()
             metadata={"pending_confirmations": ["confirm-send-1"]},
         )
 
-    manifest = AgentManifestInput.model_validate(
-        {
-            "name": "mail-agent",
-            "description": "Mail service.",
-            "skills": ["search"],
-            "http": {
-                "endpoints": ["mcp"],
-                "security": {
-                    "mode": "api_key",
-                    "api_key": {
-                        "value": "${MAIL_AGENT_API_KEY}",
-                        "user": {
-                            "subject": "caller-1",
-                            "email": "caller@example.test",
-                        },
+    manifest_values: dict[str, object] = {
+        "name": "mail-agent",
+        "description": "Mail service.",
+        "skills": ["search"],
+        "http": {
+            "endpoints": ["mcp"],
+            "security": {
+                "mode": "api_key",
+                "api_key": {
+                    "value": "${MAIL_AGENT_API_KEY}",
+                    "user": {
+                        "subject": "caller-1",
+                        "email": "caller@example.test",
                     },
                 },
             },
-        }
-    )
+        },
+    }
+    if operation_name_override is not None:
+        manifest_values["mcp_agent_operation_name"] = operation_name_override
+    if description_override is not None:
+        manifest_values["mcp_agent_description"] = description_override
+    manifest = AgentManifestInput.model_validate(manifest_values)
     assert manifest.http is not None
     settings = AgentHttpSettingsBuilder({"MAIL_AGENT_API_KEY": API_KEY}).build(
         manifest.http
@@ -82,7 +106,10 @@ async def test_mcp_operation_uses_verified_identity_and_returns_typed_exchange()
         return {"protected": False}
 
     HostingFactory(app).add_agent(
-        invoke, make_descriptor("mail-agent")
+        invoke,
+        make_descriptor("mail-agent"),
+        mcp_agent_operation_name=manifest.mcp_agent_operation_name,
+        mcp_agent_description=manifest.mcp_agent_description,
     ).add_http_settings(settings).register()
 
     async with app.router.lifespan_context(app):
@@ -105,13 +132,14 @@ async def test_mcp_operation_uses_verified_identity_and_returns_typed_exchange()
             await session.initialize()
             listed = await session.list_tools()
             result = await session.call_tool(
-                "invoke_agent",
+                expected_name,
                 {"message": "Summarize my inbox.", "conversation_id": "work"},
             )
 
     assert len(listed.tools) == 1
     tool = listed.tools[0]
-    assert tool.name == "invoke_agent"
+    assert tool.name == expected_name
+    assert tool.description == expected_description
     assert set(tool.inputSchema["properties"]) == {"message", "conversation_id"}
     assert tool.inputSchema["required"] == ["message"]
     assert result.isError is False

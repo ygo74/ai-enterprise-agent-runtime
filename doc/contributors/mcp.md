@@ -40,9 +40,12 @@ registration and source-system authorization stay with the server application.
 Stdio hosting does not require the HTTP extra.
 
 The optional `ygo74-agent-runtime-agents[mcp-server]` extra adapts the existing
-generic conversation entrypoint to one `invoke_agent` tool. `HostingFactory`
-mounts FastMCP at `/mcp` in the parent FastAPI app and delegates authentication
-to `McpServerHost`. The mounted host guards the MCP protocol path while
+generic conversation entrypoint to one MCP tool. Its name and description
+default to the `AgentDescriptor` display name and description; applications
+may provide optional overrides through `HostingFactory.add_agent`. The
+manifest-backed managed worker passes the agent manifest overrides through this
+same hosting path. `HostingFactory` mounts FastMCP at `/mcp` in the parent
+FastAPI app and delegates authentication to `McpServerHost`. The mounted host guards the MCP protocol path while
 preserving neighboring parent routes. Its parent lifespan explicitly starts
 and stops the FastMCP session manager; shared manifest settings own the
 authenticator lifetime when one policy protects both MCP and provider routes.

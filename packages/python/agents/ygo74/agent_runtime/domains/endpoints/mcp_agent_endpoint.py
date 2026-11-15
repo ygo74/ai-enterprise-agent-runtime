@@ -65,19 +65,34 @@ class McpAgentEndpoint:
     Args:
         entrypoint: Existing generic agent entrypoint used by HTTP surfaces.
         descriptor: Canonical agent metadata used for the MCP server identity and route key.
+        operation_name: Optional name override for the MCP tool; defaults to the agent display name.
+        operation_description: Optional MCP tool description override; defaults to the agent description.
     """
 
     def __init__(
-        self, entrypoint: AgentEntrypoint, descriptor: AgentDescriptor
+        self,
+        entrypoint: AgentEntrypoint,
+        descriptor: AgentDescriptor,
+        *,
+        operation_name: str | None = None,
+        operation_description: str | None = None,
     ) -> None:
         """Retain the invocation callback and descriptor for server construction.
 
         Args:
             entrypoint: Existing generic agent entrypoint.
             descriptor: Canonical agent metadata.
+            operation_name: Optional tool name override; omitted values use the agent display name.
+            operation_description: Optional tool description override; omitted values use the agent description.
         """
         self._entrypoint = entrypoint
         self._descriptor = descriptor
+        self._operation_name = operation_name or descriptor.display_name
+        self._operation_description = operation_description or descriptor.description
+        if not self._operation_name.strip():
+            raise ValueError("MCP agent operation name must not be blank")
+        if not self._operation_description.strip():
+            raise ValueError("MCP agent description must not be blank")
         self._output_normalizer = OutputNormalizer()
         self._output_serializer = AgentOutputSerializer()
 
@@ -90,8 +105,8 @@ class McpAgentEndpoint:
         )
 
         @server.tool(
-            name="invoke_agent",
-            description="Send one message to this agent and continue the supplied conversation.",
+            name=self._operation_name,
+            description=self._operation_description,
             structured_output=True,
         )
         async def invoke_agent(

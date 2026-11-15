@@ -49,6 +49,9 @@ python -m uvicorn hosting_smoke:app --host 127.0.0.1 --port 8102
 The sample handler returns an echo so the transport can be exercised without a
 model or remote mail server. Use an MCP client pointed at
 `http://127.0.0.1:8102/mcp` with the value of `MAIL_ASSISTANT_HTTP_API_KEY`.
+The tool name and description come from the manifest's optional MCP metadata;
+this sample uses `mail_assistant`. MCP clients should discover the tool with
+`list_tools` before invoking it.
 `hosting_smoke.py` starts the mounted FastMCP session manager and closes it with
 the parent FastAPI lifespan. `GET /health/ready` remains available alongside
 the root-mounted MCP app.

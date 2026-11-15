@@ -43,9 +43,12 @@ the [agent manifest reference](../python/agent-manifest.md) for the accepted
 keys and [Python hosting guide](../python/agent-runtime.md) for setup details.
 
 Add `mcp` to `http.endpoints` to expose the same agent at `/mcp` over Streamable
-HTTP. The MCP surface publishes a single `invoke_agent` tool. Its arguments
-contain the message and optional conversation ID; the verified HTTP identity
-is taken from the request context. Install the agents distribution's
+HTTP. The MCP surface publishes one conversational tool. Its name and
+description default to the agent's `name` and `description`; the optional
+`mcp_agent_operation_name` and `mcp_agent_description` manifest keys override
+them independently. The arguments contain the message and optional
+conversation ID; the verified HTTP identity is taken from the request context.
+MCP clients should list tools before calling the agent operation. Install the agents distribution's
 `mcp-server` extra as well as `http`. JWT authentication requires
 `http.mcp.resource_url` so clients can discover the protected resource. See the
 [Python MCP guide](../python/mcp.md) for the manifest example and package
