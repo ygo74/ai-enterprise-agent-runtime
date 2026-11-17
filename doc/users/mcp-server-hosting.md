@@ -25,17 +25,74 @@ provider details through an unauthenticated health response.
 
 ## Check a protected endpoint
 
-A client lists tools by sending a JSON-RPC request with the configured
-credential:
+A client connects to `/mcp` with the configured credential. Its MCP SDK handles
+the Streamable HTTP initialization handshake and session headers. Once the
+session is initialized, it lists tools by sending this JSON-RPC request:
 
-```http
-POST /mcp
-Authorization: Bearer <server-credential>
-Accept: application/json, text/event-stream
-Content-Type: application/json
-
-{"jsonrpc":"2.0","id":1,"method":"tools/list"}
+```json
+{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
 ```
+
+The response contains the operation's `name`, `description`, and `inputSchema`
+under `result.tools`. By default, the operation name and description come from
+the agent manifest's `name` and `description`; `mcp_agent_operation_name` and
+`mcp_agent_description` can override them independently. A client that connects
+to more than one agent should inspect each server and use the operation name
+returned by that server.
+
+For example, `tools/list` returns the advertised metadata and the required and
+optional arguments in the input schema:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "tools": [
+      {
+        "name": "<agent-name-or-mcp_agent_operation_name>",
+        "description": "<agent-description-or-mcp_agent_description>",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "message": {"title": "Message", "type": "string"},
+            "conversation_id": {
+              "default": "default",
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          },
+          "required": ["message"]
+        }
+      }
+    ]
+  }
+}
+```
+
+Call the discovered operation with a user message and, when needed, a
+conversation identifier:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/call",
+  "params": {
+    "name": "<operation-name-from-tools-list>",
+    "arguments": {
+      "message": "Summarize the project status.",
+      "conversation_id": "project-review"
+    }
+  }
+}
+```
+
+The `message` argument is required. `conversation_id` is optional and defaults
+to `default`; reuse the same value to continue a conversation. The tool result
+contains structured content with `status`, `conversation_id`, `output`, and
+`metadata`. Authentication supplies the caller identity. Tool arguments do not
+select a subject, email address, or roles.
 
 A protected endpoint should reject this request when the credential is absent
 or invalid. Confirm that the host address, TLS termination, and allowed Host
