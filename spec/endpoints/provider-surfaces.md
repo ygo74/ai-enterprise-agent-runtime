@@ -7,7 +7,7 @@
 | `openai.responses` | `POST /v1/responses` | Request body's `input` |
 | `openai.chat_completions` | `POST /v1/chat/completions` | `messages`, falling back to `input` |
 | `anthropic.messages` | `POST /v1/messages` | `messages`, falling back to `input` |
-| `mcp` | Streamable HTTP at `POST /mcp` | MCP tool arguments: `message`, optional `conversation_id` |
+| `mcp` | Streamable HTTP at `POST /mcp` | One advertised agent tool; arguments: `message`, optional `conversation_id` |
 
 The Python HTTP adapter is part of the agents distribution and imports FastAPI
 defensively. Install the `http` extra to serve these routes. The direct
@@ -25,13 +25,18 @@ explicit. Multi-agent applications continue to use the direct helper with a
 dispatcher and `DescriptorRegistry`.
 
 The `mcp` surface is an optional server adapter alongside these provider routes.
-It exposes one `invoke_agent` tool and obtains the principal only from the
-verified request context; tool callers cannot submit identity fields. Install
-the agents distribution's `mcp-server` extra to select it. A manifest that
-selects `mcp` with JWT authentication must also set `http.mcp.resource_url` for
-OAuth protected-resource metadata. A mounted MCP server shares the FastAPI
-application and its lifespan, while existing routes and readiness remain
-available.
+It exposes one agent conversation tool. Its advertised name and description
+default to the agent descriptor's display name and description; a manifest may
+override them with `mcp_agent_operation_name` and `mcp_agent_description`.
+Clients discover the effective metadata with `tools/list` and call the returned
+tool name with `message` and optional `conversation_id` arguments. The principal
+comes only from the verified request context; tool callers cannot submit
+identity fields. Install the agents distribution's `mcp-server` extra to select
+it. A manifest that selects `mcp` with JWT authentication must also set
+`http.mcp.resource_url` for OAuth protected-resource metadata. A mounted MCP
+server shares the FastAPI application and its lifespan, while existing routes
+and readiness remain available. See the [MCP integration
+specification](../mcp/client-and-server.md) for result and lifecycle details.
 
 For a manifest-configured host, `AgentHttpSettingsBuilder` resolves the
 validated `AgentManifest.http` declaration into those same route and

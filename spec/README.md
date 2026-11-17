@@ -20,9 +20,12 @@ stdio/streamable-HTTP connection lifecycle, a typed dialect registry, and one
 asynchronous HTTPX pool per HTTP server in an agent registry. It uses typed
 retry and circuit-breaker policies shared with the Python security package,
 which separately manages synchronous HTTPX lookups for remote JWT/OIDC keys.
-A separate Python package hosts MCP servers. These Python capabilities are not
-implied to have .NET or Java equivalents; the parity document records their
-current language boundary.
+A separate Python package hosts MCP servers. The optional Python agents package
+can also mount one agent invocation as a Streamable HTTP MCP tool alongside an
+application's provider routes. The server obtains caller identity from the
+authenticated request context and does not accept identity in tool arguments.
+These Python capabilities are not implied to have .NET or Java equivalents;
+the parity document records their current language boundary.
 
 The generic conversation, approval-loop, and MCP client APIs address repeated
 integration code in applications that combine HTTP conversations with agent
@@ -60,7 +63,7 @@ checks remain runtime behavior.
 | Confirmation, gated operations, and bounded approval-loop orchestration | [Human approval](runtime/human-approval.md) |
 | Microsoft Agent Framework result, session, and worker binding | [Agent Framework integration](integrations/agent-framework.md) |
 | LangChain result conversion, native LangGraph conversations, and managed worker | [LangChain and LangGraph integration](integrations/langchain-langgraph.md) |
-| MCP bindings, client connections, dialect registry, and server responsibilities | [MCP integration](mcp/client-and-server.md) |
+| MCP bindings, client connections, agent MCP endpoints, and server responsibilities | [MCP integration](mcp/client-and-server.md) |
 | Distributions, configuration, logging, and validation | [Packaging and operations](operations/packaging-configuration-observability.md) |
 | Logging and incomplete telemetry hooks | [Observability](operations/observability.md) |
 | Implemented behavior by language | [Language support and parity](compatibility/language-status.md) |
