@@ -7,10 +7,10 @@ remain available for advanced producers.
 Install explicitly; the agents library and meta base do not depend on an agent SDK:
 
 ```powershell
-python -m pip install "ygo74-agent-runtime-agentframework==0.8.2" "ygo74-agent-runtime-agents[http]>=0.8,<2"
+python -m pip install "ygo74-agent-runtime-agentframework==0.9.0" "ygo74-agent-runtime-agents[http]>=0.9.0,<2"
 ```
 
-Requires Python 3.12+, runtime agents 1.x, and
+Requires Python 3.12+, `ygo74-agent-runtime-agents>=0.9.0,<2`, and
 `agent-framework-core>=1.18.0,<1.19`. The adapter uses the verified 1.18 unified
 `Content` API, not older `ChatMessage`/`TextContent` SDK classes. The lightweight
 core distribution supplies `agent_framework`; provider integrations may be
