@@ -51,6 +51,7 @@ class HttpEndpoint(StrEnum):
     CHAT_COMPLETIONS = "chat_completions"
     RESPONSES = "responses"
     MESSAGES = "messages"
+    MCP = "mcp"
 
 
 class HttpSecurityMode(StrEnum):
@@ -285,12 +286,35 @@ class RateLimitConfiguration(BaseModel):
         return value
 
 
+class McpHttpEndpointConfiguration(BaseModel):
+    """HTTP settings specific to an agent's MCP operation endpoint.
+
+    Args:
+        resource_url: Canonical HTTPS resource URL, or an exact environment reference,
+            advertised when MCP uses JWT authentication.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    resource_url: _ConfigurationText | None = None
+
+    @field_validator("resource_url")
+    @classmethod
+    def _validate_resource_url(cls, value: str | None) -> str | None:
+        """Require a canonical HTTPS URL or a protected deployment reference."""
+        if value is None or _EnvironmentReference.fullmatch(value) is not None:
+            return value
+        _validate_https_url(value, "http.mcp.resource_url")
+        return value
+
+
 class AgentHttpConfiguration(BaseModel):
     """HTTP endpoint, security, and optional rate-limit declaration for one agent.
 
     Args:
         endpoints: One or more supported invocation endpoints activated by the host.
         security: Required authentication policy for all enabled invocation routes.
+        mcp: Optional settings for the MCP endpoint.
         rate_limit: Optional limit applied to enabled invocation routes only.
     """
 
@@ -298,13 +322,24 @@ class AgentHttpConfiguration(BaseModel):
 
     endpoints: tuple[HttpEndpoint, ...] = Field(min_length=1)
     security: HttpSecurityConfiguration
+    mcp: McpHttpEndpointConfiguration | None = None
     rate_limit: RateLimitConfiguration | None = None
 
     @model_validator(mode="after")
     def _require_unique_endpoints(self) -> AgentHttpConfiguration:
-        """Require a nonempty, duplicate-free set of invocation endpoints."""
+        """Require unique endpoints and complete settings for protected MCP."""
         if len(set(self.endpoints)) != len(self.endpoints):
             raise ValueError("endpoints must not contain duplicates")
+        if self.mcp is not None and HttpEndpoint.MCP not in self.endpoints:
+            raise ValueError("http.mcp settings require the mcp endpoint")
+        if (
+            HttpEndpoint.MCP in self.endpoints
+            and self.security.mode is HttpSecurityMode.JWT
+            and (self.mcp is None or self.mcp.resource_url is None)
+        ):
+            raise ValueError(
+                "http.mcp.resource_url is required for JWT-authenticated MCP"
+            )
         return self
 
 

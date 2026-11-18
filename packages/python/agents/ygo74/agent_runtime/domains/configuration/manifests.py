@@ -317,6 +317,8 @@ class AgentManifestLoader:
             return AgentManifest(
                 name=source.name,
                 description=source.description,
+                mcp_agent_operation_name=source.mcp_agent_operation_name,
+                mcp_agent_description=source.mcp_agent_description,
                 instructions=self._instructions(folder),
                 mcp_server=source.mcp_server,
                 skills=self._declared_skills(agent, source.skills),

@@ -151,7 +151,12 @@ class ManagedAgentWorker:
         app = FastAPI(title=title or self.definition.descriptor.display_name, lifespan=self._lifespan)
         app.state.conversations = self.conversations
         app.state.worker = self
-        host = HostingFactory(app).add_agent(self._invoke, self.definition.descriptor)
+        host = HostingFactory(app).add_agent(
+            self._invoke,
+            self.definition.descriptor,
+            mcp_agent_operation_name=self.definition.mcp_agent_operation_name,
+            mcp_agent_description=self.definition.mcp_agent_description,
+        )
         if self.settings.http_settings is not None:
             host.add_http_settings(self.settings.http_settings)
         else:
@@ -161,13 +166,17 @@ class ManagedAgentWorker:
             surfaces = (
                 self.settings.surfaces
                 if self.settings.surfaces is not None
-                else tuple(EndpointSurface)
+                else tuple(
+                    surface
+                    for surface in EndpointSurface
+                    if surface is not EndpointSurface.MCP
+                )
             )
             host.add_ai_endpoints(*surfaces).add_security(authentication)
         if self.settings.discovery is not None:
             host.add_discovery(self.settings.discovery)
-        host.register()
         app.get("/health/ready")(self._readiness)
+        host.register()
         return app
 
     async def _invoke(self, payload: dict[str, Any]) -> StandardExchangeResponse | AsyncIterator[AgentStreamEvent]:

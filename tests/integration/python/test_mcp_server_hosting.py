@@ -28,10 +28,15 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from types import SimpleNamespace
 
+import httpx
 import pytest
+from fastapi import FastAPI
+from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route
@@ -134,6 +139,81 @@ def test_host_closes_its_authenticator_at_application_shutdown(
 
     asyncio.run(close_lifespan())
 
+    assert len(closed) == 1
+
+
+@pytest.mark.asyncio
+async def test_host_mounts_fastmcp_and_composes_parent_lifecycle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A mounted MCP app owns its session manager and auth cleanup in the parent lifespan."""
+    events: list[str] = []
+    closed: list[RequestAuthenticator] = []
+
+    @asynccontextmanager
+    async def parent_lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        """Track the worker lifecycle surrounding the mounted MCP session manager."""
+        events.append("parent-start")
+        try:
+            yield
+        finally:
+            events.append("parent-stop")
+
+    original_close = RequestAuthenticator.close
+
+    def close(authenticator: RequestAuthenticator) -> None:
+        """Record MCP authenticator shutdown while preserving its real cleanup."""
+        closed.append(authenticator)
+        events.append("auth-close")
+        original_close(authenticator)
+
+    monkeypatch.setattr(RequestAuthenticator, "close", close)
+    server = FastMCP("mounted-agent", host="0.0.0.0", port=9100)
+    server.streamable_http_app()
+    manager = server.session_manager
+    original_run = manager.run
+
+    @asynccontextmanager
+    async def tracked_run() -> AsyncIterator[None]:
+        """Track the FastMCP session manager lifecycle around the app's requests."""
+        events.append("mcp-start")
+        try:
+            async with original_run():
+                yield
+        finally:
+            events.append("mcp-stop")
+
+    monkeypatch.setattr(manager, "run", tracked_run)
+    app = FastAPI(lifespan=parent_lifespan)
+
+    @app.get("/health/ready")
+    async def readiness() -> dict[str, bool]:
+        """Expose readiness from the parent app, outside MCP authentication."""
+        return {"ready": True}
+
+    @app.get("/plain")
+    async def unprotected() -> dict[str, bool]:
+        """Expose an unrelated route without requiring MCP credentials."""
+        return {"protected": False}
+
+    McpServerHost(
+        policy=_policy(), binding=McpHttpBinding(host="0.0.0.0", port=9100)
+    ).mount(app, server)
+
+    async with app.router.lifespan_context(app), httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://agent.test"
+    ) as client:
+        assert (await client.get("/health/ready")).json() == {"ready": True}
+        assert (await client.get("/plain")).json() == {"protected": False}
+        assert (await client.get(HEALTH_PATH)).json() == {"status": "ok"}
+        assert (await client.get("/mcp")).status_code == 401
+    assert events == [
+        "parent-start",
+        "mcp-start",
+        "mcp-stop",
+        "parent-stop",
+        "auth-close",
+    ]
     assert len(closed) == 1
 
 

@@ -1,8 +1,10 @@
 """Managed worker characterization on all supported endpoint families."""
 
+from dataclasses import replace
 from importlib import import_module
 from pathlib import Path
 
+import httpx
 import pytest
 from agent_framework import Agent, ContextProvider
 from fastapi.testclient import TestClient
@@ -49,6 +51,33 @@ def test_delivered_simple_glue_is_at_most_thirty_lines(example):
     lines = sum(sum(bool(line.strip()) for line in (directory / filename).read_text().splitlines())
                 for filename in ("native.py", "app.py"))
     assert lines <= 30, lines
+
+
+@pytest.mark.asyncio
+async def test_mcp_mount_keeps_worker_readiness_on_the_parent_app(example):
+    """The root MCP mount does not consume readiness or unrelated HTTP routes."""
+    from ygo74.agent_runtime.domains.endpoints.hosting_factory import EndpointSurface
+    from ygo74.agent_runtime.integrations.agentframework.worker import (
+        AgentFrameworkWorker,
+    )
+
+    _, configured = example
+    settings = replace(
+        configured._settings,
+        surfaces=(EndpointSurface.MCP,),
+        discovery=None,
+    )
+    worker = AgentFrameworkWorker(
+        configured._definition, settings, factory=configured._factory
+    )
+    app = worker.build_app()
+
+    async with app.router.lifespan_context(app), httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://agent.test"
+    ) as client:
+        assert (await client.get("/health/ready")).json() == {"ready": True}
+        assert (await client.get("/healthz")).json() == {"status": "ok"}
+        assert (await client.post("/v1/responses", json={})).status_code == 404
 
 
 def test_native_input_profile_refuses_images(example):

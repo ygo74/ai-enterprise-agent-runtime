@@ -36,6 +36,8 @@ that application-specific selector itself.
 |---|---|---:|---|
 | `name` | non-empty string | Yes | Agent name. |
 | `description` | non-empty string | Yes | Description of the agent. |
+| `mcp_agent_operation_name` | non-empty string | No | Optional MCP tool name override. When omitted, the hosted MCP tool uses `name`. |
+| `mcp_agent_description` | non-empty string | No | Optional MCP tool description override. When omitted, the hosted MCP tool uses `description`. |
 | `mcp_server` | non-empty string or `null` | No | Default MCP server name inherited by MCP-enabled skills that do not select their own server. Omit it when there is no default. |
 | `skills` | array of non-empty strings | Yes | Skill names included in the agent. It must contain at least one entry. |
 | `http` | object or `null` | No | Optional FastAPI invocation, authentication, and rate-limit settings. Omit it when the manifest is not used to configure an HTTP host. |
@@ -44,9 +46,28 @@ that application-specific selector itself.
 
 | Key | Type | Required | Description |
 |---|---|---:|---|
-| `http.endpoints` | array of strings | Yes, when `http` is set | One or more endpoint names: `chat_completions`, `responses`, or `messages`. These enable `POST /v1/chat/completions`, `POST /v1/responses`, and `POST /v1/messages`, respectively. |
+| `http.endpoints` | array of strings | Yes, when `http` is set | One or more endpoint names: `chat_completions`, `responses`, `messages`, or `mcp`. These enable the matching OpenAI/Anthropic routes or MCP Streamable HTTP at `/mcp`. |
+| `http.mcp` | object or `null` | No | Optional MCP endpoint settings. Required fields depend on the authentication mode. |
 | `http.security` | object | Yes, when `http` is set | Authentication settings applied to every enabled invocation endpoint. |
 | `http.rate_limit` | object or `null` | No | Optional per-client rate limits. If omitted, rate limiting is disabled. |
+
+### `http.mcp`
+
+| Key | Type | Required | Description |
+|---|---|---:|---|
+| `resource_url` | HTTPS URL or environment-variable reference | Required with `mcp` and JWT; otherwise optional | Canonical public resource URL used in OAuth protected-resource metadata. For example, `${MAIL_AGENT_MCP_RESOURCE_URL}`. API-key authentication does not publish OAuth metadata. |
+
+Selecting `mcp` installs a server surface in the same FastAPI application. It
+provides one conversational tool with `message` and optional `conversation_id`
+arguments. By default, the tool name and description come from the agent's
+`name` and `description`. The optional top-level
+`mcp_agent_operation_name` and `mcp_agent_description` keys override those
+values independently. MCP clients should list tools to discover the operation
+name before calling it; set `mcp_agent_operation_name: invoke_agent` to retain
+that name for an existing client. Install
+`ygo74-agent-runtime-agents[mcp-server]` to enable MCP; the normal `http` extra
+alone remains sufficient for provider routes. All selected invocation surfaces
+use the same configured authentication policy.
 
 ### `http.security`
 
@@ -146,7 +167,7 @@ skills:
   - find_mail
   - send_mail
 http:
-  endpoints: [chat_completions, responses]
+  endpoints: [chat_completions, responses, mcp]
   security:
     mode: api_key
     api_key:
@@ -156,4 +177,19 @@ http:
         email: mailbox@example.test
   rate_limit:
     limits: [60/minute]
+```
+
+For a JWT-protected MCP endpoint, add its canonical URL and use the public
+deployment URL, including the `/mcp` path:
+
+```yaml
+http:
+  endpoints: [mcp]
+  mcp:
+    resource_url: ${MAIL_ASSISTANT_MCP_RESOURCE_URL}
+  security:
+    mode: jwt
+    jwt:
+      issuer: https://identity.example.test/issuer
+      jwks_url: https://identity.example.test/keys
 ```

@@ -4,7 +4,7 @@
   "$defs": {
     "AgentHttpConfiguration": {
       "additionalProperties": false,
-      "description": "HTTP endpoint, security, and optional rate-limit declaration for one agent.\n\nArgs:\n    endpoints: One or more supported invocation endpoints activated by the host.\n    security: Required authentication policy for all enabled invocation routes.\n    rate_limit: Optional limit applied to enabled invocation routes only.",
+      "description": "HTTP endpoint, security, and optional rate-limit declaration for one agent.\n\nArgs:\n    endpoints: One or more supported invocation endpoints activated by the host.\n    security: Required authentication policy for all enabled invocation routes.\n    mcp: Optional settings for the MCP endpoint.\n    rate_limit: Optional limit applied to enabled invocation routes only.",
       "properties": {
         "endpoints": {
           "items": {
@@ -16,6 +16,17 @@
         },
         "security": {
           "$ref": "#/$defs/HttpSecurityConfiguration"
+        },
+        "mcp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/McpHttpEndpointConfiguration"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "rate_limit": {
           "anyOf": [
@@ -130,7 +141,8 @@
       "enum": [
         "chat_completions",
         "responses",
-        "messages"
+        "messages",
+        "mcp"
       ],
       "title": "HttpEndpoint",
       "type": "string"
@@ -328,6 +340,28 @@
       "title": "JwtConfiguration",
       "type": "object"
     },
+    "McpHttpEndpointConfiguration": {
+      "additionalProperties": false,
+      "description": "HTTP settings specific to an agent's MCP operation endpoint.\n\nArgs:\n    resource_url: Canonical HTTPS resource URL, or an exact environment reference,\n        advertised when MCP uses JWT authentication.",
+      "properties": {
+        "resource_url": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resource Url"
+        }
+      },
+      "title": "McpHttpEndpointConfiguration",
+      "type": "object"
+    },
     "RateLimitConfiguration": {
       "additionalProperties": false,
       "description": "Optional SlowAPI limits and protected storage URI declared for an agent.\n\nArgs:\n    limits: One or more per-client limits, such as ``60/minute``.\n    storage_uri: Optional literal backend URI or protected environment reference.",
@@ -364,7 +398,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "The fixed YAML fields accepted for one agent.",
+  "description": "The fixed YAML fields accepted for one agent.\n\nThe optional MCP metadata overrides only the hosted MCP operation; when\nomitted, the runtime uses the manifest's name and description.",
   "properties": {
     "name": {
       "minLength": 1,
@@ -377,6 +411,34 @@
       "pattern": "\\S",
       "title": "Description",
       "type": "string"
+    },
+    "mcp_agent_operation_name": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mcp Agent Operation Name"
+    },
+    "mcp_agent_description": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mcp Agent Description"
     },
     "mcp_server": {
       "anyOf": [

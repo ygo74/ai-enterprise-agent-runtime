@@ -1,7 +1,7 @@
 # ygo74 Agent Runtime: Microsoft Agent Framework integration
 
 Native execution binding and typed final-result/incremental-output adapters for Microsoft Agent Framework
-Python. Requires Python 3.12+, `ygo74-agent-runtime-agents` 1.x and
+Python. Requires Python 3.12+, `ygo74-agent-runtime-agents>=0.9.0,<2` and
 `agent-framework-core` 1.18.x (unified `Content` API).
 
 ```python

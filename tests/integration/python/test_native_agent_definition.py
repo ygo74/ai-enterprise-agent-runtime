@@ -26,6 +26,18 @@ def test_native_definition_needs_no_registry_or_skills():
     assert definition.tools == ()
 
 
+def test_native_definition_can_override_mcp_operation_metadata():
+    definition = AgentDefinition(
+        descriptor(),
+        "package.agent:create",
+        mcp_agent_operation_name="mail_lookup",
+        mcp_agent_description="Use for mailbox searches.",
+    )
+
+    assert definition.mcp_agent_operation_name == "mail_lookup"
+    assert definition.mcp_agent_description == "Use for mailbox searches."
+
+
 def test_factory_is_a_trusted_export_not_a_file_path():
     with pytest.raises(ValueError, match="export"):
         AgentDefinition(descriptor(), "..\\user_input.py")

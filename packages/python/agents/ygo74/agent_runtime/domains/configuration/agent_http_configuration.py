@@ -26,6 +26,8 @@ from ygo74.agent_runtime.domains.auth.jwt_authenticator import (
 from ygo74.agent_runtime.domains.contracts.http_configuration import (
     AgentHttpConfiguration,
     HttpEndpoint,
+    HttpSecurityMode,
+    McpHttpEndpointConfiguration,
 )
 
 if TYPE_CHECKING:
@@ -43,11 +45,13 @@ class AgentHttpRuntimeSettings:
     Args:
         endpoints: Invocation endpoints selected in the manifest.
         authentication: Existing runtime authentication policy built from the manifest.
+        mcp_resource_url: Resolved public resource URL advertised for JWT MCP.
         rate_limit: Optional resolved per-client rate-limit settings.
     """
 
     endpoints: tuple[HttpEndpoint, ...]
     authentication: AuthenticationPolicy
+    mcp_resource_url: str | None = None
     rate_limit: RateLimitSettings | None = None
 
     def close(self) -> None:
@@ -93,9 +97,25 @@ class AgentHttpSettingsBuilder:
                 limits=rate_limit_configuration.limits,
                 storage_uri=storage_uri,
             )
+        mcp_resource_url = None
+        mcp_configuration = configuration.mcp
+        if (
+            configuration.security.mode is HttpSecurityMode.JWT
+            and mcp_configuration is not None
+            and mcp_configuration.resource_url is not None
+        ):
+            resource_url = mcp_configuration.resource_url
+            if _ENVIRONMENT_REFERENCE.fullmatch(resource_url) is not None:
+                resource_url = self._resolve(
+                    SecretStr(resource_url), environment, "http.mcp.resource_url"
+                )
+            mcp_resource_url = McpHttpEndpointConfiguration(
+                resource_url=resource_url
+            ).resource_url
         return AgentHttpRuntimeSettings(
             endpoints=configuration.endpoints,
             authentication=authentication,
+            mcp_resource_url=mcp_resource_url,
             rate_limit=rate_limit,
         )
 

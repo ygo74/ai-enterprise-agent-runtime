@@ -7,7 +7,10 @@ description: Break an approved plan into ordered, repository-scoped implementati
 
 Use only after PLAN approval. Read the [tracking artifact templates](../development-workflow/references/artifact-templates.md)
 and the matching Solution Architect reference for each affected technology,
-then convert the approved plan into `TASKS.md` in the request tracking folder.
+then convert the approved plan into `TASKS.md` in the existing request
+tracking folder. Create it for a new request; extend it for an approved
+amendment, preserving completed task records and adding ordered tasks for the
+new scope. Do not create a new tracking folder when continuing a remote branch.
 
 Order tasks by dependency. For each task state the repository and affected area,
 observable completion criteria, prerequisite, and validation. Put contract or

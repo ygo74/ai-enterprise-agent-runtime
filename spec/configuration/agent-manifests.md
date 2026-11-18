@@ -16,7 +16,13 @@ never replaces a value already set in the process environment.
 
 Each agent has an `agent.yaml` manifest and a separate non-empty `AGENT.md`
 instruction file. The manifest declares a name, description, and ordered skill
-names. Each declared skill package has `skill.yaml`; it declares a tool name,
+names. Optional top-level `mcp_agent_operation_name` and
+`mcp_agent_description` fields override the hosted agent MCP tool's advertised
+name and description independently. When omitted, the host uses the agent
+descriptor's display name and description, which default from the manifest's
+`name` and `description`. These fields affect the Python agent MCP endpoint;
+they do not rename tools on an agent's outgoing MCP client connections. Each
+declared skill package has `skill.yaml`; it declares a tool name,
 implementation identifier, model-facing description, security operation,
 permission name, confirmation default, and optional logical MCP tool names. A
 separate `SKILL.md` can provide reasoning instructions; a deterministic skill
@@ -33,11 +39,15 @@ are packaged with the Python distribution under stable identifiers:
 ## Optional HTTP hosting declaration
 
 `agent.yaml` may include an `http` section for Python FastAPI hosting. It
-selects a non-empty, duplicate-free set of invocation surfaces (`chat_completions`,
-`responses`, and/or `messages`), requires one explicit `jwt` or `api_key`
-authentication configuration, and may declare per-client rate limits. Existing
-manifests without this section remain valid for command-line, MCP, and other
-non-HTTP uses.
+selects a non-empty, duplicate-free set of invocation surfaces
+(`chat_completions`, `responses`, `messages`, and/or `mcp`), requires one
+explicit `jwt` or `api_key` authentication configuration, and may declare
+per-client rate limits. Selecting `mcp` mounts the agent as a Streamable HTTP
+tool at `/mcp`; it requires the optional `mcp-server` extra. See the
+[MCP integration specification](../mcp/client-and-server.md) for the exposed
+tool contract. Existing manifests without this section remain valid for
+command-line, outgoing MCP client, and other non-HTTP uses; they do not declare
+hosted HTTP endpoints.
 
 The section is structurally validated with the rest of the manifest, but its
 secret references are resolved only when an application constructs an HTTP
@@ -89,6 +99,7 @@ declared skill resolves to a delivered package and implementation, every
 permission resolves in the application registry, and every operation meets the
 security floor. Configuration loading does not require FastAPI or the MCP SDK.
 
-See the [configuration guide](../../doc/python/agent-runtime.md#delivered-agent-configuration),
+See the [MCP integration specification](../mcp/client-and-server.md), the
+[configuration guide](../../doc/python/agent-runtime.md#delivered-agent-configuration),
 the [`configuration` package](../../packages/python/agents/ygo74/agent_runtime/domains/configuration/),
 and [`test_manifest_configuration_schemas.py`](../../tests/integration/python/test_manifest_configuration_schemas.py).

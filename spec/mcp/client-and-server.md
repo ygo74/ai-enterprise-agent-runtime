@@ -136,6 +136,26 @@ make an untrusted tool argument authoritative for the subject whose data is
 accessed. The host validates its binding and checks FastMCP's DNS-rebinding
 allow-list against the public host configuration before serving.
 
+### Exposing an agent through MCP
+
+The optional Python agents distribution can mount one agent invocation in an
+existing FastAPI host. Select `mcp` in `http.endpoints`; the host serves MCP
+Streamable HTTP at `/mcp` and registers one conversation tool. Its name and
+description default to the agent descriptor's display name and description.
+For a manifest-loaded agent, these defaults come from `agent.yaml`'s `name` and
+`description`. The optional top-level fields `mcp_agent_operation_name` and
+`mcp_agent_description` independently override the advertised tool name and
+description. MCP clients can discover the effective tool metadata with
+`tools/list` and must call the operation name returned there.
+
+The input schema requires `message` and accepts optional `conversation_id`,
+which defaults to `default`. The authenticated ASGI request context supplies
+caller identity; tool arguments cannot select a subject or permissions. The
+structured result carries status, conversation ID, typed agent output, and
+pending confirmation identifiers. Invocation failures remain MCP tool errors.
+
+Install `ygo74-agent-runtime-agents[mcp-server]` in addition to the HTTP extra to opt into this server adapter. MCP server imports stay lazy so agents that use only provider HTTP routes do not need the server package. JWT-protected agent MCP endpoints require an HTTPS `http.mcp.resource_url`; API-key deployments do not need OAuth resource metadata. The parent FastAPI lifespan starts and stops the mounted FastMCP session manager and closes host-owned authentication resources. The agent and MCP routes share the same bounded conversation cache, which is process-local; deployments with multiple replicas need session affinity to continue a conversation.
+
 ## Packaging and boundaries
 
 The client and server are separate roles: installing the MCP host does not pull

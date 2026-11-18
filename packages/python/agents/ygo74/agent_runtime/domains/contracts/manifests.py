@@ -70,6 +70,8 @@ class AgentManifest(BaseModel):
     Attributes:
         name: Agent name used by discovery and routing.
         description: User-facing summary of the agent.
+        mcp_agent_operation_name: Optional hosted MCP operation name override.
+        mcp_agent_description: Optional hosted MCP operation description override.
         instructions: Agent-level instructions supplied to its orchestrator.
         mcp_server: Optional default MCP server for skills without an override.
         skills: Capabilities the agent exposes, in the order offered to the model.
@@ -80,6 +82,8 @@ class AgentManifest(BaseModel):
 
     name: str = Field(min_length=1)
     description: str = Field(min_length=1)
+    mcp_agent_operation_name: str | None = Field(default=None, min_length=1)
+    mcp_agent_description: str | None = Field(default=None, min_length=1)
     instructions: str = Field(min_length=1)
     mcp_server: str | None = Field(default=None, min_length=1)
     skills: tuple[SkillManifest, ...] = ()

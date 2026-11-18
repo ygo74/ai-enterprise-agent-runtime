@@ -11,8 +11,8 @@ Before planning or changing implementation files:
 
 1. Start from [`spec/README.md`](spec/README.md) and follow only the domain
    pages relevant to the request.
-2. For active work, read its approved `SPEC.md`, `PLAN.md`, and current
-   `TASKS.md` in `spec/implementation/`.
+2. For tracked implementation work, read its approved `SPEC.md`, `PLAN.md`,
+   and current `TASKS.md` in `spec/implementation/`.
 3. Inspect the affected code, public contracts, tests, documentation, and
    runnable examples before choosing changes.
 4. Read relevant package documentation and examples when they clarify existing
@@ -98,11 +98,34 @@ Follow the approved request plan and task list for the detailed change scope.
   coordinates independent repository histories when needed.
 - [`spec-consolidation`](.agents/skills/spec-consolidation/SKILL.md) updates
   current behavior under `spec/` when requested or included in approved scope.
+- [`user-docs`](.agents/skills/user-docs/SKILL.md) and
+  [`contributor-docs`](.agents/skills/contributor-docs/SKILL.md) handle their
+  respective documentation audiences.
 - [`repository-delivery`](.agents/skills/repository-delivery/SKILL.md) covers
   validation and repository delivery boundaries.
 - [`origin-push`](.agents/skills/origin-push/SKILL.md) covers explicitly
   requested commits and pushes, including the mandatory Python lint and test
   checks.
+
+## Request routing and branch tracking
+
+For each affected repository, check the working tree, current branch, and live
+`origin` state before deciding whether to start or continue development work.
+Refresh remote refs successfully; do not treat a stale local `origin/*` ref as
+proof that a branch still exists remotely. Apply the branch rules in
+[`WORKFLOW.md`](WORKFLOW.md) and
+[`development-workflow`](.agents/skills/development-workflow/SKILL.md).
+Keep one canonical request record in the primary repository. When continuing
+an existing remote branch, update its existing SPEC and PLAN rather than
+creating a new tracking folder. Use the branch, Issue identifier, request
+scope, and active TASKS/JOURNAL to identify the record. If it remains
+ambiguous, stop and ask instead of creating a duplicate.
+
+Requests limited to user documentation, contributor documentation, or global
+specification consolidation use their relevant skills directly and do not
+create or update development SPEC/PLAN artifacts. They still follow the branch
+selection rules. Requests that include implementation changes use the complete
+SPEC, PLAN, TASKS, and implementation workflow.
 
 Copilot adapters may point to these repository instructions; they must not
 define a competing workflow.
